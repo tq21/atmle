@@ -23,7 +23,7 @@ learn_Pi <- function(S, W, A) {
               A0 = A0))
 }
 
-# function to learn tau, Lars' loss function, relaxed HAL
+# function to learn tau, R-learner, relaxed HAL
 learn_tau <- function(S, W, A, Y, Pi_pred, theta_pred) {
   weights <- 1
   pseudo_outcome <- ifelse(abs(S - Pi_pred) < 1e-10, 0, (Y - theta_pred) / (S - Pi_pred))
@@ -41,6 +41,19 @@ learn_tau <- function(S, W, A, Y, Pi_pred, theta_pred) {
               A0 = A0))
 }
 
+# function to learn psi_tilde, R-learner, relaxed HAL
+learn_psi_tilde <- function(W, A, Y, g_tilde, theta_tilde) {
+  weights <- 1
+  pseudo_outcome <- ifelse(abs(A - g_tilde) < 1e-10, 0, (Y - theta_tilde) / (A - g_tilde))
+  pseudo_weights <- (A - g_tilde)^2 * weights
+  fit_psi_tilde <- fit_relaxed_hal(as.matrix(data.table(W)), pseudo_outcome, "gaussian", weights = pseudo_weights)
+  pred <- as.vector(fit_psi_tilde$pred)
+
+  return(pred)
+}
+
+
+
 # function to learn g(1|W)=P(1|W)
 learn_g <- function(W, A) {
   fit_g <- fit_relaxed_hal(as.matrix(data.table(W)), A, "binomial")
@@ -56,33 +69,36 @@ Pi_tmle <- function(S, W, A, tau_pred, Pi_pred) {
   g_pred <- fit_g$pred
 
   # clever covariates
-  H1_n <- as.numeric(A == 1)/g_pred*tau_pred$A1
-  H0_n <- -as.numeric(A == 0)/(1-g_pred)*tau_pred$A0
+  H1_n <- A/g_pred*tau_pred$A1
+  H0_n <- (1-A)/(1-g_pred)*tau_pred$A0
 
   # logistic submodel
-  submodel_A1 <- glm(S ~ -1 + offset(Pi_pred$A1) + H1_n, family = "binomial")
-  submodel_A0 <- glm(S ~ -1 + offset(Pi_pred$A0) + H0_n, family = "binomial")
+  submodel <- glm(S ~ -1 + H1_n + H0_n + offset(Pi_pred$A1), family = "binomial")
+  epsilon <- coef(submodel)
 
   # TMLE updates
-  Pi_A1_star <- as.vector(predict(submodel_A1, type = "response"))
-  Pi_A0_star <- as.vector(predict(submodel_A0, type = "response"))
-
-  pred <- vector(length = length(Pi_A1_star))
-  pred[A == 1] <- Pi_A1_star[A == 1]
-  pred[A == 0] <- Pi_A0_star[A == 0]
+  Pi_A1_star <- plogis(qlogis(Pi_pred$A1) + epsilon["H1_n"] * H1_n)
+  Pi_A0_star <- plogis(qlogis(Pi_pred$A0) + epsilon["H0_n"] * H0_n)
+  pred <- A * Pi_A1_star + (1 - A) * Pi_A0_star
 
   return(list(pred = pred,
               A1 = Pi_A1_star,
               A0 = Pi_A0_star))
 }
 
-get_EIC_Pi <- function(S, A, g_pred, tau_pred, Pi_pred, A1) {
-  if (A1) {
-    return(1/g_pred*tau_pred$A1*(S-Pi_pred$A1))
-  } else {
-    return(1/(1-g_pred)*tau_pred$A0*(S-Pi_pred$A0))
-  }
+get_eic_Pi <- function(S, A, g_pred, tau_pred, Pi_pred) {
+  return((A/g_pred*tau_pred$A1-(1-A)/(1-g_pred)*tau_pred$A0)*(S-Pi_pred$pred))
 }
+
+get_eic_psi_pound <- function() {
+  # TODO: get the EIC of psi_pound
+}
+
+get_eic_psi_tilde <- function() {
+  # TODO: get the EIC of psi_tilde
+}
+
+
 
 # psi_pound_pred <- mean((1-Pi_star$Pi_A0_star)*tau_star$tau_A0_star)-mean((1-Pi_star$Pi_A1_star)*tau_star$tau_A1_star)
 #
