@@ -1,7 +1,7 @@
 
 fit_relaxed_hal <- function(X, Y, family, weights=NULL) {
   # fit hal
-  hal_fit <- fit_hal(X = X, Y = Y, family = family, weights = weights, smoothness_orders = 0, screen_variables = TRUE)
+  hal_fit <- fit_hal(X = X, Y = Y, family = family, weights = weights, smoothness_orders = 0, screen_variables = FALSE)
   basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
   x_basis <- cbind(1, as.matrix(hal9001::make_design_matrix(X, basis_list)))
 
