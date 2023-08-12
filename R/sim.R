@@ -1,40 +1,43 @@
 
-generate_data <- function(n_rct=200, n_rwd=1000, p_rct=0.67, bA=-0.6, B=0.21){
+
+generate_data <- function(n_rct=200, n_rwd=1000, p_rct=0.67, bA=-3.2, gamma=0.5, B=0.21){
+  N <- n_rct + n_rwd
+
   # U
-  UY_rct <- rnorm(n_rct, 0, 1.5)
-  UY_rwd <- rnorm(n_rwd, 0, 1.5)
+  UY <- rnorm(N, 0, 1)
+
+  # S
+  S <- c(rep(1, n_rct), rep(0, n_rwd))
 
   # W
-  W1_rct <- rnorm(n_rct, 0, 1)
-  W1_rwd <- rnorm(n_rwd, 0, 1)
-  W2_rct <- rnorm(n_rct, 0, 1)
-  W2_rwd <- rnorm(n_rwd, 0, 1)
+  W1 <- runif(N, -1, 1)
+  W2 <- runif(N, -1, 1)
+  W3 <- runif(N, -1, 1)
+  W4 <- runif(N, -1, 1)
 
   # A
   A_rct <- rbinom(n_rct, 1, p_rct)
-  A_rwd <- rbinom(n_rwd, 1, plogis(0.1 * W1_rwd - 0.5 * W2_rwd))
-
-  # bias
-  B1 <- rnorm(n_rwd, 3/4*B, 0.02)
-  B2 <- rnorm(n_rwd, 1/4*B, 0.02)
+  g_rwd <- as.numeric(W1 < -3)*W3+1.1*as.numeric(W1 > -2)-
+    2*as.numeric(W1 > 0)+2.5*as.numeric(W1 > 2)*W3-2.5*as.numeric(W1 > 3) +
+    as.numeric(W2 > -1)-4*as.numeric(W2 > 1)*W3+2*as.numeric(W2 > 3)
+  A_rwd <- rbinom(n_rwd, 1, plogis(g_rwd))
+  A <- c(A_rct, A_rwd)
 
   # Y
-  Y_rct <- -3+2*W1_rct^2+W2_rct^3+W1_rct*W2_rct+bA*A_rct+UY_rct
-  Y_rwd <- -3+2*W1_rwd^2+W2_rwd^3+W1_rwd*W2_rwd+bA*A_rwd+UY_rwd
+  Y <- 1.1+bA*A+3.8*W1*as.numeric(W2 < 0)*sin(pi/2*abs(W1))+
+    4*as.numeric(W2 > 0)*cos(pi/2*abs(W1))+4*as.numeric(W1 < 0)*cos(pi/2*abs(W3))+3*S+
+    0.1*W3*sin(pi*W4)+W3*cos(abs(W4-W3))+UY
 
   # data
-  dt_rct <- data.frame(S=1, W1=W1_rct, W2=W2_rct, A=A_rct, Y=Y_rct)
-  dt_rwd <- data.frame(S=0, W1=W1_rwd, W2=W2_rwd, A=A_rwd, Y=Y_rwd)
-  data <- rbind(dt_rct, dt_rwd)
+  data <- data.frame(S, W1, W2, W3, W4, A, Y)
 
   return(data)
 }
 
 set.seed(21411)
-
-data <- generate_data()
+data <- generate_data(n_rct=200, n_rwd=500, p_rct=0.67, bA=5.9, gamma=0.5)
 
 S <- data$S
-W <- as.matrix(data[, c("W1", "W2")])
+W <- as.matrix(data[, c("W1", "W2", "W3", "W4")])
 A <- data$A
 Y <- data$Y

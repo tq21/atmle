@@ -1,4 +1,4 @@
-max_iter=100
+max_iter=0
 eps=1e-5
 tmle=TRUE
 psi_tilde_adaptive=TRUE
@@ -7,28 +7,33 @@ psi_tilde_adaptive=TRUE
 
 atmle <- function(max_iter=10,
                   eps=1e-5,
-                  external_trx=TRUE,
                   tmle=FALSE,
-                  psi_tilde_adaptive=TRUE) {
+                  psi_pound_method="adaptive",
+                  psi_tilde_method="tmle",
+                  g_rct=0.67) {
   n <- length(A)
-
-  max_Y <- max(Y, na.rm = TRUE)
-  min_Y <- min(Y, na.rm = TRUE)
-
-  Y_bound <- bound(Y)
 
   # estimate bias psi_pound ----------------------------------------------------
   # learn relevant parts
+  print("learning E(Y|W)")
   theta_pred <- learn_theta(W, A, Y)
+  print("learning P(S=1|W,A)")
   Pi_pred <- learn_Pi(S, W, A)
+  print("learning P(A|W)")
+  g_pred <- learn_g(S, W, A, g_rct)
+  print("learning E(Y|S,W,A)")
   tau_pred <- learn_tau(S, W, A, Y, Pi_pred$pred, theta_pred)
-  g_pred <- learn_g(W, A)
 
   psi_pound_est <- NULL
   psi_pound_eic <- NULL
 
-  if (tmle) {
-    # perform TMLE update of Pi
+  if (psi_pound_method == "adaptive") {
+    # use adaptive + relaxed HAL plug-in to estimate psi_pound
+    psi_pound_est <- mean((1-Pi_pred$A0)*tau_pred$A0-(1-Pi_pred$A1)*tau_pred$A1)
+    psi_pound_eic <- get_eic_psi_pound(Pi_pred, tau_pred, psi_pound_est, g_pred, theta_pred, S, A, Y, n)
+  } else if (psi_pound_method == "a-tmle") {
+    # use adaptive + TMLE to estimate psi_pound
+    # TODO: perform TMLE update of Pi
     cur_iter <- 0
     tol <- Inf
 
@@ -46,7 +51,7 @@ atmle <- function(max_iter=10,
 
       cur_iter <- cur_iter + 1
       print(tol)
-    }
+  }
 
     psi_pound_est <- mean((1-Pi_star$A0)*tau_star$A0-(1-Pi_star$A1)*tau_star$A1)
     psi_pound_eic <- get_eic_psi_pound(Pi_star, tau_star, g_pred, theta_pred, psi_pound_est, S, A, Y, n)
@@ -61,23 +66,27 @@ atmle <- function(max_iter=10,
   psi_tilde_est <- NULL
   psi_tilde_eic <- NULL
 
-  if (psi_tilde_adaptive) {
+  if (psi_tilde_method == "adaptive") {
     # use A-TMLE to estimate psi_tilde
     psi_tilde <- learn_psi_tilde(W, A, Y, g_pred, theta_pred)
 
     psi_tilde_est <- mean(psi_tilde$pred)
     psi_tilde_eic <- get_eic_psi_tilde(psi_tilde, g_pred, theta_pred, Y, A)
 
-  } else {
-    # use TMLE to estimate psi_tilde
+  } else if (psi_tilde_method == "HAL-MLE") {
+    # use relaxed HAL as a plug in to estimate psi_tilde
     Q_pred <- learn_Q(W, A, Y)
 
-    Q_star <- Q_tmle(g_pred, Q_pred, A, Y_bound)
-    Q_A1 <- mean((max_Y-min_Y)*Q_star$A1+min_Y, na.rm = TRUE)
-    Q_A0 <- mean((max_Y-min_Y)*Q_star$A0+min_Y, na.rm = TRUE)
+    # TODO: sandwich estimator
 
-    psi_tilde_est <- Q_A1 - Q_A0
-    psi_tilde_eic <- get_eic_psi_tilde_2(g_pred, Q_A1, Q_A0, A, Y)
+  } else if (psi_tilde_method == "tmle") {
+    # use TMLE to estimate psi_tilde
+    Q_pred <- learn_Q(W, A, Y)
+    Q_star <- tmle(Y = Y, A = A, W = W, g1W = g_pred,
+                   Q = as.matrix(data.frame(Q_pred$A1, Q_pred$A0)),
+                   family = "gaussian")
+    psi_tilde_est <- Q_star$estimates$ATE$psi
+    psi_tilde_eic <- Q_star$estimates$IC$IC.ATE
   }
 
   # estimate psi ---------------------------------------------------------------
@@ -89,10 +98,9 @@ atmle <- function(max_iter=10,
   print("point estimate: " %+% psi_est %+% ", 95% CI: " %+% psi_ci)
 }
 
+atmle(max_iter=0,eps=1e-5,tmle=FALSE,psi_pound_method="adaptive",psi_tilde_method="tmle")
 
-
-atmle(max_iter=0,eps=1e-5,external_trx=TRUE,tmle=FALSE,psi_tilde_adaptive=FALSE)
 atmle(max_iter=0,eps=1e-5,external_trx=TRUE,tmle=TRUE,psi_tilde_adaptive=FALSE)
-atmle(max_iter=0,eps=1e-5,external_trx=TRUE,tmle=TRUE,psi_tilde_adaptive=TRUE)
+res <- atmle(max_iter=0,eps=1e-5,external_trx=TRUE,tmle=TRUE,psi_tilde_adaptive=TRUE)
 
 

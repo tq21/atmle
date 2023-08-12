@@ -1,7 +1,8 @@
 
 fit_relaxed_hal <- function(X, Y, family, weights=NULL) {
+
   # fit hal
-  hal_fit <- fit_hal(X = X, Y = Y, family = family, weights = weights, smoothness_orders = 0, screen_variables = FALSE)
+  hal_fit <- fit_hal(X = X, Y = Y, family = family, weights = weights, smoothness_orders = 0)
   basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
   x_basis <- cbind(1, as.matrix(hal9001::make_design_matrix(X, basis_list)))
 
@@ -13,12 +14,12 @@ fit_relaxed_hal <- function(X, Y, family, weights=NULL) {
     beta <- coef(hal_relaxed_fit)
     beta[is.na(beta)] <- 0
     pred <- x_basis %*% beta
-    pred <- 1 / (1 + exp(-pred))
+    pred <- as.vector(1 / (1 + exp(-pred)))
   } else if (family == "gaussian") {
     hal_relaxed_fit <- glm.fit(x = x_basis, y = Y, family = gaussian(), weights = weights, intercept = FALSE)
     beta <- coef(hal_relaxed_fit)
     beta[is.na(beta)] <- 0
-    pred <- x_basis %*% beta
+    pred <- as.vector(x_basis %*% beta)
   }
 
   return(list(beta = beta, basis_list = basis_list, pred = pred))
