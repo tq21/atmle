@@ -9,6 +9,14 @@ learn_theta <- function(W, A, Y) {
   return(pred)
 }
 
+# function to learn theta_tilde(W)=E(Y|W), relaxed HAL
+learn_theta_tilde <- function(W, Y) {
+  fit_theta <- fit_relaxed_hal(as.matrix(data.frame(W)), Y, "gaussian")
+  pred <- as.vector(fit_theta$pred)
+
+  return(pred)
+}
+
 # function to learn Pi(1|W,A)=P(S=1|W,A), relaxed HAL
 learn_Pi <- function(S, W, A) {
   fit_Pi <- fit_relaxed_hal(as.matrix(data.table(W, A = A)), S, "binomial")
@@ -26,10 +34,12 @@ learn_Pi <- function(S, W, A) {
 # function to learn tau, R-learner, relaxed HAL
 learn_tau <- function(S, W, A, Y, Pi, theta) {
   weights <- 1
-  pseudo_outcome <- (Y - theta) / (S - Pi)
-  pseudo_weights <- (S - Pi)^2 * weights
+  pseudo_outcome <- ifelse(abs(S-Pi) < 1e-3, 0, (Y-theta)/(S-Pi))
+  pseudo_weights <- (S-Pi)^2*weights
+  keep <- which(abs(S-Pi) > 1e-3)
 
-  fit_tau <- fit_relaxed_hal(as.matrix(data.table(W, A = A)), pseudo_outcome, "gaussian", weights = pseudo_weights)
+  fit_tau <- fit_relaxed_hal(as.matrix(data.table(W, A = A)[keep, , drop = F]),
+                             pseudo_outcome[keep], "gaussian", weights = pseudo_weights[keep])
   pred <- as.vector(fit_tau$pred)
 
   x_basis <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(W, A)))
@@ -48,32 +58,14 @@ learn_tau <- function(S, W, A, Y, Pi, theta) {
 
 # function to learn psi_tilde, R-learner, relaxed HAL
 learn_psi_tilde <- function(W, A, Y, g, theta) {
-  browser()
-
   weights <- 1
-  pseudo_outcome <- ifelse(abs(A - g) < 1e-10, 0, (Y - theta) / (A - g))
-  pseudo_weights <- (A - g)^2 * weights
+  pseudo_outcome <- (Y-theta)/(A-g)
+  pseudo_weights <- (A-g)^2*weights
 
-  # fit hal
-  hal_fit <- fit_hal(X = W, Y = pseudo_outcome, family = "gaussian", weights = pseudo_weights, smoothness_orders = 0)
-  basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
-  x_basis <- cbind(1, as.matrix(hal9001::make_design_matrix(W, basis_list)))
+  fit_psi_tilde <- fit_relaxed_hal(as.matrix(data.table(W)), pseudo_outcome, "gaussian", weights = pseudo_weights)
+  pred <- as.vector(fit_psi_tilde$pred)
 
-  # relaxed fit
-  beta <- NULL
-  pred <- NULL
-  hal_relaxed_fit <- glm.fit(x = x_basis, y = Y, family = gaussian(), weights = weights, intercept = FALSE)
-  beta <- coef(hal_relaxed_fit)
-  beta[is.na(beta)] <- 0
-  pred <- as.vector(x_basis %*% beta)
-
-
-  coefs <- beta[beta != 0]
-  tau <- x_basis %*% coef(glm.fit(x_basis, pseudo_outcome, weights = pseudo_weights))
-
-  x_basis_proj <- model.matrix(~1, data = as.data.frame(W))
-  coef_proj <-  coef(glm.fit(x_basis_proj, tau))
-  tau_proj <- x_basis_proj %*% coef_proj
+  x_basis <- make_counter_design_matrix(fit_psi_tilde$basis_list, as.matrix(data.table(W)))
 
   return(list(pred = pred,
               x_basis = x_basis))
@@ -101,44 +93,69 @@ learn_psi_tilde_tmle <- function(g) {
 
 # function to learn g(1|W)=P(1|W)
 learn_g <- function(S, W, A, g_rct) {
-  fit_g <- fit_relaxed_hal(as.matrix(data.table(W[S == 0,])), A[S == 0], "binomial")
-  pred <- c(rep(g_rct, sum(S == 1)), as.vector(fit_g$pred))
+  fit_g <- fit_relaxed_hal(as.matrix(data.table(W[S == 0,])), A[S == 0], "binomial",
+                           smoothness_orders = 0, num_knots = 50)
+  pred <- vector(length = length(S))
+  pred[S == 1] <- g_rct
+  pred[S == 0] <- as.vector(fit_g$pred)
 
   return(pred)
 }
 
 # function to perform TMLE update of Pi
-Pi_tmle <- function(S, W, A, tau_pred, Pi_pred) {
-  # learn g(1|W)=P(1|W)
-  fit_g <- fit_relaxed_hal(as.matrix(data.table(W)), A, "binomial")
-  g_pred <- fit_g$pred
+Pi_tmle <- function(S, W, A, g, tau, Pi, target_gwt=FALSE) {
 
-  # clever covariates
-  H1_n <- A/g_pred*tau_pred$A1
-  H0_n <- (1-A)/(1-g_pred)*tau_pred$A0
+  # whether to target using weight
+  if(target_gwt){
+    wt <- A/g*tau$A1+(1-A)/(1-g)*tau$A0
+    H1_n <- A
+    H0_n <- 1-A
+  } else{
+    wt <- rep(1, length(A))
+    H1_n <- A/g*tau$A1
+    H0_n <- (1-A)/(1-g)*tau$A0
+  }
 
   # logistic submodel
-  submodel <- glm(S ~ -1 + H1_n + H0_n + offset(Pi_pred$A1), family = "binomial")
-  epsilon <- coef(submodel)
+  suppressWarnings(
+    epsilon <- coef(glm(S ~ -1 + offset(Pi_pred$A1) + H1_n + H0_n,
+                        family = "binomial", weights = wt))
+  )
+  epsilon[is.na(epsilon)] <- 0
 
   # TMLE updates
-  Pi_A1_star <- plogis(Pi_pred$A1 + epsilon["H1_n"] * H1_n)
-  Pi_A0_star <- plogis(Pi_pred$A0 + epsilon["H0_n"] * H0_n)
-  pred <- A * Pi_A1_star + (1 - A) * Pi_A0_star
+  Pi_star <- NULL
+  if (target_gwt) {
+    Pi_star$pred <- plogis(Pi$pred+epsilon[1]*H1_n+epsilon[2]*H0_n)
+    Pi_star$A1 <- plogis(Pi$pred+epsilon[1])
+    Pi_star$A0 <- plogis(Pi$pred+epsilon[2])
+  } else {
+    Pi_star$pred <- plogis(Pi$pred+epsilon[1]*H1_n+epsilon[2]*H0_n)
+    Pi_star$A1 <- plogis(Pi$pred+epsilon[1]/g)
+    Pi_star$A0 <- plogis(Pi$pred+epsilon[2]/(1-g))
+  }
 
-  return(list(pred = as.vector(pred),
-              A1 = as.vector(Pi_A1_star),
-              A0 = as.vector(Pi_A0_star)))
+  return(Pi_star)
 }
 
 get_eic_Pi <- function(g, tau, Pi, S, A) {
-  return((A/g*tau$A1-(1-A)/(1-g)*tau$A0)*(S-Pi$pred))
+  return((A/g*tau$A1-(1-A)/(1-g)*tau$A0)*(S-Pi$pred)-mean(Pi$pred))
 }
+
+get_eic_psi_pound_parametric <- function(Pi, tau, g, psi_pound, S, A, Y, n) {
+  W_comp <- as.vector((1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1)
+  Pi_comp <- as.vector(A/g*tau$A1*(S-Pi$A1)-(1-A)/(1-g)*tau$A0*(S-Pi$A0))
+  D_beta <- solve(t(tau$x_basis)%*%tau$x_basis/n)%*%t(tau$x_basis)%*%diag(Y-tau$pred)
+  beta_comp <- as.vector((1-Pi$A0)%*%((tau$x_basis_S1A0-tau$x_basis_S0A0)/n)%*%D_beta-
+    (1-Pi$A1)%*%((tau$x_basis_S1A1-tau$x_basis_S0A1)/n)%*%D_beta)
+  return(W_comp+Pi_comp+beta_comp-psi_pound)
+}
+
 
 get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound, S, A, Y, n) {
   # TODO: get the EIC of psi_pound
   W_comp <- Pi$A0*tau$A0-Pi$A1*tau$A1
-  Pi_comp <- get_eic_Pi(g, tau, Pi, S, A)
+  Pi_comp <- (A/g*tau$A1-(1-A)/(1-g)*tau$A0)*(S-Pi$pred)
   IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
   D_beta_A0 <- tau$x_basis%*%(IM%*%colMeans(tau$x_basis_A0))*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
   D_beta_A1 <- tau$x_basis%*%(IM%*%colMeans(tau$x_basis_A1))*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
@@ -169,8 +186,6 @@ learn_Q <- function(W, A, Y) {
 
 Q_tmle <- function(g, Q, A, Y_bound) {
 
-  browser()
-
   wt <- A/g+(1-A)/(1-g)
   H1W <- A
   H0W <- 1-A
@@ -199,6 +214,34 @@ bound <- function(X) {
   X_min <- min(X, na.rm = TRUE)
 
   return((X-X_min)/(X_max-X_min))
+}
+
+learn_tau_parametric <- function(S, W, A, Y) {
+  fit_tau <- fit_relaxed_hal(X = as.matrix(data.table(S, W, A)), Y = Y, family = "gaussian",
+                             smoothness_orders = 1, num_knots = c(50,50,20))
+  pred <- as.vector(fit_tau$pred)
+
+  x_basis <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(S, W, A)))
+  x_basis_A1 <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(S, W, A = 1)))
+  x_basis_A0 <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(S, W, A = 0)))
+  x_basis_S1A1 <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(S = 1, W, A = 1)))
+  x_basis_S0A1 <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(S = 0, W, A = 1)))
+  x_basis_S1A0 <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(S = 1, W, A = 0)))
+  x_basis_S0A0 <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(S = 0, W, A = 0)))
+
+  A1 <- as.vector(x_basis_S1A1 %*% fit_tau$beta) - as.vector(x_basis_S0A1 %*% fit_tau$beta)
+  A0 <- as.vector(x_basis_S1A0 %*% fit_tau$beta) - as.vector(x_basis_S0A0 %*% fit_tau$beta)
+
+  return(list(pred = pred,
+              x_basis = x_basis,
+              x_basis_A1 = x_basis_A1,
+              x_basis_A0 = x_basis_A0,
+              x_basis_S1A1 = x_basis_S1A1,
+              x_basis_S0A1 = x_basis_S0A1,
+              x_basis_S1A0 = x_basis_S1A0,
+              x_basis_S0A0 = x_basis_S0A0,
+              A1 = A1,
+              A0 = A0))
 }
 
 # psi_pound_pred <- mean((1-Pi_star$Pi_A0_star)*tau_star$tau_A0_star)-mean((1-Pi_star$Pi_A1_star)*tau_star$tau_A1_star)
