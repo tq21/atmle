@@ -1,5 +1,6 @@
 library(hal9001)
 library(data.table)
+library(tmle)
 
 # function to learn theta(W,A)=E(Y|W,A), relaxed HAL
 learn_theta <- function(W, A, Y) {
@@ -34,12 +35,11 @@ learn_Pi <- function(S, W, A) {
 # function to learn tau, R-learner, relaxed HAL
 learn_tau <- function(S, W, A, Y, Pi, theta) {
   weights <- 1
-  pseudo_outcome <- ifelse(abs(S-Pi) < 1e-3, 0, (Y-theta)/(S-Pi))
+  pseudo_outcome <- (Y-theta)/(S-Pi)
   pseudo_weights <- (S-Pi)^2*weights
-  keep <- which(abs(S-Pi) > 1e-3)
 
-  fit_tau <- fit_relaxed_hal(as.matrix(data.table(W, A = A)[keep, , drop = F]),
-                             pseudo_outcome[keep], "gaussian", weights = pseudo_weights[keep])
+  fit_tau <- fit_relaxed_hal(as.matrix(data.table(W, A = A)),
+                             pseudo_outcome, "gaussian", weights = pseudo_weights)
   pred <- as.vector(fit_tau$pred)
 
   x_basis <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(W, A)))
@@ -72,7 +72,7 @@ learn_psi_tilde <- function(W, A, Y, g, theta) {
 }
 
 # TODO: function to learn psi_tilde using TMLE
-learn_psi_tilde_tmle <- function(g) {
+learn_psi_tilde_tmle <- function(g, Pi) {
   # clever covariates
   H1_n <- A/g*tau_pred$A1
   H0_n <- (1-A)/(1-g_pred)*tau_pred$A0
@@ -118,7 +118,7 @@ Pi_tmle <- function(S, W, A, g, tau, Pi, target_gwt=FALSE) {
 
   # logistic submodel
   suppressWarnings(
-    epsilon <- coef(glm(S ~ -1 + offset(Pi_pred$A1) + H1_n + H0_n,
+    epsilon <- coef(glm(S ~ -1 + offset(Pi$A1) + H1_n + H0_n,
                         family = "binomial", weights = wt))
   )
   epsilon[is.na(epsilon)] <- 0
@@ -164,7 +164,7 @@ get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound, S, A, Y, n) {
   return(as.vector(W_comp+Pi_comp+beta_comp-psi_pound))
 }
 
-get_eic_psi_tilde <- function(psi_tilde, g_pred, theta, Y, A) {
+get_eic_psi_tilde <- function(psi_tilde, g_pred, theta, Y, A, n) {
   IM <- solve(t(psi_tilde$x_basis)%*%diag((g_pred*(1-g_pred)))%*%psi_tilde$x_basis/n)%*%colMeans(psi_tilde$x_basis)
   D_beta <- psi_tilde$x_basis%*%IM*(A-g_pred)*(Y-theta-(A-g_pred)*psi_tilde$pred)
   return(as.vector(psi_tilde$pred-mean(psi_tilde$pred)+D_beta))

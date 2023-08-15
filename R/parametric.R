@@ -1,23 +1,31 @@
 # plug-in relaxed HAL psi_pound
 # tmle psi_tilde
 parametric <- function(data,
-                       g_rct=0.67) {
-  S <- data$S
-  W <- as.matrix(data[, c("W1", "W2", "W3", "W4")])
-  A <- data$A
-  Y <- data$Y
-
+                       S_node,
+                       W_node,
+                       A_node,
+                       Y_node,
+                       g_rct,
+                       verbose=TRUE) {
+  # define nodes
+  S <- data[, S_node]
+  W <- data[, W_node]
+  A <- data[, A_node]
+  Y <- data[, Y_node]
   n <- nrow(data)
 
   # estimate bias psi_pound ----------------------------------------------------
   # learn relevant parts
-  print("learning E(Y|W)")
+  if (verbose) print("learning E(Y|W)")
   theta_pred <- learn_theta(W, A, Y)
-  print("learning P(S=1|W,A)")
+
+  if (verbose) print("learning P(S=1|W,A)")
   Pi_pred <- learn_Pi(S, W, A)
-  print("learning P(A|W)")
+
+  if (verbose) print("learning P(A|W)")
   g_pred <- learn_g(S, W, A, g_rct)
-  print("learning working model: tau(W,A)=E(Y|S=1,W,A)-E(Y|S=0,W,A)")
+
+  if (verbose) print("learning working model: tau(W,A)=E(Y|S=1,W,A)-E(Y|S=0,W,A)")
   tau_pred <- learn_tau_parametric(S, W, A, Y)
 
   # plug-in estimates
@@ -43,9 +51,3 @@ parametric <- function(data,
               lower = psi_ci_lower,
               upper = psi_ci_upper))
 }
-
-set.seed(21411)
-data <- generate_data(N=1000, p_rct=0.67, bA=0.7)
-tictoc::tic()
-res <- parametric(data, g_rct = 0.67)
-tictoc::toc()
