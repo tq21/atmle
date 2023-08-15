@@ -35,11 +35,12 @@ learn_Pi <- function(S, W, A) {
 # function to learn tau, R-learner, relaxed HAL
 learn_tau <- function(S, W, A, Y, Pi, theta) {
   weights <- 1
-  pseudo_outcome <- (Y-theta)/(S-Pi)
+  pseudo_outcome <- ifelse(abs(S-Pi) < 1e-10, 0, (Y-theta)/(S-Pi))
   pseudo_weights <- (S-Pi)^2*weights
+  keep <- which(abs(S-Pi) > 1e-10)
 
-  fit_tau <- fit_relaxed_hal(as.matrix(data.table(W, A = A)),
-                             pseudo_outcome, "gaussian", weights = pseudo_weights)
+  fit_tau <- fit_relaxed_hal(as.matrix(data.table(W, A = A)[keep, , drop = FALSE]),
+                             pseudo_outcome[keep], "gaussian", weights = pseudo_weights[keep])
   pred <- as.vector(fit_tau$pred)
 
   x_basis <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(W, A)))
@@ -93,8 +94,7 @@ learn_psi_tilde_tmle <- function(g, Pi) {
 
 # function to learn g(1|W)=P(1|W)
 learn_g <- function(S, W, A, g_rct) {
-  fit_g <- fit_relaxed_hal(as.matrix(data.table(W[S == 0,])), A[S == 0], "binomial",
-                           smoothness_orders = 0, num_knots = 50)
+  fit_g <- fit_relaxed_hal(as.matrix(data.table(W[S == 0,])), A[S == 0], "binomial")
   pred <- vector(length = length(S))
   pred[S == 1] <- g_rct
   pred[S == 0] <- as.vector(fit_g$pred)

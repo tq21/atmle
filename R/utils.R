@@ -1,9 +1,8 @@
 
-fit_relaxed_hal <- function(X, Y, family, weights=NULL, smoothness_orders=0, num_knots=c(200,100,50)) {
+fit_relaxed_hal <- function(X, Y, family, weights=NULL) {
 
   # fit hal
-  hal_fit <- fit_hal(X = X, Y = Y, family = family, max_degree = 3, weights = weights,
-                     smoothness_orders = smoothness_orders, num_knots = num_knots)
+  hal_fit <- fit_hal(X = X, Y = Y, family = family, max_degree = 3, weights = weights)
   basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
   x_basis <- cbind(1, as.matrix(hal9001::make_design_matrix(X, basis_list)))
 

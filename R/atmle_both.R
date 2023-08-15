@@ -6,7 +6,7 @@ atmle <- function(data,
                   Y_node,
                   g_rct,
                   target_Pi,
-                  max_iter=1, eps=1e-5, verbose=TRUE) {
+                  verbose=TRUE) {
 
   # define nodes
   S <- data[, S_node]
@@ -34,6 +34,7 @@ atmle <- function(data,
   psi_pound_eic <- NULL
   if (target_Pi) {
     # TMLE to target Pi
+    if (verbose) print("targeting P(S=1|W,A)")
     Pi_star <- Pi_tmle(S, W, A, g, tau, Pi)
 
     # re-learn working model tau with targeted Pi
@@ -70,11 +71,11 @@ atmle <- function(data,
               upper = psi_ci_upper))
 }
 
-# data <- generate_data(N=500, p_rct=0.67, bA=0.8)
+# data <- generate_data(N=500, p_rct=0.67, bA=0.5)
 # res <- atmle(data,
 #              S_node = 1,
 #              W_node = c(2, 3, 4, 5),
 #              A_node = 6,
 #              Y_node = 7,
 #              target_Pi = TRUE,
-#              g_rct=0.67, max_iter=1, eps=1e-5)
+#              g_rct=0.67)

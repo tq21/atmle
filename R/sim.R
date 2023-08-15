@@ -1,6 +1,6 @@
 generate_data <- function(N, p_rct, bA){
   # U
-  UY <- rnorm(N, 0, 1)
+  UY <- rnorm(N, 0, 0.5)
 
   # W
   W1 <- runif(N, -1, 1)
@@ -23,7 +23,7 @@ generate_data <- function(N, p_rct, bA){
   A[S == 0] <- rbinom(N-sum(S), 1, plogis(g_rwd[S == 0]))
 
   # bias
-  B <- rnorm(N, 0.2, 0.02)
+  B <- rnorm(N, 0.1, 0.02)
 
   # Y
   # Y <- 1.1+bA*A+3.8*W1*as.numeric(W2 < 0)*sin(pi/2*abs(W1))+
