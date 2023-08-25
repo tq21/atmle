@@ -14,7 +14,7 @@ generate_data <- function(N, bA){
   A <- rbinom(N, 1, plogis(-0.1+0.2*W1+0.5*W2-0.1*W3))
 
   # S
-  S <- rbinom(N, 1, 0.5)
+  S <- rbinom(N, 1, plogis(0.2-0.5*W1-0.3*W2+0.2*W3-0.1*A))
 
   # Y
   Y <- 0.3+3*S+3*S*A+bA*A+0.5*W1+0.3*W3-0.5*W4+UY

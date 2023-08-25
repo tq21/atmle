@@ -120,15 +120,28 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
 }
 
 # function to learn psi_tilde, R-learner, relaxed HAL
-learn_psi_tilde <- function(W, A, Y, g, theta) {
+learn_psi_tilde <- function(W, A, Y, g, theta, method = "lasso") {
   weights <- 1
   pseudo_outcome <- (Y-theta)/(A-g)
   pseudo_weights <- (A-g)^2*weights
 
-  fit_psi_tilde <- fit_relaxed_hal(as.matrix(data.table(W)), pseudo_outcome, "gaussian", weights = pseudo_weights)
-  pred <- as.vector(fit_psi_tilde$pred)
+  pred <- NULL
+  x_basis <- NULL
+  if (method == "lasso") {
+    foldid <- sample(rep(seq(5), length = length(A)))
+    fit <- cv.glmnet(x = as.matrix(data.table(W)[keep, , drop = FALSE]),
+                     y = pseudo_outcome[keep], family = "gaussian", weights = pseudo_weights[keep],
+                     keep = TRUE, foldid = foldid, alpha = 1, relax = TRUE)
+    y_lambda_min <- fit$lambda.min
+    pred <- as.numeric(predict(fit, newx = as.matrix(data.table(W)[keep, , drop = FALSE]), s = y_lambda_min, type = "response"))
 
-  x_basis <- make_counter_design_matrix(fit_psi_tilde$basis_list, as.matrix(data.table(W)))
+    # design matrix
+    x_basis <- cbind(1, as.matrix(data.table(W)[keep, , drop = FALSE]))
+  } else if (method == "HAL-MLE") {
+    fit_psi_tilde <- fit_relaxed_hal(as.matrix(data.table(W)), pseudo_outcome, "gaussian", weights = pseudo_weights)
+    pred <- as.vector(fit_psi_tilde$pred)
+    x_basis <- make_counter_design_matrix(fit_psi_tilde$basis_list, as.matrix(data.table(W)))
+  }
 
   return(list(pred = pred,
               x_basis = x_basis))
@@ -240,17 +253,16 @@ get_eic_psi_pound_parametric <- function(Pi, tau, g, psi_pound, S, A, Y, n) {
 }
 
 get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound, S, A, Y, n) {
-  # TODO: get the EIC of psi_pound
   W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound # solved
   Pi_comp <- (A/g*tau$A1-(1-A)/(1-g)*tau$A0)*(S-Pi$pred) # solved
   IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
   IM_A1 <- IM%*%colMeans(tau$x_basis_A1)
   IM_A0 <- IM%*%colMeans(tau$x_basis_A0)
-  D_beta_A1 <- tau$x_basis_A1%*%IM_A1*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
-  D_beta_A0 <- tau$x_basis_A0%*%IM_A0*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
-  beta_comp <- as.numeric(D_beta_A0*(1-Pi$A0)-D_beta_A1*(1-Pi$A1))
+  D_beta_A1 <- as.numeric(tau$x_basis_A1%*%IM_A1)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
+  D_beta_A0 <- as.numeric(tau$x_basis_A0%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
+  beta_comp <- D_beta_A0*(1-Pi$A0)-D_beta_A1*(1-Pi$A1)
 
-  return(as.vector(W_comp+Pi_comp+beta_comp))
+  return(W_comp+Pi_comp+beta_comp)
 }
 
 get_eic_psi_tilde <- function(psi_tilde, g_pred, theta, Y, A, n) {

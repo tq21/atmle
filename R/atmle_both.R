@@ -4,8 +4,6 @@ atmle <- function(data,
                   W_node,
                   A_node,
                   Y_node,
-                  g_rct,
-                  target_Pi,
                   verbose=TRUE) {
 
   # define nodes
@@ -18,44 +16,45 @@ atmle <- function(data,
   # estimate bias psi_pound ----------------------------------------------------
   # learn nuisance parts
   if (verbose) print("learning E(Y|W,A)")
-  theta <- learn_theta(W, A, Y)
+  theta <- learn_theta(W, A, Y, method = "lasso")
 
   if (verbose) print("learning P(S=1|W,A)")
-  Pi <- learn_Pi(S, W, A)
+  Pi <- learn_Pi(S, W, A, method = "lasso")
 
   if (verbose) print("learning P(A|W)")
-  g <- learn_g(S, W, A, g_rct)
+  g <- learn_g_tmp(W, A, method = "lasso")
 
   # learn initial estimate of working model tau
   if (verbose) print("learning E(Y|S,W,A)")
-  tau <- learn_tau(S, W, A, Y, Pi$pred, theta)
+  tau <- learn_tau(S, W, A, Y, Pi$pred, theta, method = "lasso")
 
   psi_pound_est <- NULL
   psi_pound_eic <- NULL
-  if (target_Pi) {
+
+  # TMLE to target Pi
+  if (verbose) print("targeting P(S=1|W,A)")
+  for (i in 1:1) {
     # TMLE to target Pi
-    if (verbose) print("targeting P(S=1|W,A)")
     Pi_star <- Pi_tmle(S, W, A, g, tau, Pi)
 
     # re-learn working model tau with targeted Pi
-    tau_star <- learn_tau(S, W, A, Y, Pi_star$pred, theta)
+    tau_star <- learn_tau(S, W, A, Y, Pi_star$pred, theta, method = "lasso")
 
-    psi_pound_est <- mean((1-Pi_star$A0)*tau_star$A0-(1-Pi_star$A1)*tau_star$A1)
-    psi_pound_eic <- get_eic_psi_pound(Pi_star, tau_star, g, theta, psi_pound_est, S, A, Y, n)
-  } else {
-    # No targeting of Pi, for comparison only
-    psi_pound_est <- mean((1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1)
-    psi_pound_eic <- get_eic_psi_pound(Pi, tau, g, theta, psi_pound_est, S, A, Y, n)
+    Pi <- Pi_star
+    tau <- tau_star
   }
+
+  psi_pound_est <- mean((1-Pi_star$A0)*tau_star$A0-(1-Pi_star$A1)*tau_star$A1)
+  psi_pound_eic <- get_eic_psi_pound(Pi_star, tau_star, g, theta, psi_pound_est, S, A, Y, n)
 
   # estimate pooled ATE psi_tilde ----------------------------------------------
   # learn nuisance parts
   if (verbose) print("learning E(Y|W)")
-  theta_tilde <- learn_theta_tilde(W, Y)
+  theta_tilde <- learn_theta_tilde(W, Y, method = "lasso")
 
   # learn psi_tilde using R-loss
   if (verbose) print("learning psi_tilde")
-  psi_tilde <- learn_psi_tilde(W, A, Y, g, theta_tilde)
+  psi_tilde <- learn_psi_tilde(W, A, Y, g, theta_tilde, method = "lasso")
   psi_tilde_est <- mean(psi_tilde$pred)
   psi_tilde_eic <- get_eic_psi_tilde(psi_tilde, g, theta_tilde, Y, A, n)
 
