@@ -1,53 +1,108 @@
 library(hal9001)
 library(data.table)
 library(tmle)
+library(glmnet)
 
 # function to learn theta(W,A)=E(Y|W,A), relaxed HAL
-learn_theta <- function(W, A, Y) {
-  fit_theta <- fit_relaxed_hal(as.matrix(data.frame(W, A = A)), Y, "gaussian")
-  pred <- as.vector(fit_theta$pred)
+learn_theta <- function(W, A, Y, method = "lasso") {
+  pred <- NULL
+  if (method == "lasso") {
+    foldid = sample(rep(seq(5), length = length(A)))
+    fit <- cv.glmnet(x = as.matrix(data.frame(W, A = A)), y = Y, keep = TRUE, alpha = 1, foldid = foldid)
+    y_lambda_min <- fit$lambda.min
+    pred <- fit$fit.preval[,!is.na(colSums(fit$fit.preval))][, fit$lambda[!is.na(colSums(fit$fit.preval))] == y_lambda_min]
+  } else if (method == "HAL") {
+    fit <- fit_relaxed_hal(as.matrix(data.frame(W, A = A)), Y, "gaussian")
+    pred <- as.vector(fit_theta$pred)
+  }
 
   return(pred)
 }
 
 # function to learn theta_tilde(W)=E(Y|W), relaxed HAL
-learn_theta_tilde <- function(W, Y) {
-  fit_theta <- fit_relaxed_hal(as.matrix(data.frame(W)), Y, "gaussian")
-  pred <- as.vector(fit_theta$pred)
+learn_theta_tilde <- function(W, Y, method = "lasso") {
+  pred <- NULL
+  if (method == "lasso") {
+    foldid = sample(rep(seq(5), length = length(Y)))
+    fit <- cv.glmnet(x = as.matrix(data.frame(W)), y = Y, foldid = foldid, keep = TRUE, alpha = 1)
+    y_lambda_min <- fit$lambda.min
+    pred <- fit$fit.preval[,!is.na(colSums(fit$fit.preval))][, fit$lambda[!is.na(colSums(fit$fit.preval))] == y_lambda_min]
+  } else if (method == "HAL") {
+    fit <- fit_relaxed_hal(as.matrix(data.frame(W)), Y, "gaussian")
+    pred <- as.vector(fit_theta$pred)
+  }
 
   return(pred)
 }
 
 # function to learn Pi(1|W,A)=P(S=1|W,A), relaxed HAL
-learn_Pi <- function(S, W, A) {
-  fit_Pi <- fit_relaxed_hal(as.matrix(data.table(W, A = A)), S, "binomial")
-  pred <- as.vector(fit_Pi$pred)
-  x_basis_A1 <- make_counter_design_matrix(fit_Pi$basis_list, as.matrix(data.table(W, A = 1)))
-  x_basis_A0 <- make_counter_design_matrix(fit_Pi$basis_list, as.matrix(data.table(W, A = 0)))
-  A1 <- plogis(as.vector(x_basis_A1 %*% fit_Pi$beta))
-  A0 <- plogis(as.vector(x_basis_A0 %*% fit_Pi$beta))
+learn_Pi <- function(S, W, A, method = "lasso") {
+  pred <- NULL
+  A1 <- NULL
+  A0 <- NULL
+  if (method == "lasso") {
+    foldid = sample(rep(seq(5), length = length(A)))
+    fit <- cv.glmnet(x = as.matrix(data.table(W, A = A)), y = S, foldid = foldid, keep = TRUE, alpha = 1, family = "binomial")
+    y_lambda_min <- fit$lambda.min
+    pred <- plogis(fit$fit.preval[,!is.na(colSums(fit$fit.preval))][, fit$lambda[!is.na(colSums(fit$fit.preval))] == y_lambda_min])
 
-  return(list(pred = as.vector(pred),
+    # counterfactual predictions
+    A1 <- as.numeric(predict(fit, newx = as.matrix(data.table(W, A = 1)), s = y_lambda_min, type = "response"))
+    A0 <- as.numeric(predict(fit, newx = as.matrix(data.table(W, A = 0)), s = y_lambda_min, type = "response"))
+  } else {
+    fit_Pi <- fit_relaxed_hal(as.matrix(data.table(W, A = A)), S, "binomial")
+    pred <- as.vector(fit_Pi$pred)
+    x_basis_A1 <- make_counter_design_matrix(fit_Pi$basis_list, as.matrix(data.table(W, A = 1)))
+    x_basis_A0 <- make_counter_design_matrix(fit_Pi$basis_list, as.matrix(data.table(W, A = 0)))
+    A1 <- plogis(as.vector(x_basis_A1 %*% fit_Pi$beta))
+    A0 <- plogis(as.vector(x_basis_A0 %*% fit_Pi$beta))
+  }
+
+  return(list(pred = pred,
               A1 = A1,
               A0 = A0))
 }
 
 # function to learn tau, R-learner, relaxed HAL
-learn_tau <- function(S, W, A, Y, Pi, theta) {
+learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
   weights <- 1
   pseudo_outcome <- ifelse(abs(S-Pi) < 1e-10, 0, (Y-theta)/(S-Pi))
   pseudo_weights <- (S-Pi)^2*weights
   keep <- which(abs(S-Pi) > 1e-10)
 
-  fit_tau <- fit_relaxed_hal(as.matrix(data.table(W, A = A)[keep, , drop = FALSE]),
-                             pseudo_outcome[keep], "gaussian", weights = pseudo_weights[keep])
-  pred <- as.vector(fit_tau$pred)
+  pred <- NULL
+  A1 <- NULL
+  A0 <- NULL
+  x_basis <- NULL
+  x_basis_A1 <- NULL
+  x_basis_A0 <- NULL
+  if (method == "lasso") {
+    foldid <- sample(rep(seq(5), length = length(A)))
+    fit <- cv.glmnet(x = as.matrix(data.table(W, A = A)[keep, , drop = FALSE]),
+                     y = pseudo_outcome[keep], family = "gaussian", weights = pseudo_weights[keep],
+                     keep = TRUE, foldid = foldid, alpha = 1, relax = TRUE)
+    y_lambda_min <- fit$lambda.min
+    pred <- as.numeric(predict(fit, newx = as.matrix(data.table(W, A = A)[keep, , drop = FALSE]), s = y_lambda_min, type = "response"))
 
-  x_basis <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(W, A)))
-  x_basis_A1 <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(W, A = 1)))
-  x_basis_A0 <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(W, A = 0)))
-  A1 <- as.vector(x_basis_A1 %*% fit_tau$beta)
-  A0 <- as.vector(x_basis_A0 %*% fit_tau$beta)
+    # counterfactual predictions
+    A1 <- as.numeric(predict(fit, newx = as.matrix(data.table(W, A = 1)[keep, , drop = FALSE]), s = y_lambda_min, type = "response"))
+    A0 <- as.numeric(predict(fit, newx = as.matrix(data.table(W, A = 0)[keep, , drop = FALSE]), s = y_lambda_min, type = "response"))
+
+    # design matrices
+    x_basis <- cbind(1, as.matrix(data.table(W, A = A)[keep, , drop = FALSE]))
+    x_basis_A1 <- cbind(1, as.matrix(data.table(W, A = 1)[keep, , drop = FALSE]))
+    x_basis_A0 <- cbind(1, as.matrix(data.table(W, A = 0)[keep, , drop = FALSE]))
+  } else if (method == "HAL") {
+    fit_tau <- fit_relaxed_hal(as.matrix(data.table(W, A = A)[keep, , drop = FALSE]),
+                               pseudo_outcome[keep], "gaussian", weights = pseudo_weights[keep])
+    pred <- as.vector(fit_tau$pred)
+
+    x_basis <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(W, A)))
+    x_basis_A1 <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(W, A = 1)))
+    x_basis_A0 <- make_counter_design_matrix(fit_tau$basis_list, as.matrix(data.table(W, A = 0)))
+    A1 <- as.vector(x_basis_A1 %*% fit_tau$beta)
+    A0 <- as.vector(x_basis_A0 %*% fit_tau$beta)
+  }
 
   return(list(pred = pred,
               A1 = A1,
@@ -55,6 +110,13 @@ learn_tau <- function(S, W, A, Y, Pi, theta) {
               x_basis = x_basis,
               x_basis_A1 = x_basis_A1,
               x_basis_A0 = x_basis_A0))
+
+  # return(list(pred = pred,
+  #             A1 = A1,
+  #             A0 = A0,
+  #             x_basis = x_basis,
+  #             x_basis_A1 = x_basis_A1,
+  #             x_basis_A0 = x_basis_A0))
 }
 
 # function to learn psi_tilde, R-learner, relaxed HAL
@@ -93,11 +155,38 @@ learn_psi_tilde_tmle <- function(g, Pi) {
 }
 
 # function to learn g(1|W)=P(1|W)
-learn_g <- function(S, W, A, g_rct) {
-  fit_g <- fit_relaxed_hal(as.matrix(data.table(W[S == 0,])), A[S == 0], "binomial")
-  pred <- vector(length = length(S))
-  pred[S == 1] <- g_rct
-  pred[S == 0] <- as.vector(fit_g$pred)
+learn_g <- function(S, W, A, g_rct, method = "lasso") {
+  pred <- NULL
+  if (method == "lasso") {
+    foldid = sample(rep(seq(5), length = length(A[S == 0])))
+    fit <- cv.glmnet(x = as.matrix(data.table(W[S == 0,])), y = A[S == 0],
+                     foldid = foldid, keep = TRUE, alpha = 1, family = "binomial")
+    y_lambda_min <- fit$lambda.min
+    pred <- vector(length = length(S))
+    pred[S == 1] <- g_rct
+    pred[S == 0] <- plogis(fit$fit.preval[,!is.na(colSums(fit$fit.preval))][, fit$lambda[!is.na(colSums(fit$fit.preval))] == y_lambda_min])
+  } else if (method == "HAL") {
+    fit_g <- fit_relaxed_hal(as.matrix(data.table(W[S == 0,])), A[S == 0], "binomial")
+    pred <- vector(length = length(S))
+    pred[S == 1] <- g_rct
+    pred[S == 0] <- as.vector(fit_g$pred)
+  }
+
+  return(pred)
+}
+
+learn_g_tmp <- function(W, A, method = "lasso") {
+  pred <- NULL
+  if (method == "lasso") {
+    foldid = sample(rep(seq(5), length = length(A)))
+    fit <- cv.glmnet(x = as.matrix(data.frame(W)), y = A,
+                     foldid = foldid, keep = TRUE, alpha = 1, family = "binomial")
+    y_lambda_min <- fit$lambda.min
+    pred <- plogis(fit$fit.preval[,!is.na(colSums(fit$fit.preval))][, fit$lambda[!is.na(colSums(fit$fit.preval))] == y_lambda_min])
+  } else if (method == "HAL") {
+    fit <- fit_relaxed_hal(as.matrix(data.frame(W)), A, "binomial")
+    pred <- as.vector(fit_theta$pred)
+  }
 
   return(pred)
 }
@@ -118,21 +207,20 @@ Pi_tmle <- function(S, W, A, g, tau, Pi, target_gwt=FALSE) {
 
   # logistic submodel
   suppressWarnings(
-    epsilon <- coef(glm(S ~ -1 + offset(Pi$A1) + H1_n + H0_n,
-                        family = "binomial", weights = wt))
+    epsilon <- coef(glm(S ~ -1 + offset(Pi$pred) + H0_n + H1_n, family = "binomial", weights = wt))
   )
   epsilon[is.na(epsilon)] <- 0
 
   # TMLE updates
   Pi_star <- NULL
   if (target_gwt) {
-    Pi_star$pred <- plogis(Pi$pred+epsilon[1]*H1_n+epsilon[2]*H0_n)
-    Pi_star$A1 <- plogis(Pi$pred+epsilon[1])
-    Pi_star$A0 <- plogis(Pi$pred+epsilon[2])
+    Pi_star$pred <- plogis(Pi$pred+epsilon[1]*H0_n+epsilon[2]*H1_n)
+    Pi_star$A0 <- plogis(Pi$A0+epsilon[1])
+    Pi_star$A1 <- plogis(Pi$A1+epsilon[2])
   } else {
-    Pi_star$pred <- plogis(Pi$pred+epsilon[1]*H1_n+epsilon[2]*H0_n)
-    Pi_star$A1 <- plogis(Pi$pred+epsilon[1]/g)
-    Pi_star$A0 <- plogis(Pi$pred+epsilon[2]/(1-g))
+    Pi_star$pred <- plogis(Pi$pred+epsilon[1]*H0_n+epsilon[2]*H1_n)
+    Pi_star$A0 <- plogis(Pi$A0+epsilon[1]/(1-g)*tau$A0)
+    Pi_star$A1 <- plogis(Pi$A1+epsilon[2]/g*tau$A1)
   }
 
   return(Pi_star)
@@ -151,17 +239,18 @@ get_eic_psi_pound_parametric <- function(Pi, tau, g, psi_pound, S, A, Y, n) {
   return(W_comp+Pi_comp+beta_comp-psi_pound)
 }
 
-
 get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound, S, A, Y, n) {
   # TODO: get the EIC of psi_pound
-  W_comp <- Pi$A0*tau$A0-Pi$A1*tau$A1
-  Pi_comp <- (A/g*tau$A1-(1-A)/(1-g)*tau$A0)*(S-Pi$pred)
+  W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound # solved
+  Pi_comp <- (A/g*tau$A1-(1-A)/(1-g)*tau$A0)*(S-Pi$pred) # solved
   IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
-  D_beta_A0 <- tau$x_basis%*%(IM%*%colMeans(tau$x_basis_A0))*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
-  D_beta_A1 <- tau$x_basis%*%(IM%*%colMeans(tau$x_basis_A1))*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
-  beta_comp <- D_beta_A0*Pi$A0-D_beta_A1*Pi$A1
+  IM_A1 <- IM%*%colMeans(tau$x_basis_A1)
+  IM_A0 <- IM%*%colMeans(tau$x_basis_A0)
+  D_beta_A1 <- tau$x_basis_A1%*%IM_A1*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
+  D_beta_A0 <- tau$x_basis_A0%*%IM_A0*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
+  beta_comp <- as.numeric(D_beta_A0*(1-Pi$A0)-D_beta_A1*(1-Pi$A1))
 
-  return(as.vector(W_comp+Pi_comp+beta_comp-psi_pound))
+  return(as.vector(W_comp+Pi_comp+beta_comp))
 }
 
 get_eic_psi_tilde <- function(psi_tilde, g_pred, theta, Y, A, n) {

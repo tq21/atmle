@@ -1,8 +1,32 @@
+fit_relaxed_lasso <- function(X, Y, family, weights=NULL) {
+
+  # Fit lasso
+  if (family == "binomial") {
+    lasso_fit <- glmnet::cv.glmnet(X, Y, family = "binomial", weights = weights, alpha = 1)
+  } else if (family == "gaussian") {
+    lasso_fit <- glmnet::cv.glmnet(X, Y, family = "gaussian", weights = weights, alpha = 1)
+  }
+
+  lambda_best <- lasso_fit$lambda.min
+  beta <- coef(lasso_fit, s = lambda_best)
+  beta[is.na(beta)] <- 0
+
+  # Get the prediction using the coefficients and lambda obtained from lasso_fit
+  if (family == "binomial") {
+    pred <- as.vector(1 / (1 + exp(-cbind(1, X) %*% beta)))
+  } else if (family == "gaussian") {
+    pred <- as.vector(cbind(1, X) %*% beta)
+  }
+
+  return(list(beta = beta, pred = pred))
+}
+
+
 
 fit_relaxed_hal <- function(X, Y, family, weights=NULL) {
 
   # fit hal
-  hal_fit <- fit_hal(X = X, Y = Y, family = family, max_degree = 3, weights = weights)
+  hal_fit <- fit_hal(X = X, Y = Y, family = family, weights = weights, smoothness_orders = 0)
   basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
   x_basis <- cbind(1, as.matrix(hal9001::make_design_matrix(X, basis_list)))
 
