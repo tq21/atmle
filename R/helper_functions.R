@@ -64,35 +64,24 @@ learn_Pi <- function(S, W, A, method = "lasso") {
 }
 
 # function to learn tau, R-learner, relaxed HAL
-learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
+learn_tau <- function(S, W, Y, Pi, theta, method) {
   weights <- 1
-  pseudo_outcome <- ifelse(abs(S-Pi) < 1e-10, 0, (Y-theta)/(S-Pi))
+  pseudo_outcome <- (Y-theta)/(S-Pi)
   pseudo_weights <- (S-Pi)^2*weights
-  keep <- which(abs(S-Pi) > 1e-10)
 
   pred <- NULL
-  A1 <- NULL
-  A0 <- NULL
   x_basis <- NULL
-  x_basis_A1 <- NULL
-  x_basis_A0 <- NULL
   if (method == "lasso") {
-    foldid <- sample(rep(seq(5), length = length(A)))
-    fit <- cv.glmnet(x = as.matrix(data.table(W, A = A)[keep, , drop = FALSE]),
-                     y = pseudo_outcome[keep], family = "gaussian", weights = pseudo_weights[keep],
+    foldid <- sample(rep(seq(5), length = length(Y)))
+    fit <- cv.glmnet(x = as.matrix(data.table(W)),
+                     y = pseudo_outcome, family = "gaussian", weights = pseudo_weights,
                      keep = TRUE, foldid = foldid, alpha = 1, relax = TRUE)
     y_lambda_min <- fit$lambda.min
-    pred <- as.numeric(predict(fit, newx = as.matrix(data.table(W, A = A)[keep, , drop = FALSE]), s = y_lambda_min, type = "response"))
-
-    # counterfactual predictions
-    A1 <- as.numeric(predict(fit, newx = as.matrix(data.table(W, A = 1)[keep, , drop = FALSE]), s = y_lambda_min, type = "response"))
-    A0 <- as.numeric(predict(fit, newx = as.matrix(data.table(W, A = 0)[keep, , drop = FALSE]), s = y_lambda_min, type = "response"))
+    pred <- as.numeric(predict(fit, newx = as.matrix(data.table(W)), s = y_lambda_min, type = "response"))
 
     # design matrices
-    x_basis <- cbind(1, as.matrix(data.table(W, A = A)[keep, , drop = FALSE]))
-    x_basis_A1 <- cbind(1, as.matrix(data.table(W, A = 1)[keep, , drop = FALSE]))
-    x_basis_A0 <- cbind(1, as.matrix(data.table(W, A = 0)[keep, , drop = FALSE]))
-  } else if (method == "HAL") {
+    x_basis <- cbind(1, as.matrix(data.table(W)))
+  } else if (method == "HAL-MLE") {
     fit_tau <- fit_relaxed_hal(as.matrix(data.table(W, A = A)[keep, , drop = FALSE]),
                                pseudo_outcome[keep], "gaussian", weights = pseudo_weights[keep])
     pred <- as.vector(fit_tau$pred)
@@ -105,18 +94,7 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
   }
 
   return(list(pred = pred,
-              A1 = A1,
-              A0 = A0,
-              x_basis = x_basis,
-              x_basis_A1 = x_basis_A1,
-              x_basis_A0 = x_basis_A0))
-
-  # return(list(pred = pred,
-  #             A1 = A1,
-  #             A0 = A0,
-  #             x_basis = x_basis,
-  #             x_basis_A1 = x_basis_A1,
-  #             x_basis_A0 = x_basis_A0))
+              x_basis = x_basis))
 }
 
 # function to learn psi_tilde, R-learner, relaxed HAL

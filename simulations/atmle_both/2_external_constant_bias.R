@@ -15,7 +15,7 @@ generate_data <- function(N, bA){
   S <- rbinom(N, 1, plogis(0.2-0.5*W1-0.3*W2+0.2*W3-0.1*A))
 
   # Y
-  Y <- 0.3+bA*A+0.5*W1+0.3*W3-0.5*W4+UY
+  Y <- 0.3+0.2*(1-S)*A+bA*A+0.5*W1+0.3*W3-0.5*W4+UY # bias = 0.8
 
   # data
   data <- data.frame(S, W1, W2, W3, W4, A, Y)
@@ -24,8 +24,7 @@ generate_data <- function(N, bA){
 }
 
 n <- 1000
-bA <- 1.3
-bS <- 0
+bA <- 2.5
 
 test <- function(n, bA) {
   data <- generate_data(n, bA)
@@ -73,4 +72,4 @@ p <- ggplot(data = data.frame(est), aes(x = est)) +
         axis.text = element_text(size = 12))
 
 save(list = c("p", "coverage", "est", "ci_lower", "ci_upper"),
-     file = "out/atmle_both_no_bias.RData")
+     file = "out/atmle_both_constant_bias.RData")
