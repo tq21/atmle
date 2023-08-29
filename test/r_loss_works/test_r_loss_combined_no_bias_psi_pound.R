@@ -11,13 +11,15 @@ generate_data <- function(N, bA){
   W4 <- rnorm(N)
 
   # A
+  #A <- rbinom(N, 1, plogis(-0.1+0.2*W1+0.5*W2-0.1*W3))
   A <- rbinom(N, 1, 0.5)
 
   # S
+  #S <- rbinom(N, 1, plogis(0.2-0.5*W1-0.3*W2+0.2*W3-0.1*A))
   S <- rbinom(N, 1, 0.5)
 
   # Y
-  Y <- 0.3+2.7*(1-S)*A+bA*A+0.5*W1+0.3*W3-0.5*W4+UY
+  Y <- 0.3+3*S+3*S*A+bA*A+0.5*W1+0.3*W3-0.5*W4+UY
 
   # data
   data <- data.frame(S, W1, W2, W3, W4, A, Y)
@@ -25,7 +27,7 @@ generate_data <- function(N, bA){
   return(data)
 }
 
-n <- 500
+n <- 1000
 bA <- 1.3
 target_Pi <- TRUE
 
@@ -41,34 +43,23 @@ test <- function(n) {
   Y <- data[, Y_node]
 
   # learn nuisance parts
-  theta_A0 <- learn_theta_tilde(W[A == 0,], Y[A == 0], method = "lasso")
-  theta_A1 <- learn_theta_tilde(W[A == 1,], Y[A == 1], method = "lasso")
-  theta <- vector(length = n)
-  theta[A == 0] <- theta_A0
-  theta[A == 1] <- theta_A1
-  Pi <- learn_Pi(S, W, A, method = "lasso")
-  g <- learn_g_tmp(W, A, method = "lasso")
+  theta <- learn_theta(W, A, Y, method = "glm")
+  Pi <- learn_Pi(S, W, A, method = "glm")
+  g <- learn_g(S, W, A, 0.5, method = "glm")
 
   # learn initial estimate of working model tau
-  tau_A0 <- learn_tau(S[A == 0], W[A == 0,], Y[A == 0], Pi$pred[A == 0], theta[A == 0], method = "lasso")
-  tau_A1 <- learn_tau(S[A == 1], W[A == 1,], Y[A == 1], Pi$pred[A == 1], theta[A == 1], method = "lasso")
-  tau <- list(pred = vector(length = n),
-              x_basis = cbind(1, as.matrix(data.table(W))),
-              x_basis_A0 = cbind(1, as.matrix(data.table(W))),
-              x_basis_A1 = cbind(1, as.matrix(data.table(W))))
-  tau$pred[A == 0] <- tau_A0$pred
-  tau$pred[A == 1] <- tau_A1$pred
+  tau <- learn_tau(S, W, A, Y, Pi, theta, method = "glm")
 
   psi_pound_est <- NULL
   psi_pound_eic <- NULL
 
   if (target_Pi) {
     for (i in 1:1) {
-    # TMLE to target Pi
+      # TMLE to target Pi
       Pi_star <- Pi_tmle(S, W, A, g, tau, Pi)
 
       # re-learn working model tau with targeted Pi
-      tau_star <- learn_tau(S, W, A, Y, Pi_star$pred, theta, method = "lasso")
+      tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, method = "glm")
 
       Pi <- Pi_star
       tau <- tau_star
@@ -91,15 +82,15 @@ test <- function(n) {
               psi_pound_ci_upper = psi_pound_ci_upper))
 }
 
-coverage <- rep(NA, 200)
-est <- rep(NA, 200)
-ci_lower <- rep(NA, 200)
-ci_upper <- rep(NA, 200)
+coverage <- rep(NA, 500)
+est <- rep(NA, 500)
+ci_lower <- rep(NA, 500)
+ci_upper <- rep(NA, 500)
 
-for (i in 1:200) {
+for (i in 1:500) {
   print(i)
   res <- test(n)
-  if (res$psi_pound_ci_lower <= 0.35 & res$psi_pound_ci_upper >= 0.35) {
+  if (res$psi_pound_ci_lower <= -1.5 & res$psi_pound_ci_upper >= -1.5) {
     coverage[i] <- 1
     print("covered")
   } else {
@@ -113,8 +104,8 @@ for (i in 1:200) {
 
 # plot the sampling distribution
 p <- ggplot(data = data.frame(est), aes(x = est)) +
-  geom_histogram(fill = "#0072B2", color = "white", bins = 20) +
-  geom_vline(aes(xintercept = 0.35), color = "red", linetype = "dashed", linewidth = 1) +
+  geom_histogram(fill = "#0072B2", color = "white", bins = 15) +
+  geom_vline(aes(xintercept = -1.5), color = "red", linetype = "dashed", linewidth = 1) +
   #scale_x_continuous(breaks = c(-0.2, -0.15, -0.1, -0.05, 0.0, 0.05, 0.1, 0.15, 0.2)) +
   labs(title = "",
        x = "Point estimate",
@@ -125,5 +116,5 @@ p <- ggplot(data = data.frame(est), aes(x = est)) +
         axis.title.y = element_text(size = 14),
         axis.text = element_text(size = 12))
 
-save(list = c("p", "coverage", "est", "ci_lower", "ci_upper"),
-     file = "out/r_loss_combined_no_bias_psi_pound.RData")
+# save(list = c("p", "coverage", "est", "ci_lower", "ci_upper"),
+#      file = "out/r_loss_combined_no_bias_psi_pound.RData")

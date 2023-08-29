@@ -44,12 +44,12 @@ truth <- bA + 10
 
 test <- function(n, bA) {
   data <- generate_data(n, bA)
-  res <- atmle(data,
-               S_node = 1,
-               W_node = c(2, 3, 4, 5),
-               A_node = 6,
-               Y_node = 7,
-               verbose = FALSE)
+  res <- atmle_tmle(data,
+                    S_node = 1,
+                    W_node = c(2, 3, 4, 5),
+                    A_node = 6,
+                    Y_node = 7,
+                    verbose = FALSE)
   return(res)
 }
 

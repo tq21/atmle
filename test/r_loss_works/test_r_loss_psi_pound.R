@@ -1,3 +1,5 @@
+library(ggplot2)
+
 load_all()
 
 generate_data <- function(N, bA, S=NULL, A=NULL){
@@ -32,25 +34,53 @@ generate_data <- function(N, bA, S=NULL, A=NULL){
 
 n <- 1000
 bA <- 1.3
-truth_tilde <- mean(generate_data(100000, bA, NULL, rep(1, 100000))$Y) -
-  mean(generate_data(100000, bA, NULL, rep(0, 100000))$Y)
 S1_true_ate_A <- mean(generate_data(100000, bA, rep(1, 100000), rep(1, 100000))$Y) -
   mean(generate_data(100000, bA, rep(1, 100000), rep(0, 100000))$Y)
 S0_true_ate_A <- mean(generate_data(100000, bA, rep(0, 100000), rep(1, 100000))$Y) -
   mean(generate_data(100000, bA, rep(0, 100000), rep(0, 100000))$Y)
-truth_pound <- 0.5*S0_true_ate_A-0.5*S1_true_ate_A
-truth <- truth_tilde - truth_pound
-truth <- bA + 10
+truth <- 0.5*S0_true_ate_A-0.5*S1_true_ate_A
+truth <- -5
 
 test <- function(n, bA) {
   data <- generate_data(n, bA)
-  res <- atmle(data,
-               S_node = 1,
-               W_node = c(2, 3, 4, 5),
-               A_node = 6,
-               Y_node = 7,
-               verbose = FALSE)
-  return(res)
+  S_node <- 1
+  W_node <- c(2, 3, 4, 5)
+  A_node <- 6
+  Y_node <- 7
+  S <- data[, S_node]
+  W <- data[, W_node]
+  A <- data[, A_node]
+  Y <- data[, Y_node]
+
+  # learn nuisance parts
+  theta <- learn_theta(W, A, Y, method = "lasso")
+  Pi <- learn_Pi(S, W, A, method = "lasso")
+  g <- learn_g_tmp(W, A, method = "lasso")
+
+  # learn initial estimate of working model tau
+  tau <- learn_tau(S, W, A, Y, Pi$pred, theta, method = "lasso")
+
+  for (i in 1:1) {
+    # TMLE to target Pi
+    Pi_star <- Pi_tmle(S, W, A, g, tau, Pi)
+
+    # re-learn working model tau with targeted Pi
+    tau_star <- learn_tau(S, W, A, Y, Pi_star$pred, theta, method = "lasso")
+
+    Pi <- Pi_star
+    tau <- tau_star
+  }
+
+  psi_pound_est <- mean((1-Pi_star$A0)*tau_star$A0-(1-Pi_star$A1)*tau_star$A1)
+  psi_pound_eic <- get_eic_psi_pound(Pi_star, tau_star, g, theta, psi_pound_est, S, A, Y, n)
+
+  psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE)/n)
+  psi_pound_ci_lower <- psi_pound_est-1.96*psi_pound_se
+  psi_pound_ci_upper <- psi_pound_est+1.96*psi_pound_se
+
+  return(list(psi_pound_est = psi_pound_est,
+              psi_pound_ci_lower = psi_pound_ci_lower,
+              psi_pound_ci_upper = psi_pound_ci_upper))
 }
 
 coverage <- rep(NA, 200)
@@ -58,54 +88,19 @@ est <- rep(NA, 200)
 ci_lower <- rep(NA, 200)
 ci_upper <- rep(NA, 200)
 
-tilde_coverage <- rep(NA, 200)
-tilde_est <- rep(NA, 200)
-tilde_ci_lower <- rep(NA, 200)
-tilde_ci_upper <- rep(NA, 200)
-
-pound_coverage <- rep(NA, 200)
-pound_est <- rep(NA, 200)
-pound_ci_lower <- rep(NA, 200)
-pound_ci_upper <- rep(NA, 200)
-
 for (i in 1:200) {
   print(i)
   res <- test(n, bA)
-  if (res$lower <= truth & res$upper >= truth) {
+  if (res$psi_pound_ci_lower <= truth & res$psi_pound_ci_upper >= truth) {
     coverage[i] <- 1
-    print("psi covered")
+    print("covered")
   } else {
     coverage[i] <- 0
-    print("psi not covered")
+    print("not covered")
   }
-
-  if (res$psi_pound_lower <= truth_pound & res$psi_pound_upper >= truth_pound) {
-    pound_coverage[i] <- 1
-    print("pound covered")
-  } else {
-    pound_coverage[i] <- 0
-    print("pound not covered")
-  }
-
-  if (res$psi_tilde_lower <= truth_tilde & res$psi_tilde_upper >= truth_tilde) {
-    tilde_coverage[i] <- 1
-    print("tilde covered")
-  } else {
-    tilde_coverage[i] <- 0
-    print("tilde not covered")
-  }
-
-  est[i] <- res$est
-  ci_lower[i] <- res$lower
-  ci_upper[i] <- res$upper
-
-  pound_est[i] <- res$psi_pound_est
-  pound_ci_lower[i] <- res$psi_pound_lower
-  pound_ci_upper[i] <- res$psi_pound_upper
-
-  tilde_est[i] <- res$psi_tilde_est
-  tilde_ci_lower[i] <- res$psi_tilde_lower
-  tilde_ci_upper[i] <- res$psi_tilde_upper
+  est[i] <- res$psi_pound_est
+  ci_lower[i] <- res$psi_pound_ci_lower
+  ci_upper[i] <- res$psi_pound_ci_upper
 }
 
 # plot the sampling distribution
@@ -127,4 +122,4 @@ variance <- var(est)
 mse <- bias^2+variance
 
 # save(list = c("p", "coverage", "est", "ci_lower", "ci_upper"),
-#      file = "out/atmle_both_constant_bias.RData")
+#      file = "out/r_loss_psi_pound.RData")
