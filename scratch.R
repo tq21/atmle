@@ -1,0 +1,204 @@
+load_all()
+source("utils.R")
+set.seed(123)
+
+data <- generate_data(1000, 1.5, 0.6)
+S_node = 1
+W_node = c(2, 3, 4, 5)
+A_node = 6
+Y_node = 7
+nuisance_method="lasso"
+working_model="glm"
+p_rct=0.5
+verbose=TRUE
+
+tmp <- run_sim(B = 200,
+               n = 1000,
+               bA = 1.5,
+               bias = "parametric",
+               nuisance_method = "glm",
+               working_model = "lasso",
+               verbose=TRUE)
+
+tmp <- run_sim(B = 200,
+               n = 1000,
+               bA = 1.5,
+               bias = "parametric",
+               nuisance_method = "glm",
+               working_model = "lasso",
+               verbose=TRUE,
+               atmle_both = FALSE)
+
+tmp_converge <- run_sim_n_increase(B = 1,
+                                   n_min = 200,
+                                   n_max = 5000,
+                                   n_step = 50,
+                                   bA = 1.5,
+                                   bias = "parametric",
+                                   nuisance_method = "glm",
+                                   working_model = "lasso",
+                                   verbose=TRUE)
+
+data_n <- data.frame(n = seq(200, 5000, 50),
+                     tmp_bias = unlist(tmp_converge$all_psi_est))
+truth <- 1.5
+
+ggplot(data_n, aes(x = n, y = tmp_bias)) +
+  geom_point(color = "blue") +
+  geom_line(color = "blue") +
+  geom_hline(yintercept = truth, color = "red", linetype = "dashed", linewidth = 1) +
+  labs(title = "",
+       x = "n",
+       y = "est") +
+  theme_minimal() +
+  theme(text = element_text(size = 16))
+
+
+
+
+tmp <- run_sim(B = 1,
+               n = 20000,
+               bA = 1.5,
+               bias = "parametric",
+               nuisance_method = "glm",
+               working_model = "glm",
+               verbose=TRUE)
+
+tmp <- run_sim(B = 200,
+               n = 1000,
+               bA = 1.5,
+               bias = "tmp",
+               nuisance_method = "lasso",
+               working_model = "lasso",
+               verbose=TRUE)
+
+
+
+
+
+library(rlearner)
+n = 100
+p = 10
+
+rlasso_fit = rlasso(as.matrix(W), A, Y, p_hat = g, m_hat = theta_tilde)
+rlasso_est = predict(rlasso_fit, as.matrix(W))
+mean(rlasso_est)
+
+rlasso_fit = rlasso(as.matrix(W), A, Y)
+rlasso_est = predict(rlasso_fit, as.matrix(W))
+mean(rlasso_est)
+
+
+rboost_fit = rboost(as.matrix(W), A, Y)
+rboost_est = predict(rboost_fit, as.matrix(W))
+mean(rboost_est)
+
+
+
+
+library(origami)
+library(purrr)
+
+# cross-fit
+folds <- make_folds(n = n, V = 5, strata_ids = A)
+theta_tilde_all <- map_dfr(folds, function(.x) {
+  train_idx <- .x$training_set
+  valid_idx <- .x$validation_set
+
+  # use super learner
+  Q_lib <- list(
+    mean = make_learner(Lrnr_mean),
+    xgb = make_learner(Lrnr_xgboost, nrounds = 20, maxdepth = 6),
+    ranger_small = make_learner(Lrnr_ranger, num.trees = 500),
+    lasso_fast = make_learner(Lrnr_glmnet, nfold = 3)
+  )
+  Q_lrnr <- Lrnr_sl$new(learners = Q_lib)
+  task <- make_sl3_Task(data[train_idx,], c("W1", "W2", "W3", "W4", "A"), "Y")
+  task_valid <- make_sl3_Task(data[valid_idx,], c("W1", "W2", "W3", "W4", "A"), "Y")
+  sl_fit <- Q_lrnr$train(task)
+  theta_tilde_sl <- sl_fit$predict(task_valid)
+
+  #theta_tilde_fit <- fit_hal(X = W[train_idx,], Y = Y[train_idx], family = "gaussian", smoothness_orders = 0)
+  #theta_tilde_pred <- predict(theta_tilde_fit, new_data = W[valid_idx,])
+
+  return(as.data.frame(cbind(valid_idx, theta_tilde_sl)))
+})
+theta_tilde_all <- theta_tilde_all[order(theta_tilde_all$valid_idx),]
+
+psi <- learn_psi_tilde(W, A, Y, g, theta_tilde_all$theta_tilde_pred)
+psi_est <- mean(psi$pred)
+
+
+psi_eic <- get_eic_psi_tilde(psi, g, theta_tilde, Y, A, n)
+psi_se <- sqrt(var(psi_eic, na.rm = TRUE)/n)
+psi_ci_lower <- psi_est-1.96*psi_se
+psi_ci_upper <- psi_est+1.96*psi_se
+
+
+
+
+# use super learner
+Q_lib <- list(
+  mean = make_learner(Lrnr_mean),
+  glm = make_learner(Lrnr_glm_fast),
+  xgb = make_learner(Lrnr_xgboost, nrounds = 20, maxdepth = 6),
+  ranger_small = make_learner(Lrnr_ranger, num.trees = 500),
+  lasso_fast = make_learner(Lrnr_glmnet, nfold = 3)
+)
+Q_lrnr <- Lrnr_sl$new(learners = Q_lib)
+task <- make_sl3_Task(data, c("W1", "W2", "W3", "W4", "A"), "Y")
+sl_fit <- Q_lrnr$train(task)
+theta_tilde_sl <- sl_fit$predict()
+sqrt(mean((Y-theta_tilde_sl)^2))
+
+psi_tilde_sl <- learn_psi_tilde(W, A, Y, g, theta_tilde_sl)
+mean(psi_tilde$pred)
+mean(psi_tilde_sl$pred)
+
+
+
+no_bias_n_increase <- run_sim_n_increase(B = 1,
+                                         n_min = 200,
+                                         n_max = 5000,
+                                         n_step = 50,
+                                         bA = 1.5,
+                                         bias = 0,
+                                         nuisance_method = "lasso",
+                                         working_model = "lasso",
+                                         verbose=TRUE)
+
+constant_bias_n_increase <- run_sim_n_increase(B = 1,
+                                               n_min = 200,
+                                               n_max = 5000,
+                                               n_step = 50,
+                                               bA = 1.5,
+                                               bias = 1.8,
+                                               nuisance_method = "lasso",
+                                               working_model = "lasso",
+                                               verbose=TRUE)
+
+data_n <- data.frame(n = seq(200, 5000, 50),
+                     no_bias = unlist(no_bias_n_increase$all_psi_est),
+                     constant_bias = unlist(constant_bias_n_increase$all_psi_est))
+
+p_no_bias_bias_converge <- ggplot(data_n, aes(x = n, y = no_bias)) +
+  geom_point(color = "blue") +
+  geom_line(color = "blue") +
+  geom_hline(yintercept = truth, color = "red", linetype = "dashed", linewidth = 1) +
+  #scale_y_continuous(breaks = seq(1.2, 1.8, 0.1), limits = c(1.2, 1.8)) +
+  labs(title = "",
+       x = "n",
+       y = "bias") +
+  theme_minimal() +
+  theme(text = element_text(size = 16))
+
+p_constant_bias_bias_converge <- ggplot(data_n, aes(x = n, y = constant_bias)) +
+  geom_point(color = "blue") +
+  geom_line(color = "blue") +
+  geom_hline(yintercept = truth, color = "red", linetype = "dashed", linewidth = 1) +
+  #scale_y_continuous(breaks = seq(1.2, 1.8, 0.1), limits = c(1.2, 1.8)) +
+  labs(title = "",
+       x = "n",
+       y = "bias") +
+  theme_minimal() +
+  theme(text = element_text(size = 16))

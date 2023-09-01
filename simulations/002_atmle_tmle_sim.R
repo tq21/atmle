@@ -17,7 +17,8 @@ no_bias <- run_sim_n_increase(B = B,
                               bias = 0,
                               nuisance_method = "glm",
                               working_model = "lasso",
-                              verbose = TRUE)
+                              verbose = TRUE,
+                              atmle_both = FALSE)
 
 small_bias <- run_sim_n_increase(B = B,
                                  n_min = n_min,
@@ -27,7 +28,8 @@ small_bias <- run_sim_n_increase(B = B,
                                  bias = 0.5,
                                  nuisance_method = "glm",
                                  working_model = "lasso",
-                                 verbose = TRUE)
+                                 verbose = TRUE,
+                                 atmle_both = FALSE)
 
 large_bias <- run_sim_n_increase(B = B,
                                  n_min = n_min,
@@ -37,7 +39,8 @@ large_bias <- run_sim_n_increase(B = B,
                                  bias = 1.8,
                                  nuisance_method = "glm",
                                  working_model = "lasso",
-                                 verbose = TRUE)
+                                 verbose = TRUE,
+                                 atmle_both = FALSE)
 
 param_bias <- run_sim_n_increase(B = B,
                                  n_min = n_min,
@@ -47,8 +50,9 @@ param_bias <- run_sim_n_increase(B = B,
                                  bias = "parametric",
                                  nuisance_method = "glm",
                                  working_model = "lasso",
-                                 verbose = TRUE)
+                                 verbose = TRUE,
+                                 atmle_both = FALSE)
 
 save(list = c("no_bias", "small_bias", "large_bias", "param_bias",
               "B", "truth", "n_seq"),
-     file = "out/sim_atmle_" %+% format(Sys.time(), "%Y%m%d_%H%M%S") %+% ".RData")
+     file = "out/sim_atmle_tmle_" %+% format(Sys.time(), "%Y%m%d_%H%M%S") %+% ".RData")

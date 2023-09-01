@@ -2,32 +2,7 @@ library(ggplot2)
 library(devtools)
 load_all()
 
-# generate_data <- function(N, bA, bias = 0){
-#   # U
-#   UY <- rnorm(N, 0, 1)
-#
-#   # W
-#   W1 <- rnorm(N)
-#   W2 <- rnorm(N)
-#   W3 <- rnorm(N)
-#   W4 <- rnorm(N)
-#
-#   # A
-#   #A <- rbinom(N, 1, plogis(-0.1+0.2*W1+0.5*W2-0.1*W3))
-#   A <- rbinom(N, 1, 0.5)
-#
-#   # S
-#   #S <- rbinom(N, 1, plogis(0.2-0.5*W1-0.3*W2+0.2*W3-0.1*A))
-#   S <- rbinom(N, 1, 0.5)
-#
-#   # Y
-#   Y <- 0.3+bA*A+0.5*W1+0.3*W3-0.5*W4+UY
-#
-#   # data
-#   data <- data.frame(S, W1, W2, W3, W4, A, Y)
-#
-#   return(data)
-# }
+`%+%` <- function(a, b) paste0(a, b)
 
 generate_data <- function(N, bA, bias){
   # U
@@ -157,7 +132,8 @@ run_sim_n_increase <- function(B,
                                bias,
                                nuisance_method,
                                working_model,
-                               verbose=TRUE) {
+                               verbose=TRUE,
+                               atmle_both=TRUE) {
 
   n_seq <- seq(n_min, n_max, n_step)
 
@@ -181,14 +157,26 @@ run_sim_n_increase <- function(B,
       data <- generate_data(n, bA, bias)
 
       # fit
-      res <- atmle(data,
-                   S_node = 1,
-                   W_node = c(2, 3, 4, 5),
-                   A_node = 6,
-                   Y_node = 7,
-                   nuisance_method=nuisance_method,
-                   working_model=working_model,
-                   verbose = FALSE)
+      res <- NULL
+      if (atmle_both) {
+        res <- atmle(data,
+                     S_node = 1,
+                     W_node = c(2, 3, 4, 5),
+                     A_node = 6,
+                     Y_node = 7,
+                     nuisance_method=nuisance_method,
+                     working_model=working_model,
+                     verbose = FALSE)
+      } else {
+        res <- atmle_tmle(data,
+                          S_node = 1,
+                          W_node = c(2, 3, 4, 5),
+                          A_node = 6,
+                          Y_node = 7,
+                          nuisance_method=nuisance_method,
+                          working_model=working_model,
+                          verbose = FALSE)
+      }
 
       if (res$lower <= bA & res$upper >= bA) {
         if (verbose) print("psi covered")
