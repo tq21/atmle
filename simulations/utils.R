@@ -1,5 +1,6 @@
 library(ggplot2)
 library(devtools)
+library(EScvtmle)
 load_all()
 
 `%+%` <- function(a, b) paste0(a, b)
@@ -33,7 +34,7 @@ generate_data <- function(N, bA, bias){
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "parametric") {
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+0.2*W1+0.5*W2-0.4*W4+UY
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+0.2*W1+0.1*W2-0.4*W4+UY
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
@@ -63,12 +64,13 @@ run_sim <- function(B,
                     nuisance_method,
                     working_model,
                     verbose=TRUE,
-                    atmle_both=TRUE) {
+                    method="atmle") {
   # results
   psi_coverage <- rep(NA, B)
   psi_est <- rep(NA, B)
   psi_ci_lower <- rep(NA, B)
   psi_ci_upper <- rep(NA, B)
+  escvtmle_prop_selected <- rep(NA, B)
 
   for (i in 1:B) {
     if (verbose) print(i)
@@ -78,7 +80,7 @@ run_sim <- function(B,
 
     # fit
     res <- NULL
-    if (atmle_both) {
+    if (method == "atmle") {
       res <- atmle(data,
                    S_node = 1,
                    W_node = c(2, 3, 4, 5),
@@ -87,7 +89,7 @@ run_sim <- function(B,
                    nuisance_method=nuisance_method,
                    working_model=working_model,
                    verbose = FALSE)
-    } else {
+    } else if (method == "atmle_tmle") {
       res <- atmle_tmle(data,
                         S_node = 1,
                         W_node = c(2, 3, 4, 5),
@@ -96,6 +98,26 @@ run_sim <- function(B,
                         nuisance_method=nuisance_method,
                         working_model=working_model,
                         verbose = FALSE)
+    } else if (method == "escvtmle") {
+      data$S <- 1 - data$S
+      tmp <- ES.cvtmle(txinrwd = TRUE,
+                       data = data,
+                       study = "S",
+                       covariates = c("W1", "W2", "W3", "W4"),
+                       treatment_var = "A",
+                       treatment = 1,
+                       outcome = "Y",
+                       pRCT = 0.5,
+                       family = "gaussian",
+                       Q.SL.library = c("SL.glm"),
+                       g.SL.library = c("SL.glm"),
+                       Q.discreteSL = TRUE,
+                       g.discreteSL = TRUE,
+                       V = 5)
+      res <- list(est = tmp$ATE$b2v,
+                  lower = as.numeric(tmp$CI$b2v[1]),
+                  upper = as.numeric(tmp$CI$b2v[2]))
+      escvtmle_prop_selected[i] <- tmp$proportionselected$b2v
     }
 
     if (res$lower <= bA & res$upper >= bA) {
@@ -114,7 +136,8 @@ run_sim <- function(B,
   return(list(psi_est = psi_est,
               psi_coverage = psi_coverage,
               psi_ci_lower = psi_ci_lower,
-              psi_ci_upper = psi_ci_upper))
+              psi_ci_upper = psi_ci_upper,
+              escvtmle_prop_selected = escvtmle_prop_selected))
 }
 
 #' @param B Number of runs for each sample size
@@ -133,7 +156,7 @@ run_sim_n_increase <- function(B,
                                nuisance_method,
                                working_model,
                                verbose=TRUE,
-                               atmle_both=TRUE) {
+                               method="atmle") {
 
   n_seq <- seq(n_min, n_max, n_step)
 
@@ -142,6 +165,7 @@ run_sim_n_increase <- function(B,
   all_psi_coverage <- vector(mode = "list", length = length(n_seq))
   all_psi_ci_lower <- vector(mode = "list", length = length(n_seq))
   all_psi_ci_upper <- vector(mode = "list", length = length(n_seq))
+  all_escvtmle_prop_selected <- vector(mode = "list", length = length(n_seq))
 
   for (i in 1:length(n_seq)) {
     n <- n_seq[i]
@@ -151,6 +175,7 @@ run_sim_n_increase <- function(B,
     psi_coverage <- vector(length = B)
     psi_ci_lower <- vector(length = B)
     psi_ci_upper <- vector(length = B)
+    escvtmle_prop_selected <- vector(length = B)
 
     for (j in 1:B) {
       # simulate data
@@ -158,7 +183,7 @@ run_sim_n_increase <- function(B,
 
       # fit
       res <- NULL
-      if (atmle_both) {
+      if (method == "atmle") {
         res <- atmle(data,
                      S_node = 1,
                      W_node = c(2, 3, 4, 5),
@@ -167,7 +192,7 @@ run_sim_n_increase <- function(B,
                      nuisance_method=nuisance_method,
                      working_model=working_model,
                      verbose = FALSE)
-      } else {
+      } else if (method == "atmle_tmle") {
         res <- atmle_tmle(data,
                           S_node = 1,
                           W_node = c(2, 3, 4, 5),
@@ -176,6 +201,26 @@ run_sim_n_increase <- function(B,
                           nuisance_method=nuisance_method,
                           working_model=working_model,
                           verbose = FALSE)
+      } else if (method == "escvtmle") {
+        data$S <- 1 - data$S
+        tmp <- ES.cvtmle(txinrwd = TRUE,
+                         data = data,
+                         study = "S",
+                         covariates = c("W1", "W2", "W3", "W4"),
+                         treatment_var = "A",
+                         treatment = 1,
+                         outcome = "Y",
+                         pRCT = 0.5,
+                         family = "gaussian",
+                         Q.SL.library = c("SL.glm"),
+                         g.SL.library = c("SL.glm"),
+                         Q.discreteSL = TRUE,
+                         g.discreteSL = TRUE,
+                         V = 5)
+        res <- list(est = tmp$ATE$b2v,
+                    lower = as.numeric(tmp$CI$b2v[1]),
+                    upper = as.numeric(tmp$CI$b2v[2]))
+        escvtmle_prop_selected[j] <- tmp$proportionselected$b2v
       }
 
       if (res$lower <= bA & res$upper >= bA) {
@@ -195,10 +240,13 @@ run_sim_n_increase <- function(B,
     all_psi_coverage[[i]] <- psi_coverage
     all_psi_ci_lower[[i]] <- psi_ci_lower
     all_psi_ci_upper[[i]] <- psi_ci_upper
+    all_escvtmle_prop_selected[[i]] <- escvtmle_prop_selected
   }
 
   return(list(all_psi_est = all_psi_est,
               all_psi_coverage = all_psi_coverage,
               all_psi_ci_lower = all_psi_ci_lower,
-              all_psi_ci_upper = all_psi_ci_upper))
+              all_psi_ci_upper = all_psi_ci_upper,
+              escvtmle_prop_selected = escvtmle_prop_selected))
 }
+

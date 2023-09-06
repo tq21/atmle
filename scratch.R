@@ -2,23 +2,47 @@ load_all()
 source("utils.R")
 set.seed(123)
 
-data <- generate_data(1000, 1.5, 0.6)
+data <- generate_data(500, 1.5, 5)
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
 Y_node = 7
-nuisance_method="lasso"
-working_model="glm"
+nuisance_method="glm"
+working_model="lasso"
 p_rct=0.5
 verbose=TRUE
 
 tmp <- run_sim(B = 200,
                n = 1000,
                bA = 1.5,
-               bias = "parametric",
+               bias = "complex",
                nuisance_method = "glm",
                working_model = "lasso",
-               verbose=TRUE)
+               verbose = TRUE,
+               method = "atmle")
+mean(tmp$psi_coverage)
+var(tmp$psi_est)
+
+tmp_2 <- run_sim(B = 200,
+                 n = 1000,
+                 bA = 1.5,
+                 bias = "complex",
+                 nuisance_method = "glm",
+                 working_model = "lasso",
+                 verbose = TRUE,
+                 method = "escvtmle")
+var(tmp_2$psi_est)
+
+tmp_3 <- run_sim(B = 100,
+               n = 500,
+               bA = 1.5,
+               bias = 0,
+               nuisance_method = "glm",
+               working_model = "lasso",
+               verbose=TRUE,
+               method = "atmle_tmle")
+
+var(tmp_3$psi_est)
 
 tmp <- run_sim(B = 200,
                n = 1000,
@@ -34,7 +58,7 @@ tmp_converge <- run_sim_n_increase(B = 1,
                                    n_max = 5000,
                                    n_step = 50,
                                    bA = 1.5,
-                                   bias = "parametric",
+                                   bias = 0.8,
                                    nuisance_method = "glm",
                                    working_model = "lasso",
                                    verbose=TRUE)
@@ -65,15 +89,44 @@ tmp <- run_sim(B = 1,
                verbose=TRUE)
 
 tmp <- run_sim(B = 200,
-               n = 1000,
+               n = 500,
                bA = 1.5,
-               bias = "tmp",
-               nuisance_method = "lasso",
+               bias = "complex",
+               nuisance_method = "glm",
                working_model = "lasso",
                verbose=TRUE)
 
 
 
+data <- generate_data(500, 1.5, "complex")
+S_node = 1
+W_node = c(2, 3, 4, 5)
+A_node = 6
+Y_node = 7
+nuisance_method="lasso"
+working_model="lasso"
+p_rct=0.5
+verbose=TRUE
+
+rct_only(data,
+         S_node,
+         W_node,
+         A_node,
+         Y_node,
+         nuisance_method="glm",
+         working_model="lasso",
+         p_rct=0.5,
+         verbose=TRUE)
+
+atmle(data,
+      S_node,
+      W_node,
+      A_node,
+      Y_node,
+      nuisance_method="glm",
+      working_model="lasso",
+      p_rct=0.5,
+      verbose=TRUE)
 
 
 library(rlearner)

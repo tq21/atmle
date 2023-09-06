@@ -5,9 +5,10 @@ atmle <- function(data,
                   A_node,
                   Y_node,
                   nuisance_method="lasso",
-                  working_model="HAL",
+                  working_model="lasso",
                   p_rct=0.5,
-                  verbose=TRUE) {
+                  verbose=TRUE,
+                  transform=TRUE) {
 
   # define nodes
   S <- data[, S_node]
@@ -29,8 +30,12 @@ atmle <- function(data,
 
   # learn initial estimate of working model tau
   if (verbose) print("learning E(Y|S,W,A)")
-  tau <- learn_tau(S, W, A, Y, Pi, theta, working_model)
-
+  tau <- NULL
+  if (transform) {
+    tau <- learn_tau(S, W, A, Y, Pi, theta, working_model)
+  } else {
+    tau <- learn_tau_test(S, W, A, Y, Pi, theta, working_model)
+  }
   psi_pound_est <- NULL
   psi_pound_eic <- NULL
 
@@ -41,7 +46,12 @@ atmle <- function(data,
     Pi_star <- Pi_tmle(S, W, A, g, tau, Pi)
 
     # re-learn working model tau with targeted Pi
-    tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, working_model)
+    tau_star <- NULL
+    if (transform) {
+      tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, working_model)
+    } else {
+      tau_star <- learn_tau_test(S, W, A, Y, Pi_star, theta, working_model)
+    }
 
     Pi <- Pi_star
     tau <- tau_star
@@ -59,12 +69,14 @@ atmle <- function(data,
   if (verbose) print("learning E(Y|W)")
   theta_tilde <- learn_theta_tilde(W, Y, nuisance_method)
 
-  if (verbose) print("learning P(A=1|W)")
-  #g_no_S <- learn_g_ignore_S(W, A, method = "lasso")
-
   # learn psi_tilde using R-loss
   if (verbose) print("learning psi_tilde")
-  psi_tilde <- learn_psi_tilde(W, A, Y, g, theta_tilde, working_model)
+  psi_tilde <- NULL
+  if (transform) {
+    psi_tilde <- learn_psi_tilde(W, A, Y, g, theta_tilde, working_model)
+  } else {
+    psi_tilde <- learn_psi_tilde_test(W, A, Y, g, theta_tilde, working_model)
+  }
   psi_tilde_est <- mean(psi_tilde$pred)
   psi_tilde_eic <- get_eic_psi_tilde(psi_tilde, g, theta_tilde, Y, A, n)
 
@@ -74,11 +86,11 @@ atmle <- function(data,
 
   # estimate psi ---------------------------------------------------------------
   psi_est <- psi_tilde_est - psi_pound_est
-  #psi_se <- sqrt(psi_tilde_se^2+psi_pound_se^2)
   psi_eic <- psi_tilde_eic - psi_pound_eic
-  psi_se <- sqrt(var(psi_eic, na.rm = TRUE))
-  psi_ci_lower <- psi_est-1.96*psi_se/sqrt(n)
-  psi_ci_upper <- psi_est+1.96*psi_se/sqrt(n)
+  psi_se <- sqrt(var(psi_eic, na.rm = TRUE)/n)
+  psi_ci_lower <- psi_est-1.96*psi_se
+  psi_ci_upper <- psi_est+1.96*psi_se
+  var_eic <- var(psi_eic)
 
   return(list(est = psi_est,
               lower = psi_ci_lower,
@@ -88,7 +100,8 @@ atmle <- function(data,
               psi_pound_upper = psi_pound_ci_upper,
               psi_tilde_est = psi_tilde_est,
               psi_tilde_lower = psi_tilde_ci_lower,
-              psi_tilde_upper = psi_tilde_ci_upper))
+              psi_tilde_upper = psi_tilde_ci_upper,
+              var_eic = var_eic))
 }
 
 # data <- generate_data(N=500, p_rct=0.67, bA=0.5)
