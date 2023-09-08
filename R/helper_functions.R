@@ -610,20 +610,20 @@ learn_Q_SWA <- function(S, W, A, Y, method = "glm") {
   return(pmin(pmax(x, lower), upper))
 }
 
-learn_g_SW <- function(S, W, A, method = "lasso") {
+learn_g_SW <- function(S, W, A, p_rct, method = "lasso") {
   pred <- numeric(length = length(A))
-  X <- data.frame(S = S, W)
-  X_S1 <- data.frame(S = 1, W)
+  pred[S == 1] <- p_rct
+  X <- data.frame(W[S == 0, ])
 
   if (method == "lasso") {
-    fit <- cv.glmnet(x = as.matrix(X), y = A, keep = TRUE, alpha = 1, nfolds = 5, family = "binomial")
-    pred <- as.numeric(predict(fit, newx = as.matrix(X_S1), s = "lambda.min", type = "response"))
+    fit <- cv.glmnet(x = as.matrix(X), y = A[S == 0], keep = TRUE, alpha = 1, nfolds = 5, family = "binomial")
+    pred[S == 0] <- as.numeric(predict(fit, newx = as.matrix(X), s = "lambda.min", type = "response"))
   } else if (method == "HAL") {
-    fit <- fit_hal(X = as.matrix(X), Y = A, family = "binomial", smoothness_orders = 0)
-    pred <- as.numeric(predict(fit, new_data = as.matrix(X_S1), type = "response"))
+    fit <- fit_hal(X = as.matrix(X), Y = A[S == 0], family = "binomial", smoothness_orders = 0)
+    pred[S == 0] <- as.numeric(predict(fit, new_data = as.matrix(X), type = "response"))
   } else if (method == "glm") {
-    fit <- glm(A ~ ., data = X, family = "binomial")
-    pred <- as.numeric(predict(fit, newdata = X_S1, type = "response"))
+    fit <- glm(A[S == 0] ~ ., data = X, family = "binomial")
+    pred[S == 0] <- as.numeric(predict(fit, newdata = X, type = "response"))
   }
 
   return(list(pred = pred))
@@ -649,7 +649,7 @@ learn_S_W <- function(S, W, method = "lasso") {
 
 get_eic_psi_nonparametric <- function(Q, Pi, g, S, A, Y, psi_est) {
   W_comp <- Q$S1A1-Q$S1A0-psi_est
-  Q_comp <- S/Pi$pred*(A/g$pred-(1-A)/(1-g$pred))*(Y-Q$pred)
+  Q_comp <- (S/Pi$pred)*(A/g$pred-(1-A)/(1-g$pred))*(Y-Q$pred)
   return(W_comp+Q_comp)
 }
 

@@ -4,7 +4,7 @@ nonparametric <- function(data,
                           W_node,
                           A_node,
                           Y_node,
-                          g_rct,
+                          p_rct,
                           verbose=TRUE) {
 
   # define nodes
@@ -17,7 +17,7 @@ nonparametric <- function(data,
   # estimate pooled ATE psi_tilde ----------------------------------------------
   # use TMLE to estimate psi_tilde
   Q <- learn_Q(W, A, Y)
-  Q_star <- tmle(Y = Y, A = A, W = W, g1W = rep(g_rct, sum(S == 1)),
+  Q_star <- tmle(Y = Y, A = A, W = W, g1W = rep(p_rct, sum(S == 1)),
                  Q = as.matrix(data.frame(Q$A1, Q$A0)),
                  family = "gaussian")
   psi_est <- Q_star$estimates$ATE$psi
@@ -30,12 +30,3 @@ nonparametric <- function(data,
               lower = psi_ci_lower,
               upper = psi_ci_upper))
 }
-
-# set.seed(1234)
-# data <- generate_data(N=500, p_rct=0.67, bA=0.5)
-# res <- tmle_nonparametric(data,
-#                           S_node = 1,
-#                           W_node = c(2, 3, 4, 5),
-#                           A_node = 6,
-#                           Y_node = 7,
-#                           g_rct=0.67)

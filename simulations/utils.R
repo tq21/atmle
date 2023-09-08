@@ -27,14 +27,22 @@ generate_data <- function(N, bA, bias){
   # Y
   Y <- vector(length = N)
   if (is.numeric(bias)) {
-    # Y_S0 <- 0.3+bA*A+1.2*as.numeric(W1 > 0)+0.7*as.numeric(W2 < 0)+0.3*as.numeric(W3 > 0)-0.5*as.numeric(W4 < 0)+UY+bias # RWD has bias
-    # Y_S1 <- 0.3+bA*A+1.2*as.numeric(W1 > 0)+0.7*as.numeric(W2 < 0)+0.3*as.numeric(W3 > 0)-0.5*as.numeric(W4 < 0)+UY
     Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bias+UY # RWD has bias
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
-  } else if (bias == "parametric") {
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+0.2*W1+0.1*W2-0.4*W4+UY
+  } else if (bias == "param_simple") {
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+0.2*W1-0.6+UY
+    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
+    Y[S == 0] <- Y_S0[S == 0]
+    Y[S == 1] <- Y_S1[S == 1]
+  } else if (bias == "param_complex") {
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+0.2*W1+0.3*W2+0.4*W3-0.2*W4-0.6+UY
+    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
+    Y[S == 0] <- Y_S0[S == 0]
+    Y[S == 1] <- Y_S1[S == 1]
+  } else if (bias == "misspecify") {
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+0.2*W1+0.3*W2+0.4*W3^3-0.2*W4^2-0.6+UY
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
@@ -221,6 +229,16 @@ run_sim_n_increase <- function(B,
                     lower = as.numeric(tmp$CI$b2v[1]),
                     upper = as.numeric(tmp$CI$b2v[2]))
         escvtmle_prop_selected[j] <- tmp$proportionselected$b2v
+      } else if (method == "tmle") {
+        res <- rct_only(data,
+                        S_node = 1,
+                        W_node = c(2, 3, 4, 5),
+                        A_node = 6,
+                        Y_node = 7,
+                        nuisance_method = nuisance_method,
+                        working_model = working_model,
+                        p_rct = 0.5,
+                        verbose = FALSE)
       }
 
       if (res$lower <= bA & res$upper >= bA) {
@@ -240,7 +258,10 @@ run_sim_n_increase <- function(B,
     all_psi_coverage[[i]] <- psi_coverage
     all_psi_ci_lower[[i]] <- psi_ci_lower
     all_psi_ci_upper[[i]] <- psi_ci_upper
-    all_escvtmle_prop_selected[[i]] <- escvtmle_prop_selected
+
+    if (method == "escvtmle") {
+      all_escvtmle_prop_selected[[i]] <- escvtmle_prop_selected
+    }
   }
 
   return(list(all_psi_est = all_psi_est,
@@ -249,4 +270,3 @@ run_sim_n_increase <- function(B,
               all_psi_ci_upper = all_psi_ci_upper,
               escvtmle_prop_selected = escvtmle_prop_selected))
 }
-

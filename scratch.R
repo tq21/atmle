@@ -13,13 +13,13 @@ p_rct=0.5
 verbose=TRUE
 
 tmp <- run_sim(B = 200,
-               n = 1000,
+               n = 500,
                bA = 1.5,
                bias = "complex",
                nuisance_method = "glm",
                working_model = "lasso",
                verbose = TRUE,
-               method = "atmle")
+               method = "tmle")
 mean(tmp$psi_coverage)
 var(tmp$psi_est)
 
