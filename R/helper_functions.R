@@ -132,10 +132,12 @@ learn_g <- function(S, W, A, p_rct, method = "lasso") {
     walk(folds, function(.x) {
       train_idx <- .x$training_set
       valid_idx <- .x$validation_set
-      fit <- glm(A[S == 0][train_idx] ~., data = X[train_idx, ], family = "binomial")
+      #fit <- glm(A[S == 0][train_idx] ~., data = X[train_idx, ], family = "binomial")
+      fit <- lm(A[S == 0][train_idx] ~., data = X[train_idx, ])
       pred[S == 0][valid_idx] <<- as.numeric(predict(fit, newdata = X[valid_idx, ], type = "response"))
     })
   }
+  pred <- .bound(pred, 0.001, 0.999)
 
   return(pred)
 }
@@ -280,19 +282,15 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
     #non_zero_A1 <- which(as.numeric(coef(fit_A1)) != 0)
     #non_zero <- union(non_zero_A0, non_zero_A1)
     non_zero <- which(as.numeric(coef(fit)) != 0)
-    x_basis <- cbind(1, as.matrix(data.table(W, A = A)))[, non_zero, drop = FALSE]
+    x_basis <- cbind(1, as.matrix(X))[, non_zero, drop = FALSE]
     x_basis_A1 <- cbind(1, as.matrix(data.table(W, A = 1)))[, non_zero, drop = FALSE]
     x_basis_A0 <- cbind(1, as.matrix(data.table(W, A = 0)))[, non_zero, drop = FALSE]
   } else if (method == "HAL") {
-    pseudo_outcome <- (Y-theta)/(S-Pi$pred)
-    pseudo_weights <- (S-Pi$pred)^2*weights
     fit <- fit_relaxed_hal(as.matrix(data.table(W, A = A)),
                            pseudo_outcome, "gaussian", weights = pseudo_weights)
-    pred <- as.vector(fit$pred)
-
-    x_basis <- make_counter_design_matrix(fit$basis_list, as.matrix(data.table(W, A)))
-    x_basis_A1 <- make_counter_design_matrix(fit$basis_list, as.matrix(data.table(W, A = 1)))
-    x_basis_A0 <- make_counter_design_matrix(fit$basis_list, as.matrix(data.table(W, A = 0)))
+    x_basis <- make_counter_design_matrix(fit$basis_list, as.matrix(X))
+    x_basis_A1 <- make_counter_design_matrix(fit$basis_list, as.matrix(X_A1))
+    x_basis_A0 <- make_counter_design_matrix(fit$basis_list, as.matrix(X_A0))
     A1 <- as.vector(x_basis_A1 %*% fit$beta)
     A0 <- as.vector(x_basis_A0 %*% fit$beta)
   } else if (method == "glm") {
@@ -591,15 +589,15 @@ learn_Q_SWA <- function(S, W, A, Y, method = "glm") {
     S1A1 <- as.numeric(predict(fit, new_data = as.matrix(X_S1A1)))
     S1A0 <- as.numeric(predict(fit, new_data = as.matrix(X_S1A0)))
   } else if (method == "glm") {
-    fit <- lm(Y_bounded ~ ., data = X)
-    pred <- as.numeric(predict(fit, newdata = X))
-    S1A1 <- as.numeric(predict(fit, newdata = X_S1A1))
-    S1A0 <- as.numeric(predict(fit, newdata = X_S1A0))
+    fit <- glm(Y_bounded ~ S:W1 + S:W2 + S:W3 + S:W4 + ., data = X, family = "quasibinomial")
+    pred <- as.numeric(predict(fit, newdata = X, type = "response"))
+    S1A1 <- as.numeric(predict(fit, newdata = X_S1A1, type = "response"))
+    S1A0 <- as.numeric(predict(fit, newdata = X_S1A0, type = "response"))
   }
 
-  pred <- .bound(pred, 0.001, 0.999)
-  S1A1 <- .bound(S1A1, 0.001, 0.999)
-  S1A0 <- .bound(S1A0, 0.001, 0.999)
+  # pred <- .bound(pred, 0.001, 0.999)
+  # S1A1 <- .bound(S1A1, 0.001, 0.999)
+  # S1A0 <- .bound(S1A0, 0.001, 0.999)
 
   return(list(pred = pred,
               S1A1 = S1A1,
@@ -653,7 +651,7 @@ get_eic_psi_nonparametric <- function(Q, Pi, g, S, A, Y, psi_est) {
   return(W_comp+Q_comp)
 }
 
-target_Q <- function(S, W, A, Y, Pi, g, Q) {
+target_Q <- function(S, W, A, Y, Pi, g, Q, target_wt=TRUE) {
   # bound Y
   min_Y <- min(Y)
   max_Y <- max(Y)

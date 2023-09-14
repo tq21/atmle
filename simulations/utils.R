@@ -5,24 +5,30 @@ load_all()
 
 `%+%` <- function(a, b) paste0(a, b)
 
-generate_data <- function(N, bA, bias){
+generate_data <- function(N, bA, bias, pRCT){
   # U
   UY <- rnorm(N, 0, 1)
 
   # S
-  S <- rbinom(N, 1, 0.2)
+  S <- rbinom(N, 1, 0.05)
+  #S <- sample(c(rep(1, 200), rep(0, N - 200)))
 
   # W
-  W1 <- rnorm(N)
-  W2 <- rnorm(N)
-  W3 <- rnorm(N)
-  W4 <- rnorm(N)
+  # W1 <- rnorm(N)
+  # W2 <- rnorm(N)
+  # W3 <- rnorm(N)
+  # W4 <- rnorm(N)
+  W1 <- runif(N)
+  W2 <- runif(N)
+  W3 <- runif(N)
+  W4 <- runif(N)
 
   # A
   A <- vector(length = N)
-  A[S == 0] <- rbinom(N - sum(S), 1, plogis(-0.5*W1+0.9*W2-1.2*W3+0.3*W4))
-  #A[S == 0] <- rbinom(N - sum(S), 1, 0.5)
-  A[S == 1] <- rbinom(sum(S), 1, 0.5)
+  #A[S == 0] <- rbinom(N - sum(S), 1, 0.6*W1)
+  #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-0.5*W1+0.9*W2-1.2*W3+0.3*W4))
+  A[S == 0] <- rbinom(N - sum(S), 1, 0.5)
+  A[S == 1] <- rbinom(sum(S), 1, pRCT) # rct
 
   # Y
   Y <- vector(length = N)
@@ -41,14 +47,25 @@ generate_data <- function(N, bA, bias){
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
-  } else if (bias == "misspecify") {
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+0.2*W1+0.3*W2+0.4*W3^3-0.2*W4^2-0.6+UY
+  } else if (bias == "HAL") {
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY+
+      100*as.numeric(W1 > 0.5)+5*as.numeric(W2 > 0.5)+5*as.numeric(W3 > 0.3)+5*as.numeric(W4 > 0.7)-0.5
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
-  } else if (bias == "A") {
-    bias <- 0.5
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bias*A+UY # RWD has bias
+  } else if (bias == "hard") {
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
+      1.3*W1+0.9*W2+0.7*W3^3+1.5*W4^2+1.5*W1*W2+0.9*W1*W4^2-0.6
+    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
+    Y[S == 0] <- Y_S0[S == 0]
+    Y[S == 1] <- Y_S1[S == 1]
+  } else if (bias == "test") {
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+1.2*W1+0.8*W2+0.7*W3-0.4*W4+0.8+UY
+    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
+    Y[S == 0] <- Y_S0[S == 0]
+    Y[S == 1] <- Y_S1[S == 1]
+  } else if (bias == "test 2") {
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY+100
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
@@ -71,6 +88,7 @@ run_sim <- function(B,
                     bias,
                     nuisance_method,
                     working_model,
+                    pRCT,
                     verbose=TRUE,
                     method="atmle") {
   # results
@@ -84,7 +102,7 @@ run_sim <- function(B,
     if (verbose) print(i)
 
     # simulate data
-    data <- generate_data(n, bA, bias)
+    data <- generate_data(n, bA, bias, pRCT)
 
     # fit
     res <- NULL
@@ -96,6 +114,7 @@ run_sim <- function(B,
                    Y_node = 7,
                    nuisance_method=nuisance_method,
                    working_model=working_model,
+                   p_rct = pRCT,
                    verbose = FALSE)
     } else if (method == "atmle_tmle") {
       res <- atmle_tmle(data,
@@ -105,6 +124,7 @@ run_sim <- function(B,
                         Y_node = 7,
                         nuisance_method=nuisance_method,
                         working_model=working_model,
+                        p_rct = pRCT,
                         verbose = FALSE)
     } else if (method == "escvtmle") {
       data$S <- 1 - data$S
@@ -126,6 +146,15 @@ run_sim <- function(B,
                   lower = as.numeric(tmp$CI$b2v[1]),
                   upper = as.numeric(tmp$CI$b2v[2]))
       escvtmle_prop_selected[i] <- tmp$proportionselected$b2v
+    } else if (method == "rct_only") {
+      res <- rct_only(data,
+                      S_node = 1,
+                      W_node = c(2, 3, 4, 5),
+                      A_node = 6,
+                      Y_node = 7,
+                      nuisance_method=nuisance_method,
+                      p_rct = pRCT,
+                      verbose = FALSE)
     }
 
     if (res$lower <= bA & res$upper >= bA) {
@@ -163,6 +192,7 @@ run_sim_n_increase <- function(B,
                                bias,
                                nuisance_method,
                                working_model,
+                               pRCT,
                                verbose=TRUE,
                                method="atmle") {
 
@@ -187,7 +217,7 @@ run_sim_n_increase <- function(B,
 
     for (j in 1:B) {
       # simulate data
-      data <- generate_data(n, bA, bias)
+      data <- generate_data(n, bA, bias, pRCT)
 
       # fit
       res <- NULL
@@ -199,6 +229,7 @@ run_sim_n_increase <- function(B,
                      Y_node = 7,
                      nuisance_method=nuisance_method,
                      working_model=working_model,
+                     p_rct = pRCT,
                      verbose = FALSE)
       } else if (method == "atmle_tmle") {
         res <- atmle_tmle(data,
@@ -208,6 +239,7 @@ run_sim_n_increase <- function(B,
                           Y_node = 7,
                           nuisance_method=nuisance_method,
                           working_model=working_model,
+                          p_rct = pRCT,
                           verbose = FALSE)
       } else if (method == "escvtmle") {
         data$S <- 1 - data$S
@@ -230,14 +262,23 @@ run_sim_n_increase <- function(B,
                     upper = as.numeric(tmp$CI$b2v[2]))
         escvtmle_prop_selected[j] <- tmp$proportionselected$b2v
       } else if (method == "tmle") {
+        res <- nonparametric(data,
+                             S_node = 1,
+                             W_node = c(2, 3, 4, 5),
+                             A_node = 6,
+                             Y_node = 7,
+                             nuisance_method = nuisance_method,
+                             working_model = working_model,
+                             p_rct = 0.5,
+                             verbose = FALSE)
+      } else if (method == "rct_only") {
         res <- rct_only(data,
                         S_node = 1,
                         W_node = c(2, 3, 4, 5),
                         A_node = 6,
                         Y_node = 7,
                         nuisance_method = nuisance_method,
-                        working_model = working_model,
-                        p_rct = 0.5,
+                        p_rct = pRCT,
                         verbose = FALSE)
       }
 

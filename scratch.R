@@ -2,46 +2,51 @@ load_all()
 source("utils.R")
 set.seed(123)
 
-data <- generate_data(500, 1.5, 5)
+data <- generate_data(500, 1.5, 0, 0.67)
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
 Y_node = 7
 nuisance_method="glm"
 working_model="lasso"
-p_rct=0.5
+p_rct=0.67
 verbose=TRUE
 
 tmp <- run_sim(B = 200,
-               n = 500,
+               n = 1000,
                bA = 1.5,
-               bias = "complex",
+               bias = 0,
                nuisance_method = "glm",
                working_model = "lasso",
+               pRCT = 0.67,
                verbose = TRUE,
-               method = "tmle")
+               method = "escvtmle")
+tmp$escvtmle_prop_selected
 mean(tmp$psi_coverage)
 var(tmp$psi_est)
 
 tmp_2 <- run_sim(B = 200,
                  n = 1000,
                  bA = 1.5,
-                 bias = "complex",
+                 bias = 0,
+                 nuisance_method = "glm",
+                 working_model = "lasso",
+                 pRCT = 0.67,
+                 verbose = TRUE,
+                 method = "atmle")
+mean(tmp_2$psi_coverage)
+var(tmp_2$psi_est)
+
+tmp_3 <- run_sim(B = 200,
+                 n = 1000,
+                 bA = 1.5,
+                 bias = 0,
+                 pRCT = 0.67,
                  nuisance_method = "glm",
                  working_model = "lasso",
                  verbose = TRUE,
-                 method = "escvtmle")
-var(tmp_2$psi_est)
-
-tmp_3 <- run_sim(B = 100,
-               n = 500,
-               bA = 1.5,
-               bias = 0,
-               nuisance_method = "glm",
-               working_model = "lasso",
-               verbose=TRUE,
-               method = "atmle_tmle")
-
+                 method = "rct_only")
+mean(tmp_3$psi_coverage)
 var(tmp_3$psi_est)
 
 tmp <- run_sim(B = 200,
@@ -255,3 +260,13 @@ p_constant_bias_bias_converge <- ggplot(data_n, aes(x = n, y = constant_bias)) +
        y = "bias") +
   theme_minimal() +
   theme(text = element_text(size = 16))
+
+
+set.seed(123)
+W <- runif(1000)
+A <- rbinom(1000, 1, 0.6*W)
+Y <- 0.5+1.3*A+0.7*W
+fit <- lm(A ~ W)
+coef(fit)
+
+
