@@ -47,8 +47,8 @@ atmle_tmle <- function(data,
     tau <- tau_star
   }
 
-  psi_pound_est <- mean((1-Pi_star$A0)*tau_star$A0-(1-Pi_star$A1)*tau_star$A1)
-  psi_pound_eic <- get_eic_psi_pound(Pi_star, tau_star, g, theta, psi_pound_est, S, A, Y, n)
+  psi_pound_est <- mean((1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1)
+  psi_pound_eic <- get_eic_psi_pound(Pi, tau, g, theta, psi_pound_est, S, A, Y, n)
 
   psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE))
   psi_pound_ci_lower <- psi_pound_est-1.96*psi_pound_se/sqrt(n)

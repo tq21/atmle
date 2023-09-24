@@ -22,8 +22,6 @@ nonparametric <- function(data,
 
   if (verbose) print("learning P(A=1|S,W)")
   g <- learn_g_SW(S, W, A, p_rct, method = nuisance_method)
-  #g <- list()
-  #g$pred <- rep(p_rct, n)
 
   if (verbose) print("learning P(S=1|W)")
   Pi <- learn_S_W(S, W, method = nuisance_method)

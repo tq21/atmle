@@ -1,34 +1,60 @@
-get_res <- function(atmle_both_res, atmle_tmle_res, escvtmle_res) {
-  bias_atmle_both <- unlist(map(atmle_both_res$all_psi_est, function(.x) mean(.x-bA)))
-  bias_atmle_tmle <- unlist(map(atmle_tmle_res$all_psi_est, function(.x) mean(.x-bA)))
-  bias_escvtmle <- unlist(map(escvtmle_res$all_psi_est, function(.x) mean(.x-bA)))
+get_bias <- function(res, bA) {
+  return(unlist(map(res$all_psi_est, function(.x) mean(.x-bA))))
+}
 
-  se_atmle_both <- unlist(map(atmle_both_res$all_psi_est, function(.x) sd(.x)))
-  se_atmle_tmle <- unlist(map(atmle_tmle_res$all_psi_est, function(.x) sd(.x)))
-  se_escvtmle <- unlist(map(escvtmle_res$all_psi_est, function(.x) sd(.x)))
+get_se <- function(res) {
+  return(unlist(map(res$all_psi_est, function(.x) sd(.x))))
+}
 
-  var_atmle_both <- unlist(map(atmle_both_res$all_psi_est, function(.x) var(.x)))
-  var_atmle_tmle <- unlist(map(atmle_tmle_res$all_psi_est, function(.x) var(.x)))
-  var_escvtmle <- unlist(map(escvtmle_res$all_psi_est, function(.x) var(.x)))
+get_var <- function(res) {
+  return(unlist(map(res$all_psi_est, function(.x) var(.x))))
+}
 
+get_cover <- function(res) {
+  return(unlist(map(res$all_psi_coverage, function(.x) mean(.x))))
+}
+
+get_res <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, rct_only_res) {
+  # bias
+  bias_atmle_both <- get_bias(atmle_both_res, bA)
+  bias_atmle_tmle <- get_bias(atmle_tmle_res, bA)
+  bias_escvtmle <- get_bias(escvtmle_res, bA)
+  bias_rct_only <- get_bias(rct_only_res, bA)
+
+  # standard error
+  se_atmle_both <- get_se(atmle_both_res)
+  se_atmle_tmle <- get_se(atmle_tmle_res)
+  se_escvtmle <- get_se(escvtmle_res)
+  se_rct_only <- get_se(rct_only_res)
+
+  # variance
+  var_atmle_both <- get_var(atmle_both_res)
+  var_atmle_tmle <- get_var(atmle_tmle_res)
+  var_escvtmle <- get_var(escvtmle_res)
+  var_rct_only <- get_var(rct_only_res)
+
+  # mse
   mse_atmle_both <- bias_atmle_both^2 + var_atmle_both
   mse_atmle_tmle <- bias_atmle_tmle^2 + var_atmle_tmle
   mse_escvtmle <- bias_escvtmle^2 + var_escvtmle
+  mse_rct_only <- bias_rct_only^2 + var_rct_only
 
-  cover_atmle_both <- unlist(map(atmle_both_res$all_psi_coverage, function(.x) mean(.x)))
-  cover_atmle_tmle <- unlist(map(atmle_tmle_res$all_psi_coverage, function(.x) mean(.x)))
-  cover_escvtmle <- unlist(map(escvtmle_res$all_psi_coverage, function(.x) mean(.x)))
+  # coverage
+  cover_atmle_both <- get_cover(atmle_both_res)
+  cover_atmle_tmle <- get_cover(atmle_tmle_res)
+  cover_escvtmle <- get_cover(escvtmle_res)
+  cover_rct_only <- get_cover(rct_only_res)
 
   return(data.frame(n = seq(n_min, n_max, n_step),
-                    estimator = rep(c("A-TMLE", "A-TMLE*", "ESCVTMLE"), each = length(bias_atmle_both)),
-                    bias = c(bias_atmle_both, bias_atmle_tmle, bias_escvtmle),
-                    se = c(se_atmle_both, se_atmle_tmle, se_escvtmle),
-                    mse = c(mse_atmle_both, mse_atmle_tmle, mse_escvtmle),
-                    coverage = c(cover_atmle_both, cover_atmle_tmle, cover_escvtmle)))
+                    estimator = rep(c("A-TMLE", "A-TMLE*", "ESCVTMLE", "RCT ONLY"), each = length(bias_atmle_both)),
+                    bias = c(bias_atmle_both, bias_atmle_tmle, bias_escvtmle, bias_rct_only),
+                    se = c(se_atmle_both, se_atmle_tmle, se_escvtmle, se_rct_only),
+                    mse = c(mse_atmle_both, mse_atmle_tmle, mse_escvtmle, mse_rct_only),
+                    coverage = c(cover_atmle_both, cover_atmle_tmle, cover_escvtmle, cover_rct_only)))
 }
 
-get_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, title) {
-  dt_res <- get_res(atmle_both_res, atmle_tmle_res, escvtmle_res)
+get_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, rct_only_res, title) {
+  dt_res <- get_res(atmle_both_res, atmle_tmle_res, escvtmle_res, rct_only_res)
   dt_res <- dt_res[order(dt_res$n), ]
 
   p_bias <- ggplot(dt_res, aes(x = n, y = abs(bias), color = estimator)) +
@@ -101,11 +127,13 @@ get_relative_mse_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, 
                                         each = length(seq(n_min, n_max, n_step))),
                             ratio = c(mse_escvtmle / mse_atmle, mse_escvtmle / mse_atmle_star))
   relative_mse_plot <- ggplot(dt_relative, aes(x = n, y = ratio, color = names)) +
-    geom_point() +
-    geom_line() +
+    geom_point(size = 1.5) +
+    geom_line(linewidth = 1) +
+    geom_hline(yintercept = 1, color = "red", linetype = "dashed", linewidth = 1) +
     labs(title = name,
          x = "n",
          y = "relative mse") +
     theme_minimal() +
-    theme(text = element_text(size = 16))
+    theme(text = element_text(size = 16),
+          plot.title = element_text(hjust = 0.5))
 }

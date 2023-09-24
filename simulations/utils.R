@@ -10,8 +10,8 @@ generate_data <- function(N, bA, bias, pRCT){
   UY <- rnorm(N, 0, 1)
 
   # S
-  S <- rbinom(N, 1, 0.05)
-  #S <- sample(c(rep(1, 200), rep(0, N - 200)))
+  #S <- rbinom(N, 1, 0.5)
+  #S <- c(rep(1, 100), rep(0, N - 100)) # this does not work
 
   # W
   # W1 <- rnorm(N)
@@ -22,45 +22,64 @@ generate_data <- function(N, bA, bias, pRCT){
   W2 <- runif(N)
   W3 <- runif(N)
   W4 <- runif(N)
+  # W1 <- runif(N)
+  # W2 <- runif(N, -2, 4)
+  # W3 <- rbinom(N, 1, 0.7)
+  # W4 <- rgamma(N, 3, 1)
+
+  # S
+  S <- rbinom(N, 1, 0.5)
 
   # A
   A <- vector(length = N)
-  #A[S == 0] <- rbinom(N - sum(S), 1, 0.6*W1)
+  A <- rbinom(N, 1, pRCT)
+
+  #A[S == 0] <- rbinom(N - sum(S), 1, 0.67)
   #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-0.5*W1+0.9*W2-1.2*W3+0.3*W4))
-  A[S == 0] <- rbinom(N - sum(S), 1, 0.5)
-  A[S == 1] <- rbinom(sum(S), 1, pRCT) # rct
+  #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-5*W1^2-5*W2^3+0.9*W2-1.2*W3+0.3*W4))
+  #A[S == 0] <- rbinom(N - sum(S), 1, 0.05)
+  #A[S == 1] <- rbinom(sum(S), 1, pRCT) # rct
 
   # Y
   Y <- vector(length = N)
   if (is.numeric(bias)) {
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bias+UY # RWD has bias
-    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
+    b <- bias
+    # if (bias != 0) {
+    #   b <- rnorm(N, bias, 1)
+    # }
+    Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A-b+UY # RWD has bias
+    Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "param_simple") {
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+0.2*W1-0.6+UY
+    b <- 1.3*W1+1.9+rnorm(N)
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4-b*A+UY
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "param_complex") {
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+0.2*W1+0.3*W2+0.4*W3-0.2*W4-0.6+UY
-    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
+    b <- 1.3*W1+1.1*W2+0.9*W3-1.1*W4+1.2+rnorm(N)
+    Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA-b*A+UY
+    Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "HAL") {
     Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY+
-      100*as.numeric(W1 > 0.5)+5*as.numeric(W2 > 0.5)+5*as.numeric(W3 > 0.3)+5*as.numeric(W4 > 0.7)-0.5
+      -0.5
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "hard") {
     Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
-      1.3*W1+0.9*W2+0.7*W3^3+1.5*W4^2+1.5*W1*W2+0.9*W1*W4^2-0.6
+      1.3*W1+0.9*W2^2+0.7*W3^3+1.5*W4^2+1.5*W1*W2+1.9*W1*W2*W4^2-0.6
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
-  } else if (bias == "test") {
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+1.2*W1+0.8*W2+0.7*W3-0.4*W4+0.8+UY
+  } else if (bias == "sinusoidal") {
+    Y_S0 <- 0.3+bA*A+0.5*W1^2+0.1*W2^3+0.3*W3-0.5*W4+UY+
+      3.8*W3*as.numeric(W1 < 0.5)* sin(pi/2*abs(W1))+
+      4*as.numeric(W2 > 0.7)*cos(pi/2*abs(W1))+
+      2.1*W4*sin(pi*W4)+3.2*W3*cos(abs(W4-W3))
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
@@ -126,6 +145,26 @@ run_sim <- function(B,
                         working_model=working_model,
                         p_rct = pRCT,
                         verbose = FALSE)
+    } else if (method == "atmle psi_tilde") {
+      res <- psi_tilde_only_atmle(data,
+                                  S_node = 1,
+                                  W_node = c(2, 3, 4, 5),
+                                  A_node = 6,
+                                  Y_node = 7,
+                                  nuisance_method=nuisance_method,
+                                  working_model=working_model,
+                                  p_rct = pRCT,
+                                  verbose = FALSE)
+    } else if (method == "tmle psi_tilde") {
+      res <- psi_tilde_only_tmle(data,
+                                 S_node = 1,
+                                 W_node = c(2, 3, 4, 5),
+                                 A_node = 6,
+                                 Y_node = 7,
+                                 nuisance_method=nuisance_method,
+                                 working_model=working_model,
+                                 p_rct = pRCT,
+                                 verbose = FALSE)
     } else if (method == "escvtmle") {
       data$S <- 1 - data$S
       tmp <- ES.cvtmle(txinrwd = TRUE,
@@ -135,7 +174,7 @@ run_sim <- function(B,
                        treatment_var = "A",
                        treatment = 1,
                        outcome = "Y",
-                       pRCT = 0.5,
+                       pRCT = pRCT,
                        family = "gaussian",
                        Q.SL.library = c("SL.glm"),
                        g.SL.library = c("SL.glm"),
@@ -155,6 +194,16 @@ run_sim <- function(B,
                       nuisance_method=nuisance_method,
                       p_rct = pRCT,
                       verbose = FALSE)
+    } else if (method == "tmle") {
+      res <- nonparametric(data,
+                           S_node = 1,
+                           W_node = c(2, 3, 4, 5),
+                           A_node = 6,
+                           Y_node = 7,
+                           nuisance_method = nuisance_method,
+                           working_model = working_model,
+                           p_rct = pRCT,
+                           verbose = FALSE)
     }
 
     if (res$lower <= bA & res$upper >= bA) {
@@ -241,6 +290,26 @@ run_sim_n_increase <- function(B,
                           working_model=working_model,
                           p_rct = pRCT,
                           verbose = FALSE)
+      } else if (method == "atmle psi_tilde") {
+        res <- psi_tilde_only_atmle(data,
+                                    S_node = 1,
+                                    W_node = c(2, 3, 4, 5),
+                                    A_node = 6,
+                                    Y_node = 7,
+                                    nuisance_method=nuisance_method,
+                                    working_model=working_model,
+                                    p_rct = pRCT,
+                                    verbose = FALSE)
+      } else if (method == "tmle psi_tilde") {
+        res <- psi_tilde_only_tmle(data,
+                                   S_node = 1,
+                                   W_node = c(2, 3, 4, 5),
+                                   A_node = 6,
+                                   Y_node = 7,
+                                   nuisance_method=nuisance_method,
+                                   working_model=working_model,
+                                   p_rct = pRCT,
+                                   verbose = FALSE)
       } else if (method == "escvtmle") {
         data$S <- 1 - data$S
         tmp <- ES.cvtmle(txinrwd = TRUE,
@@ -250,7 +319,7 @@ run_sim_n_increase <- function(B,
                          treatment_var = "A",
                          treatment = 1,
                          outcome = "Y",
-                         pRCT = 0.5,
+                         pRCT = pRCT,
                          family = "gaussian",
                          Q.SL.library = c("SL.glm"),
                          g.SL.library = c("SL.glm"),
@@ -269,7 +338,7 @@ run_sim_n_increase <- function(B,
                              Y_node = 7,
                              nuisance_method = nuisance_method,
                              working_model = working_model,
-                             p_rct = 0.5,
+                             p_rct = pRCT,
                              verbose = FALSE)
       } else if (method == "rct_only") {
         res <- rct_only(data,

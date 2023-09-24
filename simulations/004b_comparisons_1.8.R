@@ -16,6 +16,8 @@ bA <- 1.5 # true ATE
 bias <- 1.8 # true bias
 nuisance_method <- "glm"
 working_model <- "lasso"
+pRCT <- 0.67
+f_name <- "1.8_bias_glm_lasso"
 
 # 1. A-TMLE both psi_pound and psi_tilde
 atmle_both_res <- run_sim_n_increase(B = B,
@@ -24,12 +26,13 @@ atmle_both_res <- run_sim_n_increase(B = B,
                                      n_step = n_step,
                                      bA = bA,
                                      bias = bias,
+                                     pRCT = pRCT,
                                      nuisance_method = nuisance_method,
                                      working_model = working_model,
                                      verbose = TRUE,
                                      method = "atmle")
 saveRDS(atmle_both_res,
-        file = "out/atmle_both_1.8_bias_glm_lasso_" %+% format(Sys.time(), "%Y%m%d_%H%M%S") %+% ".RDS")
+        file = "out/atmle_both_" %+% f_name %+% format(Sys.time(), "_%Y%m%d_%H%M%S") %+% ".RDS")
 
 # 2. A-TMLE psi_pound, regular TMLE psi_tilde
 atmle_tmle_res <- run_sim_n_increase(B = B,
@@ -38,12 +41,13 @@ atmle_tmle_res <- run_sim_n_increase(B = B,
                                      n_step = n_step,
                                      bA = bA,
                                      bias = bias,
+                                     pRCT = pRCT,
                                      nuisance_method = nuisance_method,
                                      working_model = working_model,
                                      verbose = TRUE,
                                      method = "atmle_tmle")
 saveRDS(atmle_tmle_res,
-        file = "out/atmle_tmle_1.8_bias_glm_lasso_" %+% format(Sys.time(), "%Y%m%d_%H%M%S") %+% ".RDS")
+        file = "out/atmle_tmle_" %+% f_name %+% format(Sys.time(), "_%Y%m%d_%H%M%S") %+% ".RDS")
 
 # 3. ESCVTMLE
 escvtmle_res <- run_sim_n_increase(B = B,
@@ -52,12 +56,28 @@ escvtmle_res <- run_sim_n_increase(B = B,
                                    n_step = n_step,
                                    bA = bA,
                                    bias = bias,
+                                   pRCT = pRCT,
                                    nuisance_method = nuisance_method,
                                    working_model = working_model,
                                    verbose = TRUE,
                                    method = "escvtmle")
 saveRDS(escvtmle_res,
-        file = "out/escvtmle_1.8_bias_glm_lasso_" %+% format(Sys.time(), "%Y%m%d_%H%M%S") %+% ".RDS")
+        file = "out/escvtmle_" %+% f_name %+% format(Sys.time(), "_%Y%m%d_%H%M%S") %+% ".RDS")
+
+# 4. RCT only
+rct_only_res <- run_sim_n_increase(B = B,
+                                   n_min = n_min,
+                                   n_max = n_max,
+                                   n_step = n_step,
+                                   bA = bA,
+                                   bias = bias,
+                                   pRCT = pRCT,
+                                   nuisance_method = nuisance_method,
+                                   working_model = working_model,
+                                   verbose = TRUE,
+                                   method = "rct_only")
+saveRDS(rct_only_res,
+        file = "out/rct_only_" %+% f_name %+% format(Sys.time(), "_%Y%m%d_%H%M%S") %+% ".RDS")
 
 # # 4. Nonparametric TMLE
 # tmle_res <- run_sim_n_increase(B = B,

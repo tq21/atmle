@@ -21,14 +21,18 @@ fit_relaxed_lasso <- function(X, Y, family, weights=NULL) {
   return(list(beta = beta, pred = pred))
 }
 
-
-
 fit_relaxed_hal <- function(X, Y, family, weights=NULL) {
-
   # fit hal
-  hal_fit <- fit_hal(X = X, Y = Y, family = family, weights = weights, smoothness_orders = 0)
+  hal_fit <- fit_hal(X = X, Y = Y,
+                     family = family,
+                     weights = weights,
+                     max_degree = 3,
+                     smoothness_orders = 0,
+                     X_unpenalized = X)
   basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
-  x_basis <- cbind(1, as.matrix(hal9001::make_design_matrix(X, basis_list)))
+  basis_list <- basis_list[1:(length(basis_list)-ncol(X))]
+  x_basis <- as.matrix(cbind(as.matrix(hal9001::make_design_matrix(X, basis_list)), X))
+  x_basis <- cbind(1, x_basis)
 
   # relaxed fit
   beta <- NULL
@@ -50,7 +54,8 @@ fit_relaxed_hal <- function(X, Y, family, weights=NULL) {
 }
 
 make_counter_design_matrix <- function(basis_list, X_counterfactual) {
-  return(cbind(1, as.matrix(hal9001::make_design_matrix(X_counterfactual, basis_list))))
+  M <- cbind(as.matrix(hal9001::make_design_matrix(X_counterfactual, basis_list)), X_counterfactual)
+  return(cbind(1, M))
 }
 
 to_prob <- function(pred) {

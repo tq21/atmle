@@ -8,33 +8,73 @@ library(purrr)
 # function to learn theta(W,A)=E(Y|W,A)
 learn_theta <- function(W, A, Y, method = "lasso") {
   pred <- numeric(length = length(Y))
-  folds <- make_folds(n = length(Y), V = 5)
-  X <- data.frame(W, A = A)
+  X_A1 <- W[A == 1, ]
+  X_A0 <- W[A == 0, ]
 
   if (method == "lasso") {
-    walk(folds, function(.x) {
-      train_idx <- .x$training_set
-      valid_idx <- .x$validation_set
-      fit <- cv.glmnet(x = as.matrix(X[train_idx, ]), y = Y[train_idx], keep = TRUE, alpha = 1, nfolds = 5)
-      pred[valid_idx] <<- as.numeric(predict(fit, newx = as.matrix(X[valid_idx, ]), s = "lambda.min"))
-    })
-
-  } else if (method == "HAL") {
-    # TODO: add cross-fitting
-    fit <- fit_hal(X = as.matrix(X), Y = Y, family = "gaussian", smoothness_orders = 0)
-    pred <- as.numeric(predict(fit, new_data = as.matrix(X)))
-
+    fit_A1 <- cv.glmnet(x = as.matrix(X_A1), y = Y[A == 1], keep = TRUE, alpha = 1, nfolds = 5)
+    A1 <- as.numeric(predict(fit_A1, newx = as.matrix(W), s = "lambda.min"))
+    fit_A0 <- cv.glmnet(x = as.matrix(X_A0), y = Y[A == 0], keep = TRUE, alpha = 1, nfolds = 5)
+    A0 <- as.numeric(predict(fit_A0, newx = as.matrix(W), s = "lambda.min"))
+    pred[A == 1] <- A1[A == 1]
+    pred[A == 0] <- A0[A == 0]
   } else if (method == "glm") {
-    walk(folds, function(.x) {
+    # A = 1
+    folds_A1 <- make_folds(n = sum(A), V = 5)
+    A1 <- numeric(sum(A))
+    walk(folds_A1, function(.x) {
       train_idx <- .x$training_set
       valid_idx <- .x$validation_set
-      fit <- lm(Y[train_idx] ~., data = X[train_idx, ])
-      pred[valid_idx] <<- as.numeric(predict(fit, newdata = X[valid_idx, ]))
+      fit_A1 <- lm(Y[A == 1][train_idx] ~., data = X_A1[train_idx, ])
+      A1[valid_idx] <<- as.numeric(predict(fit_A1, newdata = X_A1[valid_idx, ]))
     })
+
+    # A = 0
+    folds_A0 <- make_folds(n = length(A) - sum(A), V = 5)
+    A0 <- numeric(length(A) - sum(A))
+    walk(folds_A0, function(.x) {
+      train_idx <- .x$training_set
+      valid_idx <- .x$validation_set
+      fit_A0 <- lm(Y[A == 0][train_idx] ~., data = X_A0[train_idx, ])
+      A0[valid_idx] <<- as.numeric(predict(fit_A0, newdata = X_A0[valid_idx, ]))
+    })
+
+    pred[A == 1] <- A1
+    pred[A == 0] <- A0
   }
 
-  return(pred)
+  return(list(pred = pred))
 }
+
+# learn_theta <- function(W, A, Y, method = "lasso") {
+#   pred <- numeric(length = length(Y))
+#   folds <- make_folds(n = length(Y), V = 5)
+#   X <- data.frame(W, A = A)
+#
+#   if (method == "lasso") {
+#     walk(folds, function(.x) {
+#       train_idx <- .x$training_set
+#       valid_idx <- .x$validation_set
+#       fit <- cv.glmnet(x = as.matrix(X[train_idx, ]), y = Y[train_idx], keep = TRUE, alpha = 1, nfolds = 5)
+#       pred[valid_idx] <<- as.numeric(predict(fit, newx = as.matrix(X[valid_idx, ]), s = "lambda.min"))
+#     })
+#
+#   } else if (method == "HAL") {
+#     # TODO: add cross-fitting
+#     fit <- fit_hal(X = as.matrix(X), Y = Y, family = "gaussian", smoothness_orders = 0)
+#     pred <- as.numeric(predict(fit, new_data = as.matrix(X)))
+#
+#   } else if (method == "glm") {
+#     walk(folds, function(.x) {
+#       train_idx <- .x$training_set
+#       valid_idx <- .x$validation_set
+#       fit <- lm(Y[train_idx] ~., data = X[train_idx, ])
+#       pred[valid_idx] <<- as.numeric(predict(fit, newdata = X[valid_idx, ]))
+#     })
+#   }
+#
+#   return(list(pred = pred))
+# }
 
 # function to learn theta_tilde(W)=E(Y|W)
 learn_theta_tilde <- function(W, Y, method = "lasso") {
@@ -76,14 +116,18 @@ learn_Pi <- function(S, W, A, method = "lasso") {
   X <- data.frame(W, A = A)
 
   if (method == "lasso") {
-    walk(folds, function(.x) {
-      train_idx <- .x$training_set
-      valid_idx <- .x$validation_set
-      fit <- cv.glmnet(x = as.matrix(X[train_idx, ]), y = S[train_idx], keep = TRUE, alpha = 1, nfolds = 5, family = "binomial")
-      pred[valid_idx] <<- as.numeric(predict(fit, newx = as.matrix(X[valid_idx, ]), s = "lambda.min", type = "response"))
-      A1[valid_idx] <<- as.numeric(predict(fit, newx = as.matrix(data.frame(W, A = 1)[valid_idx, ]), s = "lambda.min", type = "response"))
-      A0[valid_idx] <<- as.numeric(predict(fit, newx = as.matrix(data.frame(W, A = 0)[valid_idx, ]), s = "lambda.min", type = "response"))
-    })
+    fit <- cv.glmnet(x = as.matrix(X), y = S, keep = TRUE, alpha = 1, nfolds = 5, family = "binomial")
+    pred <- as.numeric(predict(fit, newx = as.matrix(X), s = "lambda.1se", type = "response"))
+    A1 <- pred
+    A0 <- pred
+    # walk(folds, function(.x) {
+    #   train_idx <- .x$training_set
+    #   valid_idx <- .x$validation_set
+    #   fit <- cv.glmnet(x = as.matrix(X[train_idx, ]), y = S[train_idx], keep = TRUE, alpha = 1, nfolds = 5, family = "binomial")
+    #   pred[valid_idx] <<- as.numeric(predict(fit, newx = as.matrix(X[valid_idx, ]), s = "lambda.1se", type = "response"))
+    #   A1[valid_idx] <<- as.numeric(predict(fit, newx = as.matrix(data.frame(W, A = 1)[valid_idx, ]), s = "lambda.1se", type = "response"))
+    #   A0[valid_idx] <<- as.numeric(predict(fit, newx = as.matrix(data.frame(W, A = 0)[valid_idx, ]), s = "lambda.1se", type = "response"))
+    # })
 
   } else if (method == "HAL") {
     # TODO: add cross-fitting
@@ -101,6 +145,28 @@ learn_Pi <- function(S, W, A, method = "lasso") {
       A1[valid_idx] <<- as.numeric(predict(fit, newdata = data.frame(W, A = 1)[valid_idx, ], type = "response"))
       A0[valid_idx] <<- as.numeric(predict(fit, newdata = data.frame(W, A = 0)[valid_idx, ], type = "response"))
     })
+    # # A = 1
+    # folds_A1 <- make_folds(n = sum(A), V = 5)
+    # A1 <- numeric(sum(A))
+    # walk(folds_A1, function(.x) {
+    #   train_idx <- .x$training_set
+    #   valid_idx <- .x$validation_set
+    #   fit_A1 <- lm(S[A == 1][train_idx] ~., data = X_A1[train_idx, ])
+    #   A1[valid_idx] <<- as.numeric(predict(fit_A1, newdata = X_A1[valid_idx, ]))
+    # })
+#
+    # # A = 0
+    # folds_A0 <- make_folds(n = length(A) - sum(A), V = 5)
+    # A0 <- numeric(length(A) - sum(A))
+    # walk(folds_A0, function(.x) {
+    #   train_idx <- .x$training_set
+    #   valid_idx <- .x$validation_set
+    #   fit_A0 <- lm(S[A == 0][train_idx] ~., data = X_A0[train_idx, ])
+    #   A0[valid_idx] <<- as.numeric(predict(fit_A0, newdata = X_A0[valid_idx, ]))
+    # })
+#
+    # pred[A == 1] <- A1
+    # pred[A == 0] <- A0
   }
 
   return(list(pred = pred,
@@ -132,12 +198,12 @@ learn_g <- function(S, W, A, p_rct, method = "lasso") {
     walk(folds, function(.x) {
       train_idx <- .x$training_set
       valid_idx <- .x$validation_set
-      #fit <- glm(A[S == 0][train_idx] ~., data = X[train_idx, ], family = "binomial")
-      fit <- lm(A[S == 0][train_idx] ~., data = X[train_idx, ])
+      fit <- glm(A[S == 0][train_idx] ~., data = X[train_idx, ], family = "binomial")
+      #fit <- lm(A[S == 0][train_idx] ~., data = X[train_idx, ])
       pred[S == 0][valid_idx] <<- as.numeric(predict(fit, newdata = X[valid_idx, ], type = "response"))
     })
   }
-  pred <- .bound(pred, 0.001, 0.999)
+  #pred <- .bound(pred, 0.001, 0.999)
 
   return(pred)
 }
@@ -234,15 +300,162 @@ learn_tau_test <- function(S, W, A, Y, Pi, theta, method = "lasso") {
               x_basis_A0 = x_basis_A0))
 }
 
+
+# learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
+#   weights <- 1
+#   pseudo_outcome <- (Y-theta$pred)/(S-Pi$pred)
+#   pseudo_weights <- (S-Pi$pred)^2*weights
+   #pseudo_outcome_A0 <- (Y[A == 0]-theta[A == 0])/(S[A == 0]-Pi$pred[A == 0])
+   #pseudo_weights_A0 <- (S[A == 0]-Pi$pred[A == 0])^2*weights
+   #pseudo_outcome_A1 <- (Y[A == 1]-theta[A == 1])/(S[A == 1]-Pi$pred[A == 1])
+   #pseudo_weights_A1 <- (S[A == 1]-Pi$pred[A == 1])^2*weights
+#
+#   pred <- numeric(length = length(A))
+#   A1 <- numeric(length = length(A))
+#   A0 <- numeric(length = length(A))
+#   x_basis <- NULL
+#   x_basis_A1 <- NULL
+#   x_basis_A0 <- NULL
+#
+#   X <- data.frame(W, A)
+#   X_A1 <- data.frame(W, A = 1)
+#   X_A0 <- data.frame(W, A = 0)
+#   #X <- data.frame(W)
+#   #X_A1 <- data.frame(W[A == 1, ])
+#   #X_A0 <- data.frame(W[A == 0, ])
+#
+#   if (method == "lasso") {
+#     fit <- cv.glmnet(x = as.matrix(X), y = pseudo_outcome,
+#                      family = "gaussian", weights = pseudo_weights,
+#                      keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
+#     A1 <- as.numeric(predict(fit, newx = as.matrix(X_A1), type = "response"))
+#     A0 <- as.numeric(predict(fit, newx = as.matrix(X_A0), type = "response"))
+#
+#     # A = 1
+#     #fit_A1 <- cv.glmnet(x = as.matrix(X_A1), y = pseudo_outcome_A1,
+#     #                    family = "gaussian", weights = pseudo_weights_A1,
+#     #                    keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
+#     #A1 <- as.numeric(predict(fit_A1, newx = as.matrix(X), type = "response"))
+#
+#     # A = 0
+#     #fit_A0 <- cv.glmnet(x = as.matrix(X_A0), y = pseudo_outcome_A0,
+#     #                    family = "gaussian", weights = pseudo_weights_A0,
+#     #                    keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
+#     #A0 <- as.numeric(predict(fit_A0, newx = as.matrix(X), type = "response"))
+#
+#     # design matrices
+#     #non_zero_A0 <- which(as.numeric(coef(fit_A0)) != 0)
+#     #non_zero_A1 <- which(as.numeric(coef(fit_A1)) != 0)
+#     #non_zero <- union(non_zero_A0, non_zero_A1)
+#     non_zero <- which(as.numeric(coef(fit)) != 0)
+#     x_basis <- cbind(1, as.matrix(X))[, non_zero, drop = FALSE]
+#     x_basis_A1 <- cbind(1, as.matrix(data.table(W, A = 1)))[, non_zero, drop = FALSE]
+#     x_basis_A0 <- cbind(1, as.matrix(data.table(W, A = 0)))[, non_zero, drop = FALSE]
+#   } else if (method == "HAL") {
+#     fit <- fit_relaxed_hal(as.matrix(data.table(W, A = A)),
+#                            pseudo_outcome, "gaussian", weights = pseudo_weights)
+#     x_basis <- make_counter_design_matrix(fit$basis_list, as.matrix(X))
+#     x_basis_A1 <- make_counter_design_matrix(fit$basis_list, as.matrix(X_A1))
+#     x_basis_A0 <- make_counter_design_matrix(fit$basis_list, as.matrix(X_A0))
+#     A1 <- as.vector(x_basis_A1 %*% fit$beta)
+#     A0 <- as.vector(x_basis_A0 %*% fit$beta)
+#   } else if (method == "glm") {
+#     # A = 1
+#     fit_A1 <- lm(pseudo_outcome_A1 ~ ., weights = pseudo_weights_A1, data = X_A1)
+#     A1 <- as.numeric(predict(fit_A1, newdata = X))
+#
+#     # A = 0
+#     fit_A0 <- lm(pseudo_outcome_A0 ~ ., weights = pseudo_weights_A0, data = X_A0)
+#     A0 <- as.numeric(predict(fit_A0, newdata = X))
+#
+#     x_basis <- cbind(1, as.matrix(data.table(W, A = A)))
+#     x_basis_A1 <- cbind(1, as.matrix(data.table(W, A = 1)))
+#     x_basis_A0 <- cbind(1, as.matrix(data.table(W, A = 0)))
+#   }
+#
+#   return(list(A1 = A1,
+#               A0 = A0,
+#               x_basis = x_basis,
+#               x_basis_A1 = x_basis_A1,
+#               x_basis_A0 = x_basis_A0))
+# }
+
 # function to learn tau, R-learner
+# learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
+#   weights <- 1
+#   pseudo_outcome_A1 <- (Y[A == 1]-theta$pred[A == 1])/(S[A == 1]-Pi$pred[A == 1])
+#   pseudo_outcome_A0 <- (Y[A == 0]-theta$pred[A == 0])/(S[A == 0]-Pi$pred[A == 0])
+#   pseudo_weights_A1 <- (S[A == 1]-Pi$pred[A == 1])^2*weights
+#   pseudo_weights_A0 <- (S[A == 0]-Pi$pred[A == 0])^2*weights
+#
+#   A1 <- numeric(length = length(A))
+#   A0 <- numeric(length = length(A))
+#   pred <- numeric(length = length(A))
+#   x_basis <- NULL
+#   x_basis_A1 <- NULL
+#   x_basis_A0 <- NULL
+#
+#   if (method == "lasso") {
+#     fit_A1 <- cv.glmnet(x = as.matrix(W[A == 1,]), y = pseudo_outcome_A1,
+#                         family = "gaussian", weights = pseudo_weights_A1,
+#                         keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
+#     A1 <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coef(fit_A1, s = "lambda.1se")))
+#     fit_A0 <- fit_A1
+#     # fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0,]), y = pseudo_outcome_A0,
+#     #                     family = "gaussian", weights = pseudo_weights_A0,
+#     #                     keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
+#     A0 <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coef(fit_A0, s = "lambda.1se")))
+#     pred[A == 1] <- A1[A == 1]
+#     pred[A == 0] <- A0[A == 0]
+#
+#     # design matrices
+#     non_zero_A1 <- which(as.numeric(coef(fit_A1, s = "lambda.1se")) != 0)
+#     non_zero_A0 <- which(as.numeric(coef(fit_A0, s = "lambda.1se")) != 0)
+#     x_basis_A1_tmp <- cbind(1, W)[, non_zero_A1, drop = FALSE] * as.numeric(A == 1)
+#     x_basis_A0_tmp <- cbind(1, W)[, non_zero_A0, drop = FALSE] * as.numeric(A == 0)
+#     x_basis <- as.matrix(cbind(x_basis_A1_tmp, x_basis_A0_tmp))
+#     x_basis_A1 <- x_basis * as.numeric(A == 1)
+#     x_basis_A0 <- x_basis * as.numeric(A == 0)
+#
+#   } else if (method == "HAL") {
+#     fit <- fit_relaxed_hal(as.matrix(X),
+#                            pseudo_outcome, "gaussian", weights = pseudo_weights)
+#     x_basis <- make_counter_design_matrix(fit$basis_list, as.matrix(X))
+#     x_basis_A1 <- make_counter_design_matrix(fit$basis_list, as.matrix(X_A1))
+#     x_basis_A0 <- make_counter_design_matrix(fit$basis_list, as.matrix(X_A0))
+#     A1 <- as.vector(x_basis_A1 %*% fit$beta)
+#     A0 <- as.vector(x_basis_A0 %*% fit$beta)
+#   } else if (method == "glm") {
+#     # A = 1
+#     fit_A1 <- lm(pseudo_outcome_A1 ~ ., weights = pseudo_weights_A1, data = W[A == 1, ])
+#     A1 <- as.numeric(predict(fit_A1, newdata = W))
+#
+#     # A = 0
+#     fit_A0 <- lm(pseudo_outcome_A0 ~ ., weights = pseudo_weights_A0, data = W[A == 0, ])
+#     A0 <- as.numeric(predict(fit_A0, newdata = W))
+#
+#     # design matrices
+#     x_basis_A1_tmp <- cbind(1, W) * as.numeric(A == 1)
+#     x_basis_A0_tmp <- cbind(1, W) * as.numeric(A == 0)
+#     x_basis <- as.matrix(cbind(x_basis_A1_tmp, x_basis_A0_tmp))
+#     x_basis_A1 <- x_basis * as.numeric(A == 1)
+#     x_basis_A0 <- x_basis * as.numeric(A == 0)
+#   }
+#
+#   return(list(A1 = A1,
+#               A0 = A0,
+#               pred = pred,
+#               x_basis = x_basis,
+#               x_basis_A1 = x_basis_A1,
+#               x_basis_A0 = x_basis_A0))
+# }
+
 learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
   weights <- 1
-  pseudo_outcome <- (Y-theta)/(S-Pi$pred)
-  pseudo_weights <- (S-Pi$pred)^2*weights
-  #pseudo_outcome_A0 <- (Y[A == 0]-theta[A == 0])/(S[A == 0]-Pi$pred[A == 0])
-  #pseudo_weights_A0 <- (S[A == 0]-Pi$pred[A == 0])^2*weights
-  #pseudo_outcome_A1 <- (Y[A == 1]-theta[A == 1])/(S[A == 1]-Pi$pred[A == 1])
-  #pseudo_weights_A1 <- (S[A == 1]-Pi$pred[A == 1])^2*weights
+  pseudo_outcome_A1 <- (Y[A == 1]-theta$pred[A == 1])/(S[A == 1]-Pi$pred[A == 1])
+  pseudo_outcome_A0 <- (Y[A == 0]-theta$pred[A == 0])/(S[A == 0]-Pi$pred[A == 0])
+  pseudo_weights_A1 <- (S[A == 1]-Pi$pred[A == 1])^2*weights
+  pseudo_weights_A0 <- (S[A == 0]-Pi$pred[A == 0])^2*weights
 
   pred <- numeric(length = length(A))
   A1 <- numeric(length = length(A))
@@ -259,32 +472,36 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
   #X_A0 <- data.frame(W[A == 0, ])
 
   if (method == "lasso") {
-    fit <- cv.glmnet(x = as.matrix(X), y = pseudo_outcome,
-                     family = "gaussian", weights = pseudo_weights,
-                     keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
-    A1 <- as.numeric(predict(fit, newx = as.matrix(X_A1), type = "response"))
-    A0 <- as.numeric(predict(fit, newx = as.matrix(X_A0), type = "response"))
 
-    # A = 1
-    #fit_A1 <- cv.glmnet(x = as.matrix(X_A1), y = pseudo_outcome_A1,
-    #                    family = "gaussian", weights = pseudo_weights_A1,
-    #                    keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
-    #A1 <- as.numeric(predict(fit_A1, newx = as.matrix(X), type = "response"))
+    # fit_theta <- lm(Y ~ ., data = data.frame(W))
+    # theta <- as.numeric(predict(fit_theta))
+    # pseudo_outcome_A0 <- (Y[A==0]-theta[A==0])/(S[A==0]-0.2)
+    # pseudo_weights_A0 <- (S[A==0]-0.2)^2*weights
+    # fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0,]), y = pseudo_outcome_A0,
+    #                     family = "gaussian", weights = pseudo_weights_A0,
+    #                     keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
+    # coef(fit_A0, s = "lambda.1se")
 
-    # A = 0
-    #fit_A0 <- cv.glmnet(x = as.matrix(X_A0), y = pseudo_outcome_A0,
-    #                    family = "gaussian", weights = pseudo_weights_A0,
-    #                    keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
-    #A0 <- as.numeric(predict(fit_A0, newx = as.matrix(X), type = "response"))
+    fit_A1 <- cv.glmnet(x = as.matrix(W[A == 1,]), y = pseudo_outcome_A1,
+                        family = "gaussian", weights = pseudo_weights_A1,
+                        keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
+    A1 <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coef(fit_A1, s = "lambda.min")))
+    fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0,]), y = pseudo_outcome_A0,
+                        family = "gaussian", weights = pseudo_weights_A0,
+                        keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
+    A0 <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coef(fit_A0, s = "lambda.min")))
+    pred[A == 1] <- A1[A == 1]
+    pred[A == 0] <- A0[A == 0]
 
     # design matrices
-    #non_zero_A0 <- which(as.numeric(coef(fit_A0)) != 0)
-    #non_zero_A1 <- which(as.numeric(coef(fit_A1)) != 0)
-    #non_zero <- union(non_zero_A0, non_zero_A1)
-    non_zero <- which(as.numeric(coef(fit)) != 0)
-    x_basis <- cbind(1, as.matrix(X))[, non_zero, drop = FALSE]
-    x_basis_A1 <- cbind(1, as.matrix(data.table(W, A = 1)))[, non_zero, drop = FALSE]
-    x_basis_A0 <- cbind(1, as.matrix(data.table(W, A = 0)))[, non_zero, drop = FALSE]
+    non_zero_A1 <- which(as.numeric(coef(fit_A1, s = "lambda.1se")) != 0)
+    non_zero_A0 <- which(as.numeric(coef(fit_A0, s = "lambda.1se")) != 0)
+    x_basis_A1_tmp <- cbind(1, W)[, non_zero_A1, drop = FALSE] * as.numeric(A == 1)
+    x_basis_A0_tmp <- cbind(1, W)[, non_zero_A0, drop = FALSE] * as.numeric(A == 0)
+    x_basis <- as.matrix(cbind(x_basis_A1_tmp, x_basis_A0_tmp))
+    x_basis_A1 <- x_basis * as.numeric(A == 1)
+    x_basis_A0 <- x_basis * as.numeric(A == 0)
+
   } else if (method == "HAL") {
     fit <- fit_relaxed_hal(as.matrix(data.table(W, A = A)),
                            pseudo_outcome, "gaussian", weights = pseudo_weights)
@@ -313,6 +530,7 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
               x_basis_A1 = x_basis_A1,
               x_basis_A0 = x_basis_A0))
 }
+
 
 learn_psi_tilde_test <- function(W, A, Y, g, theta, method = "lasso") {
   pseudo_outcome <- Y-theta
@@ -351,24 +569,23 @@ learn_psi_tilde <- function(W, A, Y, g, theta, method = "lasso") {
   pred <- NULL
   x_basis <- NULL
   if (method == "lasso") {
-    foldid <- sample(rep(seq(5), length = length(A)))
     fit <- cv.glmnet(x = as.matrix(data.table(W)),
                      y = pseudo_outcome, family = "gaussian", weights = pseudo_weights,
-                     keep = TRUE, foldid = foldid, alpha = 1, relax = TRUE)
-    y_lambda_min <- fit$lambda.min
-    pred <- as.numeric(predict(fit, newx = as.matrix(data.table(W)), s = y_lambda_min, type = "response"))
+                     keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
+    pred <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coef(fit, s = "lambda.1se")))
 
     # design matrix
-    x_basis <- cbind(1, as.matrix(data.table(W)))
+    non_zero <- which(as.numeric(coef(fit, s = "lambda.1se")) != 0)
+    x_basis <- as.matrix(cbind(1, W)[, non_zero, drop = FALSE])
   } else if (method == "HAL") {
     fit <- fit_relaxed_hal(as.matrix(data.table(W)), pseudo_outcome,
                            "gaussian", weights = pseudo_weights)
     pred <- as.numeric(fit$pred)
     x_basis <- make_counter_design_matrix(fit$basis_list, as.matrix(data.table(W)))
   } else if (method == "glm") {
-    fit <- lm(pseudo_outcome ~ ., data = data.frame(W))
+    fit <- lm(pseudo_outcome ~ ., weights = pseudo_weights, data = data.frame(W))
     pred <- as.numeric(predict(fit))
-    x_basis <- cbind(1, as.matrix(data.table(W)))
+    x_basis <- as.matrix(cbind(1, W))
   }
 
   return(list(pred = pred,
@@ -436,6 +653,7 @@ Pi_tmle <- function(S, W, A, g, tau, Pi, target_gwt=FALSE) {
   # whether to target using weight
   if(target_gwt){
     wt <- A/g*tau$A1+(1-A)/(1-g)*tau$A0
+    wt <- wt + min(wt)
     H1_n <- A
     H0_n <- 1-A
   } else{
@@ -478,29 +696,37 @@ get_eic_psi_pound_parametric <- function(Pi, tau, g, psi_pound, S, A, Y, n) {
   return(W_comp+Pi_comp+beta_comp-psi_pound)
 }
 
-get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound, S, A, Y, n) {
-  W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound # solved
+# get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound_est, S, A, Y, n) {
+#   W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound_est # solved
+#   Pi_comp <- ((A/g*tau$A1-(1-A)/(1-g)*tau$A0))*(S-Pi$pred) # solved
+#   IP <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
+#   D_beta <- tau$x_basis%*%IP*(S-Pi$pred)*(Y-theta$pred-(S-Pi$pred)*tau$pred)
+#   D_beta_A1 <- rowSums(D_beta*(tau$x_basis_A1*(1-Pi$A1)/n))
+#   D_beta_A0 <- rowSums(D_beta*(tau$x_basis_A0*(1-Pi$A0)/n))
+#   beta_comp <- D_beta_A0-D_beta_A1
+#
+#   return(W_comp+Pi_comp+beta_comp)
+# }
+
+get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound_est, S, A, Y, n) {
+  W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound_est # solved
   Pi_comp <- ((A/g*tau$A1-(1-A)/(1-g)*tau$A0))*(S-Pi$pred) # solved
   IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
-  #IM_A1 <- solve(t(tau$x_basis_A1)%*%diag((Pi$A1*(1-Pi$A1)))%*%tau$x_basis_A1/n)
-  #IM_A0 <- solve(t(tau$x_basis_A0)%*%diag((Pi$A0*(1-Pi$A0)))%*%tau$x_basis_A0/n)
-  IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
-  IM_A1 <- IM%*%colMeans(tau$x_basis_A1*(1-Pi$A1))
+  #IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
+  #IM_A1 <- IM%*%colMeans(tau$x_basis_A1*(1-Pi$A1))
+  IM_A0 <- IM%*%colMeans(diag(1-Pi$A0)%*%tau$x_basis_A0)
+  IM_A1 <- IM%*%colMeans(diag(1-Pi$A1)%*%tau$x_basis_A1)
   tmp <- vector(length = n)
   tmp[A == 1] <- tau$A1[A == 1]
   tmp[A == 0] <- tau$A0[A == 0]
-  D_beta_A0 <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
-  D_beta_A1 <- as.numeric(tau$x_basis%*%IM_A1)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
+  D_beta_A0 <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta$pred-(S-Pi$pred)*tmp)
+  D_beta_A1 <- as.numeric(tau$x_basis%*%IM_A1)*(S-Pi$pred)*(Y-theta$pred-(S-Pi$pred)*tmp)
   beta_comp <- D_beta_A0-D_beta_A1
-  #D_beta_A1 <- as.numeric(tau$x_basis_A1%*%IM_A1)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
-  #D_beta_A0 <- as.numeric(tau$x_basis_A0%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
-  #beta_comp <- D_beta_A0*(1-Pi$A0)-D_beta_A1*(1-Pi$A1)
-
-  return(W_comp+Pi_comp+beta_comp)
 }
 
 get_eic_psi_tilde <- function(psi_tilde, g_pred, theta, Y, A, n) {
   IM <- solve(t(psi_tilde$x_basis)%*%diag((g_pred*(1-g_pred)))%*%psi_tilde$x_basis/n)%*%colMeans(psi_tilde$x_basis)
+  #IM <- solve(t(psi_tilde$x_basis)%*%diag((A-g_pred)^2)%*%psi_tilde$x_basis/n)%*%colMeans(psi_tilde$x_basis)
   D_beta <- psi_tilde$x_basis%*%IM*(A-g_pred)*(Y-theta-(A-g_pred)*psi_tilde$pred)
   return(as.vector(psi_tilde$pred-mean(psi_tilde$pred)+D_beta))
 }
