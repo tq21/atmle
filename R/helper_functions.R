@@ -494,8 +494,8 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
     pred[A == 0] <- A0[A == 0]
 
     # design matrices
-    non_zero_A1 <- which(as.numeric(coef(fit_A1, s = "lambda.1se")) != 0)
-    non_zero_A0 <- which(as.numeric(coef(fit_A0, s = "lambda.1se")) != 0)
+    non_zero_A1 <- which(as.numeric(coef(fit_A1, s = "lambda.min")) != 0)
+    non_zero_A0 <- which(as.numeric(coef(fit_A0, s = "lambda.min")) != 0)
     x_basis_A1_tmp <- cbind(1, W)[, non_zero_A1, drop = FALSE] * as.numeric(A == 1)
     x_basis_A0_tmp <- cbind(1, W)[, non_zero_A0, drop = FALSE] * as.numeric(A == 0)
     x_basis <- as.matrix(cbind(x_basis_A1_tmp, x_basis_A0_tmp))
@@ -712,10 +712,10 @@ get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound_est, S, A, Y, n) {
   W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound_est # solved
   Pi_comp <- ((A/g*tau$A1-(1-A)/(1-g)*tau$A0))*(S-Pi$pred) # solved
   IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
-  #IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
-  #IM_A1 <- IM%*%colMeans(tau$x_basis_A1*(1-Pi$A1))
-  IM_A0 <- IM%*%colMeans(diag(1-Pi$A0)%*%tau$x_basis_A0)
-  IM_A1 <- IM%*%colMeans(diag(1-Pi$A1)%*%tau$x_basis_A1)
+  IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
+  IM_A1 <- IM%*%colMeans(tau$x_basis_A1*(1-Pi$A1))
+  #IM_A0 <- IM%*%colMeans(diag(1-Pi$A0)%*%tau$x_basis_A0)
+  #IM_A1 <- IM%*%colMeans(diag(1-Pi$A1)%*%tau$x_basis_A1)
   tmp <- vector(length = n)
   tmp[A == 1] <- tau$A1[A == 1]
   tmp[A == 0] <- tau$A0[A == 0]

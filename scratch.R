@@ -33,13 +33,13 @@ hist(pound_est)
 hist(tilde_est)
 
 
-tmp <- run_sim(B = 300,
+tmp <- run_sim(B = 100,
                n = 1000,
                bA = 1.5,
-               bias = "param_complex",
+               bias = 1.8,
                nuisance_method = "glm",
                working_model = "lasso",
-               pRCT = 0.67,
+               pRCT = 0.5,
                verbose = TRUE,
                method = "atmle")
 mean(tmp$psi_coverage)
@@ -48,12 +48,12 @@ hist(tmp$psi_est)
 mean(tmp$psi_est)-1.5
 
 tmp_2 <- run_sim(B = 100,
-                 n = 2000,
+                 n = 1000,
                  bA = 1.5,
-                 bias = "param_complex",
+                 bias = 1.8,
                  nuisance_method = "glm",
                  working_model = "lasso",
-                 pRCT = 0.67,
+                 pRCT = 0.5,
                  verbose = TRUE,
                  method = "escvtmle")
 mean(tmp_2$escvtmle_prop_selected)
@@ -61,10 +61,10 @@ mean(tmp_2$psi_coverage)
 var(tmp_2$psi_est)
 hist(tmp_2$psi_est)
 
-tmp_3 <- run_sim(B = 200,
-                 n = 500,
-                 bA = 131,
-                 bias = 0,
+tmp_3 <- run_sim(B = 100,
+                 n = 2000,
+                 bA = 1.5,
+                 bias = "param_simple",
                  pRCT = 0.67,
                  nuisance_method = "glm",
                  working_model = "lasso",
