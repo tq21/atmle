@@ -51,7 +51,7 @@ generate_data <- function(N, bA, bias, pRCT, prop_rct=0.5){
     if (bias != 0) {
       b <- rnorm(N, bias, 0.1)
     }
-    Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A-b+UY # RWD has bias
+    Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A-b+UY
     Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
@@ -67,23 +67,12 @@ generate_data <- function(N, bA, bias, pRCT, prop_rct=0.5){
     Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
-  } else if (bias == "HAL") {
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY+
-      -0.5
-    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
-    Y[S == 0] <- Y_S0[S == 0]
-    Y[S == 1] <- Y_S1[S == 1]
-  } else if (bias == "hard") {
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
-    1.3*W1+0.9*W2^2+0.7*W3^3+1.5*W4^2+1.5*W1*W2+1.9*W1*W2*W4^2-0.6
-    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
-    Y[S == 0] <- Y_S0[S == 0]
-    Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "sinusoidal") {
-    Y_S0 <- 0.3+bA*A+0.5*W1^2+0.1*W2^3+0.3*W3-0.5*W4+UY+
+    b <- 0.3+0.5*W1^2+0.1*W2^3+0.3*W3-0.5*W4+UY+
       3.8*W3*as.numeric(W1 < 0.5)* sin(pi/2*abs(W1))+
       4*as.numeric(W2 > 0.7)*cos(pi/2*abs(W1))+
-      2.1*W4*sin(pi*W4)+3.2*W3*cos(abs(W4-W3))
+      2.1*W4*sin(pi*W4)+3.2*W3*cos(abs(W4-W3))+rnorm(N, 0.1)
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4-b*A+UY
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]

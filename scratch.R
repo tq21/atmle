@@ -1,13 +1,13 @@
 source("utils.R")
 set.seed(141414)
 
-data <- generate_data(2000, 1.5, "param_complex", 0.5)
+data <- generate_data(500, 1.5, "sinusoidal", 0.5)
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
 Y_node = 7
 nuisance_method="glm"
-working_model="lasso"
+working_model="HAL"
 p_rct=0.5
 verbose=TRUE
 transform=TRUE
@@ -34,11 +34,11 @@ hist(tilde_est)
 
 
 tmp <- run_sim(B = 100,
-               n = 1000,
+               n = 500,
                bA = 1.5,
-               bias = 1.8,
+               bias = "sinusoidal",
                nuisance_method = "glm",
-               working_model = "lasso",
+               working_model = "HAL",
                pRCT = 0.5,
                verbose = TRUE,
                method = "atmle")
@@ -48,9 +48,9 @@ hist(tmp$psi_est)
 mean(tmp$psi_est)-1.5
 
 tmp_2 <- run_sim(B = 100,
-                 n = 1000,
+                 n = 500,
                  bA = 1.5,
-                 bias = 1.8,
+                 bias = "sinusoidal",
                  nuisance_method = "glm",
                  working_model = "lasso",
                  pRCT = 0.5,

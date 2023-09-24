@@ -465,8 +465,8 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
   x_basis_A0 <- NULL
 
   X <- data.frame(W, A)
-  X_A1 <- data.frame(W, A = 1)
-  X_A0 <- data.frame(W, A = 0)
+  # X_A1 <- data.frame(W, A = 1)
+  # X_A0 <- data.frame(W, A = 0)
   #X <- data.frame(W)
   #X_A1 <- data.frame(W[A == 1, ])
   #X_A0 <- data.frame(W[A == 0, ])
@@ -503,13 +503,23 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
     x_basis_A0 <- x_basis * as.numeric(A == 0)
 
   } else if (method == "HAL") {
-    fit <- fit_relaxed_hal(as.matrix(data.table(W, A = A)),
-                           pseudo_outcome, "gaussian", weights = pseudo_weights)
-    x_basis <- make_counter_design_matrix(fit$basis_list, as.matrix(X))
-    x_basis_A1 <- make_counter_design_matrix(fit$basis_list, as.matrix(X_A1))
-    x_basis_A0 <- make_counter_design_matrix(fit$basis_list, as.matrix(X_A0))
-    A1 <- as.vector(x_basis_A1 %*% fit$beta)
-    A0 <- as.vector(x_basis_A0 %*% fit$beta)
+    # A = 1
+    fit_A1 <- fit_relaxed_hal(as.matrix(W[A == 1,]), pseudo_outcome_A1, "gaussian", weights = pseudo_weights_A1)
+    A1 <- as.numeric(make_counter_design_matrix(fit_A1$basis_list, as.matrix(W)) %*% matrix(fit_A1$beta))
+    pred[A == 1] <- A1[A == 1]
+
+    # A = 0
+    fit_A0 <- fit_relaxed_hal(as.matrix(W[A == 0,]), pseudo_outcome_A0, "gaussian", weights = pseudo_weights_A0)
+    A0 <- as.numeric(make_counter_design_matrix(fit_A0$basis_list, as.matrix(W)) %*% matrix(fit_A0$beta))
+    pred[A == 0] <- A0[A == 0]
+
+    # design matrices
+    # basis list empty
+    x_basis_A1_tmp <- make_counter_design_matrix(fit_A1$basis_list, as.matrix(W)) * as.numeric(A == 1)
+    x_basis_A0_tmp <- make_counter_design_matrix(fit_A0$basis_list, as.matrix(W)) * as.numeric(A == 0)
+    x_basis <- as.matrix(cbind(x_basis_A1_tmp, x_basis_A0_tmp))
+    x_basis_A1 <- x_basis * as.numeric(A == 1)
+    x_basis_A0 <- x_basis * as.numeric(A == 0)
   } else if (method == "glm") {
     # A = 1
     fit_A1 <- lm(pseudo_outcome_A1 ~ ., weights = pseudo_weights_A1, data = X_A1)
