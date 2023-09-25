@@ -50,19 +50,27 @@ generate_data <- function(N, bA, bias, pRCT, prop_rct=0.5){
     b <- bias
     if (bias != 0) {
       b <- rnorm(N, bias, 0.1)
+    } else {
+      b <- 0
     }
-    Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A-b+UY
+    Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A-b*A+UY
     Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "param_simple") {
-    b <- 1.3*W1+1.9+rnorm(N, 0.1)
+    b <- 1.3*W1+0.6+rnorm(N, 0.1)
     Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4-b*A+UY
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "param_complex") {
-    b <- 1.3*W1+1.1*W2+0.9*W3-1.1*W4+1.2+rnorm(N, 0.1)
+    b <- -0.2+1.5*W1+1.2*W2+0.9*W3+1.1*W4+rnorm(N, 0.1)
+    Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA-b*A+UY
+    Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA+UY
+    Y[S == 0] <- Y_S0[S == 0]
+    Y[S == 1] <- Y_S1[S == 1]
+  } else if (bias == "HAL") {
+    b <- -1.2+1.5*as.numeric(W1 > 0.5)+0.3*as.numeric(W2 > 0.7)-1.8*as.numeric(W4 > 0.1)+rnorm(N, 0.1)
     Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA-b*A+UY
     Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA+UY
     Y[S == 0] <- Y_S0[S == 0]

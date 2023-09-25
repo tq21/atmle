@@ -450,7 +450,7 @@ learn_tau_test <- function(S, W, A, Y, Pi, theta, method = "lasso") {
 #               x_basis_A0 = x_basis_A0))
 # }
 
-learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
+learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso", add_main_terms = FALSE) {
   weights <- 1
   pseudo_outcome_A1 <- (Y[A == 1]-theta$pred[A == 1])/(S[A == 1]-Pi$pred[A == 1])
   pseudo_outcome_A0 <- (Y[A == 0]-theta$pred[A == 0])/(S[A == 0]-Pi$pred[A == 0])
@@ -485,17 +485,17 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
     fit_A1 <- cv.glmnet(x = as.matrix(W[A == 1,]), y = pseudo_outcome_A1,
                         family = "gaussian", weights = pseudo_weights_A1,
                         keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
-    A1 <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coef(fit_A1, s = "lambda.min")))
+    A1 <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coef(fit_A1, s = "lambda.1se")))
     fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0,]), y = pseudo_outcome_A0,
                         family = "gaussian", weights = pseudo_weights_A0,
                         keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
-    A0 <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coef(fit_A0, s = "lambda.min")))
+    A0 <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coef(fit_A0, s = "lambda.1se")))
     pred[A == 1] <- A1[A == 1]
     pred[A == 0] <- A0[A == 0]
 
     # design matrices
-    non_zero_A1 <- which(as.numeric(coef(fit_A1, s = "lambda.min")) != 0)
-    non_zero_A0 <- which(as.numeric(coef(fit_A0, s = "lambda.min")) != 0)
+    non_zero_A1 <- which(as.numeric(coef(fit_A1, s = "lambda.1se")) != 0)
+    non_zero_A0 <- which(as.numeric(coef(fit_A0, s = "lambda.1se")) != 0)
     x_basis_A1_tmp <- cbind(1, W)[, non_zero_A1, drop = FALSE] * as.numeric(A == 1)
     x_basis_A0_tmp <- cbind(1, W)[, non_zero_A0, drop = FALSE] * as.numeric(A == 0)
     x_basis <- as.matrix(cbind(x_basis_A1_tmp, x_basis_A0_tmp))
@@ -504,19 +504,27 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
 
   } else if (method == "HAL") {
     # A = 1
-    fit_A1 <- fit_relaxed_hal(as.matrix(W[A == 1,]), pseudo_outcome_A1, "gaussian", weights = pseudo_weights_A1)
-    A1 <- as.numeric(make_counter_design_matrix(fit_A1$basis_list, as.matrix(W)) %*% matrix(fit_A1$beta))
+    fit_A1 <- fit_relaxed_hal(X = as.matrix(W[A == 1,]),
+                              Y = pseudo_outcome_A1,
+                              family = "gaussian",
+                              weights = pseudo_weights_A1,
+                              add_main_terms = add_main_terms)
+    A1 <- as.numeric(make_counter_design_matrix(fit_A1$basis_list, as.matrix(W), add_main_terms = add_main_terms) %*% matrix(fit_A1$beta))
     pred[A == 1] <- A1[A == 1]
 
     # A = 0
-    fit_A0 <- fit_relaxed_hal(as.matrix(W[A == 0,]), pseudo_outcome_A0, "gaussian", weights = pseudo_weights_A0)
-    A0 <- as.numeric(make_counter_design_matrix(fit_A0$basis_list, as.matrix(W)) %*% matrix(fit_A0$beta))
+    fit_A0 <- fit_relaxed_hal(X = as.matrix(W[A == 0,]),
+                              Y = pseudo_outcome_A0,
+                              family = "gaussian",
+                              weights = pseudo_weights_A0,
+                              add_main_terms = add_main_terms)
+    A0 <- as.numeric(make_counter_design_matrix(fit_A0$basis_list, as.matrix(W), add_main_terms = add_main_terms) %*% matrix(fit_A0$beta))
     pred[A == 0] <- A0[A == 0]
 
     # design matrices
     # basis list empty
-    x_basis_A1_tmp <- make_counter_design_matrix(fit_A1$basis_list, as.matrix(W)) * as.numeric(A == 1)
-    x_basis_A0_tmp <- make_counter_design_matrix(fit_A0$basis_list, as.matrix(W)) * as.numeric(A == 0)
+    x_basis_A1_tmp <- make_counter_design_matrix(fit_A1$basis_list, as.matrix(W), add_main_terms = add_main_terms) * as.numeric(A == 1)
+    x_basis_A0_tmp <- make_counter_design_matrix(fit_A0$basis_list, as.matrix(W), add_main_terms = add_main_terms) * as.numeric(A == 0)
     x_basis <- as.matrix(cbind(x_basis_A1_tmp, x_basis_A0_tmp))
     x_basis_A1 <- x_basis * as.numeric(A == 1)
     x_basis_A0 <- x_basis * as.numeric(A == 0)

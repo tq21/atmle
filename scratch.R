@@ -1,7 +1,7 @@
 source("utils.R")
-set.seed(141414)
+set.seed(29857)
 
-data <- generate_data(500, 1.5, "sinusoidal", 0.5)
+data <- generate_data(2000, 1.5, "sinusoidal", 0.5)
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
@@ -32,13 +32,12 @@ for (i in 1:100) {
 hist(pound_est)
 hist(tilde_est)
 
-
 tmp <- run_sim(B = 100,
                n = 500,
                bA = 1.5,
-               bias = "sinusoidal",
+               bias = 0,
                nuisance_method = "glm",
-               working_model = "HAL",
+               working_model = "lasso",
                pRCT = 0.5,
                verbose = TRUE,
                method = "atmle")
@@ -46,11 +45,12 @@ mean(tmp$psi_coverage)
 var(tmp$psi_est)
 hist(tmp$psi_est)
 mean(tmp$psi_est)-1.5
+var(tmp$psi_est)+(mean(tmp$psi_est)-1.5)^2
 
 tmp_2 <- run_sim(B = 100,
                  n = 500,
                  bA = 1.5,
-                 bias = "sinusoidal",
+                 bias = 0,
                  nuisance_method = "glm",
                  working_model = "lasso",
                  pRCT = 0.5,
@@ -60,11 +60,13 @@ mean(tmp_2$escvtmle_prop_selected)
 mean(tmp_2$psi_coverage)
 var(tmp_2$psi_est)
 hist(tmp_2$psi_est)
+mean(tmp_2$psi_est)-1.5
+var(tmp_2$psi_est)+(mean(tmp_2$psi_est)-1.5)^2
 
 tmp_3 <- run_sim(B = 100,
-                 n = 2000,
+                 n = 1000,
                  bA = 1.5,
-                 bias = "param_simple",
+                 bias = 2.8,
                  pRCT = 0.67,
                  nuisance_method = "glm",
                  working_model = "lasso",

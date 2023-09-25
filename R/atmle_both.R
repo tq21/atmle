@@ -80,9 +80,9 @@ atmle <- function(data,
   if (verbose) print("learning psi_tilde")
   psi_tilde <- NULL
   if (transform) {
-    psi_tilde <- learn_psi_tilde(W, A, Y, g, theta_tilde, working_model)
+    psi_tilde <- learn_psi_tilde(W, A, Y, g, theta_tilde, "lasso")
   } else {
-    psi_tilde <- learn_psi_tilde_test(W, A, Y, g, theta_tilde, working_model)
+    psi_tilde <- learn_psi_tilde_test(W, A, Y, g, theta_tilde, "lasso")
   }
   psi_tilde_est <- mean(psi_tilde$pred)
   psi_tilde_eic <- get_eic_psi_tilde(psi_tilde, g, theta_tilde, Y, A, n)

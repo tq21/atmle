@@ -1,47 +1,44 @@
-fit_relaxed_lasso <- function(X, Y, family, weights=NULL) {
+fit_relaxed_hal <- function(X, Y, family, weights = NULL, add_main_terms = FALSE) {
+  # HAL fit
+  x_basis <- NULL
+  basis_list <- NULL
+  if (add_main_terms) {
+    # include main terms in HAL
+    hal_fit <- fit_hal(X = X,
+                       Y = Y,
+                       family = family,
+                       weights = weights,
+                       max_degree = 1,
+                       smoothness_orders = 0,
+                       X_unpenalized = X)
+    basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
+    basis_list <- basis_list[1:(length(basis_list)-ncol(X))] # remove main terms
 
-  # Fit lasso
-  if (family == "binomial") {
-    lasso_fit <- glmnet::cv.glmnet(X, Y, family = "binomial", weights = weights, alpha = 1)
-  } else if (family == "gaussian") {
-    lasso_fit <- glmnet::cv.glmnet(X, Y, family = "gaussian", weights = weights, alpha = 1)
-  }
-
-  lambda_best <- lasso_fit$lambda.min
-  beta <- coef(lasso_fit, s = lambda_best)
-  beta[is.na(beta)] <- 0
-
-  # Get the prediction using the coefficients and lambda obtained from lasso_fit
-  if (family == "binomial") {
-    pred <- as.vector(1 / (1 + exp(-cbind(1, X) %*% beta)))
-  } else if (family == "gaussian") {
-    pred <- as.vector(cbind(1, X) %*% beta)
-  }
-
-  return(list(beta = beta, pred = pred))
-}
-
-fit_relaxed_hal <- function(X, Y, family, weights=NULL) {
-  # fit hal
-  hal_fit <- fit_hal(X = X, Y = Y,
-                     family = family,
-                     weights = weights,
-                     max_degree = 3,
-                     smoothness_orders = 0,
-                     X_unpenalized = X)
-  basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
-  basis_list <- basis_list[1:(length(basis_list)-ncol(X))]
-
-  # basis list empty
-  if (length(basis_list) == 1 & is.null(basis_list[[1]])) {
-    x_basis <- as.matrix(cbind(1, X))
+    if (length(basis_list) == 1 & is.null(basis_list[[1]])) {
+      # basis list empty, intercept + main terms
+      x_basis <- as.matrix(cbind(1, X))
+    } else {
+      # basis list non-empty, intercept + HAL bases + main terms
+      x_basis <- cbind(1, cbind(as.matrix(make_design_matrix(X, basis_list)), X))
+    }
   } else {
-    hal_design <- as.matrix(make_design_matrix(X, basis_list))
-    x_basis <- as.matrix(cbind(hal_design, X))
-    x_basis <- as.matrix(cbind(1, x_basis))
+    hal_fit <- fit_hal(X = X,
+                       Y = Y,
+                       family = family,
+                       weights = weights,
+                       max_degree = 3,
+                       smoothness_orders = 0)
+    basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
+
+    # basis list empty
+    if (length(basis_list) == 0) {
+      x_basis <- matrix(rep(1, length(Y)))
+    } else {
+      x_basis <- cbind(1, as.matrix(make_design_matrix(X, basis_list)))
+    }
   }
 
-  # relaxed fit
+  # relaxed HAL fit
   beta <- NULL
   pred <- NULL
   if (family == "binomial") {
@@ -60,11 +57,23 @@ fit_relaxed_hal <- function(X, Y, family, weights=NULL) {
   return(list(beta = beta, basis_list = basis_list, pred = pred))
 }
 
-make_counter_design_matrix <- function(basis_list, X_counterfactual) {
-  if (length(basis_list) == 1 & is.null(basis_list[[1]])) {
-    return(cbind(1, X_counterfactual))
+make_counter_design_matrix <- function(basis_list, X_counterfactual, add_main_terms = FALSE) {
+  if (add_main_terms) {
+    if (length(basis_list) == 1 & is.null(basis_list[[1]])) {
+      # intercept + main terms
+      return(cbind(1, X_counterfactual))
+    } else {
+      # intercept + HAL bases + main terms
+      return(cbind(1, cbind(as.matrix(hal9001::make_design_matrix(X_counterfactual, basis_list)), X_counterfactual)))
+    }
   } else {
-    return(cbind(1, cbind(as.matrix(hal9001::make_design_matrix(X_counterfactual, basis_list)), X_counterfactual)))
+    if (length(basis_list) == 0) {
+      # intercept
+      return(matrix(rep(1, nrow(X_counterfactual))))
+    } else {
+      # intercept + HAL bases
+      return(cbind(1, as.matrix(hal9001::make_design_matrix(X_counterfactual, basis_list))))
+    }
   }
 }
 
