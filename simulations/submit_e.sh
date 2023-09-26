@@ -1,6 +1,6 @@
 #!/bin/bash
 # Job name:
-#SBATCH --job-name=misspecify
+#SBATCH --job-name=sinusoidal
 #
 # Partition:
 #SBATCH --partition=savio3
@@ -24,4 +24,4 @@
 
 module load r
 
-R CMD BATCH --no-save 004e_comparisons_misspecify.R logs/004e_comparisons_misspecify.Rout
+R CMD BATCH --no-save 004e_comparisons_sinusoidal.R logs/004e_comparisons_sinusoidal.Rout

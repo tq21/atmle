@@ -14,7 +14,8 @@ generate_data <- function(N, bA, bias, pRCT){
   # A
   A <- vector(length = N)
   #A[S == 0] <- rbinom(N - sum(S), 1, 0.01)
-  A[S == 0] <- rbinom(N - sum(S), 1, plogis(-2*W1-2*W2+0.9*W2-1.2*W3+0.3*W4))
+  #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-2*W1-2*W2+0.9*W2-1.2*W3+0.3*W4))
+  A[S == 0] <- rbinom(N - sum(S), 1, plogis(0.1*W1-0.2*W2+1.2*W3-0.3*W4))
   A[S == 1] <- rbinom(sum(S), 1, pRCT) # rct
 
   # Y

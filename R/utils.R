@@ -8,7 +8,7 @@ fit_relaxed_hal <- function(X, Y, family, weights = NULL, add_main_terms = FALSE
                        Y = Y,
                        family = family,
                        weights = weights,
-                       max_degree = 1,
+                       max_degree = 3,
                        smoothness_orders = 0,
                        X_unpenalized = X)
     basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]

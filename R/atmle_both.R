@@ -24,9 +24,6 @@ atmle <- function(data,
 
   if (verbose) print("learning P(S=1|W,A)")
   Pi <- learn_Pi(S, W, A, nuisance_method)
-  # Pi <- list(A1 = rep(0.2, n),
-  #            A0 = rep(0.2, n),
-  #            pred = rep(0.2, n))
 
   if (verbose) print("learning P(A|W)")
   g <- learn_g(S, W, A, p_rct, nuisance_method)
@@ -42,18 +39,14 @@ atmle <- function(data,
   psi_pound_est <- NULL
   psi_pound_eic <- NULL
 
-  tau_star <- tau
-  Pi_star <- Pi
-
-  # # TMLE to target Pi
+  # TMLE to target Pi
   if (verbose) print("targeting P(S=1|W,A)")
-  tau_star <- NULL
-  Pi_star <- NULL
   for (i in 1:1) {
     # TMLE to target Pi
     Pi_star <- Pi_tmle(S, W, A, g, tau, Pi)
 
     # re-learn working model tau with targeted Pi
+    tau_star <- NULL
     if (transform) {
       tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, working_model)
     } else {
@@ -65,11 +58,12 @@ atmle <- function(data,
   }
 
   psi_pound_est <- mean((1-Pi_star$A0)*tau_star$A0-(1-Pi_star$A1)*tau_star$A1)
+  print(psi_pound_est)
   psi_pound_eic <- get_eic_psi_pound(Pi_star, tau_star, g, theta, psi_pound_est, S, A, Y, n)
-  psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE)/n)
-  psi_pound_ci_lower <- psi_pound_est-1.96*psi_pound_se
-  psi_pound_ci_upper <- psi_pound_est+1.96*psi_pound_se
-  print("mean_psi_pound_eic: " %+% mean(psi_pound_eic))
+
+  psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE))
+  psi_pound_ci_lower <- psi_pound_est-1.96*psi_pound_se/sqrt(n)
+  psi_pound_ci_upper <- psi_pound_est+1.96*psi_pound_se/sqrt(n)
 
   # estimate pooled ATE psi_tilde ----------------------------------------------
   # learn nuisance parts
@@ -90,7 +84,6 @@ atmle <- function(data,
   psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE))
   psi_tilde_ci_lower <- psi_tilde_est-1.96*psi_tilde_se/sqrt(n)
   psi_tilde_ci_upper <- psi_tilde_est+1.96*psi_tilde_se/sqrt(n)
-  print("mean_psi_tilde_eic: " %+% mean(psi_tilde_eic))
 
   # estimate psi ---------------------------------------------------------------
   psi_est <- psi_tilde_est - psi_pound_est

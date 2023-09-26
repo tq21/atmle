@@ -5,82 +5,66 @@ load_all()
 
 `%+%` <- function(a, b) paste0(a, b)
 
-generate_data <- function(N, bA, bias, pRCT, prop_rct=0.5){
-  n_rct <- round(N * prop_rct)
-  n_rwd <- N - n_rct
-
-  # RCT data
+generate_data <- function(N, bA, bias, pRCT){
   # U
-  UY_rct <- rnorm(n_rct, 0, 1)
+  UY <- rnorm(N, 0, 1)
+
+  # S
+  #S <- rbinom(N, 1, 0.2)
+  S <- sample(c(rep(1, 200), rep(0, N - 200)))
 
   # W
-  W1_rct <- runif(n_rct)
-  W2_rct <- runif(n_rct)
-  W3_rct <- runif(n_rct)
-  W4_rct <- runif(n_rct)
+  # W1 <- rnorm(N)
+  # W2 <- rnorm(N)
+  # W3 <- rnorm(N)
+  # W4 <- rnorm(N)
+  W1 <- runif(N)
+  W2 <- runif(N)
+  W3 <- runif(N)
+  W4 <- runif(N)
 
   # A
-  A_rct <- rbinom(n_rct, 1, pRCT)
-
-  # RWD data
-  # U
-  UY_rwd <- rnorm(n_rwd, 0, 1)
-
-  # W
-  W1_rwd <- runif(n_rwd)
-  W2_rwd <- runif(n_rwd)
-  W3_rwd <- runif(n_rwd)
-  W4_rwd <- runif(n_rwd)
-
-  # A
-  A_rwd <- rbinom(n_rwd, 1, pRCT)
-
-  # combined
-  UY <- c(UY_rct, UY_rwd)
-  W1 <- c(W1_rct, W1_rwd)
-  W2 <- c(W2_rct, W2_rwd)
-  W3 <- c(W3_rct, W3_rwd)
-  W4 <- c(W4_rct, W4_rwd)
-  A <- c(A_rct, A_rwd)
-  S <- c(rep(1, n_rct), rep(0, n_rwd))
+  A <- vector(length = N)
+  #A[S == 0] <- rbinom(N - sum(S), 1, 0.6*W1)
+  #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-0.5*W1+0.9*W2-1.2*W3+0.3*W4))
+  #A[S == 0] <- rbinom(N - sum(S), 1, 0.67)
+  A[S == 0] <- rbinom(N - sum(S), 1, plogis(-2*W1-2*W2+1.2*W3-0.3*W4))
+  A[S == 1] <- rbinom(sum(S), 1, pRCT)
 
   # Y
   Y <- vector(length = N)
   if (is.numeric(bias)) {
-    b <- bias
-    if (bias != 0) {
-      b <- rnorm(N, bias, 0.1)
-    } else {
-      b <- 0
-    }
-    Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A-b*A+UY
-    Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A+UY
+    b <- rnorm(N, bias, 0.1)
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY+b
+    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "param_simple") {
-    b <- 1.3*W1+0.6+rnorm(N, 0.1)
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4-b*A+UY
+    b <- 2.7*W1+0.1+rnorm(N, 0.1)
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY+b
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "param_complex") {
-    b <- -0.2+1.5*W1+1.2*W2+0.9*W3+1.1*W4+rnorm(N, 0.1)
-    Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA-b*A+UY
-    Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA+UY
+    b <- -0.1+1.5*W1+1.2*W2+2.5*W3+0.6*W4+rnorm(N, 0.1)
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY+b
+    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "HAL") {
-    b <- -1.2+1.5*as.numeric(W1 > 0.5)+0.3*as.numeric(W2 > 0.7)-1.8*as.numeric(W4 > 0.1)+rnorm(N, 0.1)
-    Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA-b*A+UY
-    Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA+UY
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY+
+      100*as.numeric(W1 > 0.5)+5*as.numeric(W2 > 0.5)+5*as.numeric(W3 > 0.3)+5*as.numeric(W4 > 0.7)-0.5
+    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
-  } else if (bias == "sinusoidal") {
-    b <- 0.3+0.5*W1^2+0.1*W2^3+0.3*W3-0.5*W4+UY+
-      3.8*W3*as.numeric(W1 < 0.5)* sin(pi/2*abs(W1))+
-      4*as.numeric(W2 > 0.7)*cos(pi/2*abs(W1))+
-      2.1*W4*sin(pi*W4)+3.2*W3*cos(abs(W4-W3))+rnorm(N, 0.1)
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4-b*A+UY
+  } else if (bias == "hard") {
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
+    1.3*W1+0.9*W2+0.7*W3^3+1.5*W4^2+1.5*W1*W2+0.9*W1*W4^2-0.6
+    Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
+    Y[S == 0] <- Y_S0[S == 0]
+    Y[S == 1] <- Y_S1[S == 1]
+  } else if (bias == "test") {
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+1.2*W1+0.8*W2+0.7*W3-0.4*W4+0.8+UY
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
@@ -94,15 +78,109 @@ generate_data <- function(N, bA, bias, pRCT, prop_rct=0.5){
   # data
   data <- data.frame(S, W1, W2, W3, W4, A, Y)
 
-  #A <- rbinom(N, 1, pRCT)
-  #A[S == 0] <- rbinom(N - sum(S), 1, 0.67)
-  #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-0.5*W1+0.9*W2-1.2*W3+0.3*W4))
-  #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-5*W1^2-5*W2^3+0.9*W2-1.2*W3+0.3*W4))
-  #A[S == 0] <- rbinom(N - sum(S), 1, 0.05)
-  #A[S == 1] <- rbinom(sum(S), 1, pRCT) # rct
-
   return(data)
 }
+
+# generate_data <- function(N, bA, bias, pRCT, prop_rct=0.5){
+#   n_rct <- round(N * prop_rct)
+#   n_rwd <- N - n_rct
+#
+#   # RCT data
+#   # U
+#   UY_rct <- rnorm(n_rct, 0, 1)
+#
+#   # W
+#   W1_rct <- runif(n_rct)
+#   W2_rct <- runif(n_rct)
+#   W3_rct <- runif(n_rct)
+#   W4_rct <- runif(n_rct)
+#
+#   # A
+#   A_rct <- rbinom(n_rct, 1, pRCT)
+#
+#   # RWD data
+#   # U
+#   UY_rwd <- rnorm(n_rwd, 0, 1)
+#
+#   # W
+#   W1_rwd <- runif(n_rwd)
+#   W2_rwd <- runif(n_rwd)
+#   W3_rwd <- runif(n_rwd)
+#   W4_rwd <- runif(n_rwd)
+#
+#   # A
+#   A_rwd <- rbinom(n_rwd, 1, pRCT)
+#
+#   # combined
+#   UY <- c(UY_rct, UY_rwd)
+#   W1 <- c(W1_rct, W1_rwd)
+#   W2 <- c(W2_rct, W2_rwd)
+#   W3 <- c(W3_rct, W3_rwd)
+#   W4 <- c(W4_rct, W4_rwd)
+#   A <- c(A_rct, A_rwd)
+#   S <- c(rep(1, n_rct), rep(0, n_rwd))
+#
+#   # Y
+#   Y <- vector(length = N)
+#   if (is.numeric(bias)) {
+#     b <- bias
+#     if (bias != 0) {
+#       b <- rnorm(N, bias, 0.1)
+#     } else {
+#       b <- 0
+#     }
+#     Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A-b+UY
+#     Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+bA*A+UY
+#     Y[S == 0] <- Y_S0[S == 0]
+#     Y[S == 1] <- Y_S1[S == 1]
+#   } else if (bias == "param_simple") {
+#     b <- 2.7*W1+0.1+rnorm(N, 0.05)
+#     Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4-b+UY
+#     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
+#     Y[S == 0] <- Y_S0[S == 0]
+#     Y[S == 1] <- Y_S1[S == 1]
+#   } else if (bias == "param_complex") {
+#     b <- -0.1+1.5*W1+1.2*W2+2.5*W3+0.6*W4+rnorm(N, 0.05)
+#     Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA-b+UY
+#     Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA+UY
+#     Y[S == 0] <- Y_S0[S == 0]
+#     Y[S == 1] <- Y_S1[S == 1]
+#   } else if (bias == "HAL") {
+#     b <- 1.2+0.7*W1+2.1*W2+0.3*W3+1.5*W4+
+#       1.5*as.numeric(W1 > 0.5)-0.7*as.numeric(W2 < 0.7)+1.8*as.numeric(W4 > 0.1)+rnorm(N, 0.01)
+#     Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA-b*A+UY
+#     Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA+UY
+#     Y[S == 0] <- Y_S0[S == 0]
+#     Y[S == 1] <- Y_S1[S == 1]
+#   } else if (bias == "sinusoidal") {
+#     b <- 0.3+0.5*W1+0.7*W2^2+0.1*W3+
+#       1.2*W3*sin(pi/2*abs(W1))+
+#       0.6*as.numeric(W2 > 0.7)*cos(pi/2*abs(W1))+
+#       2.3*W3*cos(abs(W4-W3))+rnorm(N, 0.01)
+#     Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4-b*A+UY
+#     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
+#     Y[S == 0] <- Y_S0[S == 0]
+#     Y[S == 1] <- Y_S1[S == 1]
+#   } else if (bias == "test") {
+#     b <- -1.2+1.5*W1^2+0.3*W1*W2-1.8*W3^3+0.5*W4+rnorm(N, 0.1)
+#     Y_S0 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA-b*A+UY
+#     Y_S1 <- 0.3+0.5*W1+0.1*W2+0.3*W3-0.5*W4+A*bA+UY
+#     Y[S == 0] <- Y_S0[S == 0]
+#     Y[S == 1] <- Y_S1[S == 1]
+#   }
+#
+#   # data
+#   data <- data.frame(S, W1, W2, W3, W4, A, Y)
+#
+#   #A <- rbinom(N, 1, pRCT)
+#   #A[S == 0] <- rbinom(N - sum(S), 1, 0.67)
+#   #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-0.5*W1+0.9*W2-1.2*W3+0.3*W4))
+#   #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-5*W1^2-5*W2^3+0.9*W2-1.2*W3+0.3*W4))
+#   #A[S == 0] <- rbinom(N - sum(S), 1, 0.05)
+#   #A[S == 1] <- rbinom(sum(S), 1, pRCT) # rct
+#
+#   return(data)
+# }
 
 #' @param B Number of simulations to run
 #' @param n Sample size of each data

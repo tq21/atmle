@@ -10,7 +10,7 @@ source("utils.R")
 # simulation parameters --------------------------------------------------------
 B <- 500 # number of runs for each sample size n
 n_min <- 500 # smallest sample size
-n_max <- 5000 # largest sample size
+n_max <- 3000 # largest sample size
 n_step <- 500 # sample size increment
 bA <- 1.5 # true ATE
 bias <- "param_complex" # true bias
@@ -18,22 +18,22 @@ nuisance_method <- "glm"
 working_model <- "lasso"
 pRCT <- 0.67
 f_name <- "param_complex_glm_lasso"
-date_name <- "913"
+date_name <- "926"
 
 # 1. A-TMLE both psi_pound and psi_tilde
-# atmle_both_res <- run_sim_n_increase(B = B,
-#                                      n_min = n_min,
-#                                      n_max = n_max,
-#                                      n_step = n_step,
-#                                      bA = bA,
-#                                      bias = bias,
-#                                      pRCT = pRCT,
-#                                      nuisance_method = nuisance_method,
-#                                      working_model = working_model,
-#                                      verbose = TRUE,
-#                                      method = "atmle")
-# saveRDS(atmle_both_res,
-#         file = "out/atmle_both_" %+% f_name %+% format(Sys.time(), "_%Y%m%d_%H%M%S") %+% ".RDS")
+atmle_both_res <- run_sim_n_increase(B = B,
+                                     n_min = n_min,
+                                     n_max = n_max,
+                                     n_step = n_step,
+                                     bA = bA,
+                                     bias = bias,
+                                     pRCT = pRCT,
+                                     nuisance_method = nuisance_method,
+                                     working_model = working_model,
+                                     verbose = TRUE,
+                                     method = "atmle")
+saveRDS(atmle_both_res,
+        file = "out/atmle_both_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
 
 # 2. A-TMLE psi_pound, regular TMLE psi_tilde
 atmle_tmle_res <- run_sim_n_increase(B = B,
@@ -51,19 +51,19 @@ saveRDS(atmle_tmle_res,
         file = "out/atmle_tmle_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
 
 # 3. ESCVTMLE
-# escvtmle_res <- run_sim_n_increase(B = B,
-#                                    n_min = n_min,
-#                                    n_max = n_max,
-#                                    n_step = n_step,
-#                                    bA = bA,
-#                                    bias = bias,
-#                                    pRCT = pRCT,
-#                                    nuisance_method = nuisance_method,
-#                                    working_model = working_model,
-#                                    verbose = TRUE,
-#                                    method = "escvtmle")
-# saveRDS(escvtmle_res,
-#         file = "out/escvtmle_" %+% f_name %+% format(Sys.time(), "_%Y%m%d_%H%M%S") %+% ".RDS")
+escvtmle_res <- run_sim_n_increase(B = B,
+                                   n_min = n_min,
+                                   n_max = n_max,
+                                   n_step = n_step,
+                                   bA = bA,
+                                   bias = bias,
+                                   pRCT = pRCT,
+                                   nuisance_method = nuisance_method,
+                                   working_model = working_model,
+                                   verbose = TRUE,
+                                   method = "escvtmle")
+saveRDS(escvtmle_res,
+        file = "out/escvtmle_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
 
 # 4. RCT only
 rct_only_res <- run_sim_n_increase(B = B,

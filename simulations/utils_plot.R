@@ -117,8 +117,8 @@ get_plot_selected <- function(escvtmle_res, name) {
   return(p)
 }
 
-get_relative_mse_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, name) {
-  dt_res <- get_res(atmle_both_res, atmle_tmle_res, escvtmle_res)
+get_relative_mse_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, rct_only_res, name) {
+  dt_res <- get_res(atmle_both_res, atmle_tmle_res, escvtmle_res, rct_only_res)
   mse_atmle <- dt_res[dt_res$estimator == "A-TMLE", "mse"]
   mse_atmle_star <- dt_res[dt_res$estimator == "A-TMLE*", "mse"]
   mse_escvtmle <- dt_res[dt_res$estimator == "ESCVTMLE", "mse"]

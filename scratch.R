@@ -12,6 +12,86 @@ p_rct=0.5
 verbose=TRUE
 transform=TRUE
 
+source("utils_positivity.R")
+
+tmp <- run_sim(B = 100,
+               n = 500,
+               bA = 1.5,
+               bias = 0,
+               nuisance_method = "glm",
+               working_model = "lasso",
+               pRCT = 0.67,
+               verbose = TRUE,
+               method = "atmle")
+mean(tmp$psi_coverage)
+var(tmp$psi_est)
+hist(tmp$psi_est)
+mean(tmp$psi_est)-1.5
+var(tmp$psi_est)+(mean(tmp$psi_est)-1.5)^2
+
+tmp_2 <- run_sim(B = 100,
+                 n = 500,
+                 bA = 1.5,
+                 bias = 0,
+                 nuisance_method = "glm",
+                 working_model = "lasso",
+                 pRCT = 0.67,
+                 verbose = TRUE,
+                 method = "escvtmle")
+mean(tmp_2$escvtmle_prop_selected)
+mean(tmp_2$psi_coverage)
+var(tmp_2$psi_est)
+hist(tmp_2$psi_est)
+mean(tmp_2$psi_est)-1.5
+var(tmp_2$psi_est)+(mean(tmp_2$psi_est)-1.5)^2
+
+tmp_3 <- run_sim(B = 100,
+                 n = 500,
+                 bA = 1.5,
+                 bias = 0,
+                 nuisance_method = "glm",
+                 working_model = "lasso",
+                 pRCT = 0.67,
+                 verbose = TRUE,
+                 method = "atmle_tmle")
+mean(tmp_3$psi_coverage)
+var(tmp_3$psi_est)
+hist(tmp_3$psi_est)
+mean(tmp_3$psi_est)-1.5
+var(tmp_3$psi_est)+(mean(tmp_3$psi_est)-1.5)^2
+
+tmp_4 <- run_sim(B = 100,
+                 n = 500,
+                 bA = 1.5,
+                 bias = 1.8,
+                 pRCT = 0.5,
+                 nuisance_method = "glm",
+                 working_model = "lasso",
+                 verbose = TRUE,
+                 method = "rct_only")
+mean(tmp_4$psi_coverage)
+var(tmp_4$psi_est)
+hist(tmp_4$psi_est)
+mean(tmp_4$psi_est)-1.5
+var(tmp_4$psi_est)+(mean(tmp_4$psi_est)-1.5)^2
+
+tmp_5 <- run_sim(B = 100,
+                 n = 1000,
+                 bA = 1.5,
+                 bias = 1.8,
+                 nuisance_method = "glm",
+                 working_model = "lasso",
+                 pRCT = 0.5,
+                 verbose = TRUE,
+                 method = "tmle")
+mean(tmp_5$psi_coverage)
+var(tmp_5$psi_est)
+hist(tmp_5$psi_est)
+mean(tmp_5$psi_est)-1.5
+var(tmp_5$psi_est)+(mean(tmp_5$psi_est)-1.5)^2
+
+
+
 pound_est <- vector(length = 100)
 tilde_est <- vector(length = 100)
 for (i in 1:100) {
@@ -31,86 +111,6 @@ for (i in 1:100) {
 }
 hist(pound_est)
 hist(tilde_est)
-
-tmp <- run_sim(B = 100,
-               n = 500,
-               bA = 1.5,
-               bias = 0,
-               nuisance_method = "glm",
-               working_model = "lasso",
-               pRCT = 0.5,
-               verbose = TRUE,
-               method = "atmle")
-mean(tmp$psi_coverage)
-var(tmp$psi_est)
-hist(tmp$psi_est)
-mean(tmp$psi_est)-1.5
-var(tmp$psi_est)+(mean(tmp$psi_est)-1.5)^2
-
-tmp_2 <- run_sim(B = 100,
-                 n = 500,
-                 bA = 1.5,
-                 bias = 0,
-                 nuisance_method = "glm",
-                 working_model = "lasso",
-                 pRCT = 0.5,
-                 verbose = TRUE,
-                 method = "escvtmle")
-mean(tmp_2$escvtmle_prop_selected)
-mean(tmp_2$psi_coverage)
-var(tmp_2$psi_est)
-hist(tmp_2$psi_est)
-mean(tmp_2$psi_est)-1.5
-var(tmp_2$psi_est)+(mean(tmp_2$psi_est)-1.5)^2
-
-tmp_3 <- run_sim(B = 100,
-                 n = 1000,
-                 bA = 1.5,
-                 bias = 2.8,
-                 pRCT = 0.67,
-                 nuisance_method = "glm",
-                 working_model = "lasso",
-                 verbose = TRUE,
-                 method = "atmle psi_tilde")
-mean(tmp_3$psi_coverage)
-var(tmp_3$psi_est)
-hist(tmp_3$psi_est)
-
-tmp <- run_sim(B = 200,
-               n = 500,
-               bA = 1.5,
-               bias = 100,
-               pRCT = 0.67,
-               nuisance_method = "glm",
-               working_model = "lasso",
-               verbose=TRUE,
-               method = "tmle psi_tilde")
-mean(tmp$psi_coverage)
-var(tmp$psi_est)
-
-tmp <- run_sim_n_increase(B = 100,
-                          n_min = 500,
-                          n_max = 1000,
-                          n_step = 500,
-                          bA = 1.5,
-                          bias = 0,
-                          nuisance_method = "glm",
-                          working_model = "lasso",
-                          verbose=TRUE,
-                          method = "atmle psi_tilde",
-                          pRCT = 0.67)
-
-tmp_2 <- run_sim_n_increase(B = 100,
-                            n_min = 500,
-                            n_max = 1000,
-                            n_step = 500,
-                            bA = 1.5,
-                            bias = 0,
-                            nuisance_method = "glm",
-                            working_model = "lasso",
-                            verbose=TRUE,
-                            method = "tmle psi_tilde",
-                            pRCT = 0.67)
 
 data_n <- data.frame(n = seq(200, 5000, 50),
                      tmp_bias = unlist(tmp_converge$all_psi_est))
