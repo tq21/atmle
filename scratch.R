@@ -1,13 +1,13 @@
 source("utils.R")
 set.seed(29857)
 
-data <- generate_data(2000, 1.5, "sinusoidal", 0.5)
+data <- generate_data(2000, 1.5, 0, 0.5)
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
 Y_node = 7
 nuisance_method="glm"
-working_model="HAL"
+working_model="lasso"
 p_rct=0.5
 verbose=TRUE
 transform=TRUE
@@ -15,12 +15,12 @@ transform=TRUE
 source("utils_positivity.R")
 
 tmp <- run_sim(B = 100,
-               n = 500,
+               n = 1000,
                bA = 1.5,
                bias = 0,
                nuisance_method = "glm",
                working_model = "lasso",
-               pRCT = 0.67,
+               pRCT = 0.5,
                verbose = TRUE,
                method = "atmle")
 mean(tmp$psi_coverage)
@@ -30,12 +30,12 @@ mean(tmp$psi_est)-1.5
 var(tmp$psi_est)+(mean(tmp$psi_est)-1.5)^2
 
 tmp_2 <- run_sim(B = 100,
-                 n = 500,
+                 n = 1000,
                  bA = 1.5,
                  bias = 0,
                  nuisance_method = "glm",
                  working_model = "lasso",
-                 pRCT = 0.67,
+                 pRCT = 0.5,
                  verbose = TRUE,
                  method = "escvtmle")
 mean(tmp_2$escvtmle_prop_selected)

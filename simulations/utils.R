@@ -10,8 +10,8 @@ generate_data <- function(N, bA, bias, pRCT){
   UY <- rnorm(N, 0, 1)
 
   # S
-  #S <- rbinom(N, 1, 0.2)
-  S <- sample(c(rep(1, 200), rep(0, N - 200)))
+  S <- rbinom(N, 1, 0.2)
+  #S <- sample(c(rep(1, 200), rep(0, N - 200)))
 
   # W
   # W1 <- rnorm(N)
@@ -27,27 +27,28 @@ generate_data <- function(N, bA, bias, pRCT){
   A <- vector(length = N)
   #A[S == 0] <- rbinom(N - sum(S), 1, 0.6*W1)
   #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-0.5*W1+0.9*W2-1.2*W3+0.3*W4))
-  #A[S == 0] <- rbinom(N - sum(S), 1, 0.67)
-  A[S == 0] <- rbinom(N - sum(S), 1, plogis(-2*W1-2*W2+1.2*W3-0.3*W4))
+  A[S == 0] <- rbinom(N - sum(S), 1, 0.67)
+  #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-2*W1-2*W2+1.2*W3-0.3*W4))
   A[S == 1] <- rbinom(sum(S), 1, pRCT)
 
   # Y
   Y <- vector(length = N)
   if (is.numeric(bias)) {
-    b <- rnorm(N, bias, 0.1)
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY+b
+    #b <- rnorm(N, bias, 0.1)
+    b <- bias
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY-b*A
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "param_simple") {
-    b <- 2.7*W1+0.1+rnorm(N, 0.1)
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY+b
+    b <- 2.7*W1+0.1+rnorm(N, 0.01)
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY-b*A
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
   } else if (bias == "param_complex") {
-    b <- -0.1+1.5*W1+1.2*W2+2.5*W3+0.6*W4+rnorm(N, 0.1)
-    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY+b
+    b <- -0.1+1.5*W1+1.2*W2+2.5*W3+0.6*W4
+    Y_S0 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY-b*A
     Y_S1 <- 0.3+bA*A+0.5*W1+0.1*W2+0.3*W3-0.5*W4+UY
     Y[S == 0] <- Y_S0[S == 0]
     Y[S == 1] <- Y_S1[S == 1]
