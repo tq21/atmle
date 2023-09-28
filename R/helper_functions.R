@@ -374,36 +374,21 @@ learn_g_tmp <- function(W, A, method = "lasso") {
 }
 
 # function to perform TMLE update of Pi
-Pi_tmle <- function(S, W, A, g, tau, Pi, target_gwt=FALSE) {
-
-  # whether to target using weight
-  if(target_gwt){
-    wt <- A/g*tau$A1+(1-A)/(1-g)*tau$A0
-    H1_n <- A
-    H0_n <- 1-A
-  } else{
-    wt <- rep(1, length(A))
-    H1_n <- A/g*tau$A1
-    H0_n <- (1-A)/(1-g)*tau$A0
-  }
+Pi_tmle <- function(S, W, A, g, tau, Pi) {
+  H1_n <- A/g*tau$A1
+  H0_n <- (1-A)/(1-g)*tau$A0
 
   # logistic submodel
   suppressWarnings(
-    epsilon <- coef(glm(S ~ -1 + offset(Pi$pred) + H0_n + H1_n, family = "binomial", weights = wt))
+    epsilon <- coef(glm(S ~ -1 + offset(qlogis(Pi$pred)) + H0_n + H1_n, family = "binomial"))
   )
   epsilon[is.na(epsilon)] <- 0
 
   # TMLE updates
-  Pi_star <- NULL
-  if (target_gwt) {
-    Pi_star$pred <- plogis(Pi$pred+epsilon[1]*H0_n+epsilon[2]*H1_n)
-    Pi_star$A0 <- plogis(Pi$A0+epsilon[1])
-    Pi_star$A1 <- plogis(Pi$A1+epsilon[2])
-  } else {
-    Pi_star$pred <- plogis(Pi$pred+epsilon[1]*H0_n+epsilon[2]*H1_n)
-    Pi_star$A0 <- plogis(Pi$A0+epsilon[1]/(1-g)*tau$A0)
-    Pi_star$A1 <- plogis(Pi$A1+epsilon[2]/g*tau$A1)
-  }
+  Pi_star <- list()
+  Pi_star$pred <- plogis(qlogis(Pi$pred)+epsilon[1]*H0_n+epsilon[2]*H1_n)
+  Pi_star$A0 <- plogis(qlogis(Pi$A0)+epsilon[1]*H0_n)
+  Pi_star$A1 <- plogis(qlogis(Pi$A1)+epsilon[2]*H1_n)
 
   return(Pi_star)
 }
@@ -418,8 +403,10 @@ get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound_est, S, A, Y, n) {
   IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
   #IM_A1 <- solve(t(tau$x_basis_A1)%*%diag((Pi$A1*(1-Pi$A1)))%*%tau$x_basis_A1/n)
   #IM_A0 <- solve(t(tau$x_basis_A0)%*%diag((Pi$A0*(1-Pi$A0)))%*%tau$x_basis_A0/n)
-  IM_A0 <- IM%*%colMeans(diag(1-Pi$A0)%*%tau$x_basis_A0)
-  IM_A1 <- IM%*%colMeans(diag(1-Pi$A1)%*%tau$x_basis_A1)
+  #IM_A0 <- IM%*%colMeans(diag(1-Pi$A0)%*%tau$x_basis_A0)
+  #IM_A1 <- IM%*%colMeans(diag(1-Pi$A1)%*%tau$x_basis_A1)
+  IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
+  IM_A1 <- IM%*%colMeans(tau$x_basis_A1*(1-Pi$A1))
   tmp <- vector(length = n)
   tmp[A == 1] <- tau$A1[A == 1]
   tmp[A == 0] <- tau$A0[A == 0]

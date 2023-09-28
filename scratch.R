@@ -15,9 +15,9 @@ transform=TRUE
 source("utils_positivity.R")
 
 tmp <- run_sim(B = 100,
-               n = 1000,
+               n = 500,
                bA = 1.5,
-               bias = 0,
+               bias = 10,
                nuisance_method = "glm",
                working_model = "lasso",
                pRCT = 0.5,
@@ -30,9 +30,9 @@ mean(tmp$psi_est)-1.5
 var(tmp$psi_est)+(mean(tmp$psi_est)-1.5)^2
 
 tmp_2 <- run_sim(B = 100,
-                 n = 1000,
+                 n = 500,
                  bA = 1.5,
-                 bias = 0,
+                 bias = 1.8,
                  nuisance_method = "glm",
                  working_model = "lasso",
                  pRCT = 0.5,

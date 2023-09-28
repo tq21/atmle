@@ -40,22 +40,22 @@ atmle <- function(data,
   psi_pound_eic <- NULL
 
   # TMLE to target Pi
-  #if (verbose) print("targeting P(S=1|W,A)")
-  #for (i in 1:1) {
-  #  # TMLE to target Pi
-  #  Pi_star <- Pi_tmle(S, W, A, g, tau, Pi)
-#
-  #  # re-learn working model tau with targeted Pi
-  #  tau_star <- NULL
-  #  if (transform) {
-  #    tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, working_model)
-  #  } else {
-  #    tau_star <- learn_tau_test(S, W, A, Y, Pi_star, theta, working_model)
-  #  }
-#
-  #  Pi <- Pi_star
-  #  tau <- tau_star
-  #}
+  if (verbose) print("targeting P(S=1|W,A)")
+  for (i in 1:1) {
+    # TMLE to target Pi
+    Pi_star <- Pi_tmle(S, W, A, g, tau, Pi)
+
+    # re-learn working model tau with targeted Pi
+    tau_star <- NULL
+    if (transform) {
+      tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, working_model)
+    } else {
+      tau_star <- learn_tau_test(S, W, A, Y, Pi_star, theta, working_model)
+    }
+
+    Pi <- Pi_star
+    tau <- tau_star
+  }
 
   psi_pound_est <- mean((1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1)
   psi_pound_eic <- get_eic_psi_pound(Pi, tau, g, theta, psi_pound_est, S, A, Y, n)
