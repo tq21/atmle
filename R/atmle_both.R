@@ -52,14 +52,13 @@ atmle <- function(data,
     } else {
       tau_star <- learn_tau_test(S, W, A, Y, Pi_star, theta, working_model)
     }
-
     Pi <- Pi_star
     tau <- tau_star
   }
 
   psi_pound_est <- mean((1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1)
   psi_pound_eic <- get_eic_psi_pound(Pi, tau, g, theta, psi_pound_est, S, A, Y, n)
-  print("psi pound eic: " %+% mean(psi_pound_eic))
+  #print("psi pound eic: " %+% mean(psi_pound_eic))
 
   psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE))
   psi_pound_ci_lower <- psi_pound_est-1.96*psi_pound_se/sqrt(n)
@@ -84,7 +83,7 @@ atmle <- function(data,
   psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE))
   psi_tilde_ci_lower <- psi_tilde_est-1.96*psi_tilde_se/sqrt(n)
   psi_tilde_ci_upper <- psi_tilde_est+1.96*psi_tilde_se/sqrt(n)
-  print("psi tilde eic: " %+% mean(psi_tilde_eic))
+  #print("psi tilde eic: " %+% mean(psi_tilde_eic))
 
   # estimate psi ---------------------------------------------------------------
   psi_est <- psi_tilde_est - psi_pound_est
