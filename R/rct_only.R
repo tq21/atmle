@@ -4,7 +4,7 @@ rct_only <- function(data,
                      W_node,
                      A_node,
                      Y_node,
-                     p_rct,
+                     g_rct,
                      nuisance_method="glm",
                      verbose=TRUE) {
 
@@ -17,7 +17,7 @@ rct_only <- function(data,
 
   # estimate ATE using TMLE
   Q <- learn_Q(W, A, Y)
-  Q_star <- tmle(Y = Y, A = A, W = W, g1W = rep(p_rct, sum(S == 1)),
+  Q_star <- tmle(Y = Y, A = A, W = W, g1W = rep(g_rct, sum(S == 1)),
                  Q = as.matrix(data.frame(Q$A1, Q$A0)),
                  family = "gaussian")
   psi_est <- Q_star$estimates$ATE$psi

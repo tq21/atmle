@@ -2,8 +2,7 @@ options(sl3.verbose = TRUE)
 source("utils.R")
 set.seed(29857)
 
-data <- generate_data(2000, 1.5, 0.7, 0.67)
-#data <- generate_realistic_data(1.5, n_rct = 500, n_rwd = 2000, g_rct = 0.67, "param_simple")
+data <- generate_realistic_data(1.5, n_rct = 500, n_rwd = 2000, g_rct = 0.67, bias = 0)
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
@@ -17,20 +16,23 @@ transform=TRUE
 #source("utils_positivity.R")
 
 B <- 100
-n <- 2000
+n_rct <- 100
+n_rwd <- 1000
+ate <- 1.5
 bias <- 0
-nuisance_method = "sl3"
+nuisance_method = "glm"
 working_model = "lasso"
-pRCT = 0.67
+g_rct = 0.67
 verbose = TRUE
 
 tmp <- run_sim(B = B,
-               n = n,
-               bA = 1.5,
+               n_rct = n_rct,
+               n_rwd = n_rwd,
+               ate = ate,
                bias = bias,
                nuisance_method = nuisance_method,
                working_model = working_model,
-               pRCT = pRCT,
+               g_rct = g_rct,
                verbose = verbose,
                method = "atmle")
 mean(tmp$psi_coverage)
@@ -40,12 +42,13 @@ mean(tmp$psi_est)-1.5
 var(tmp$psi_est)+(mean(tmp$psi_est)-1.5)^2
 
 tmp_2 <- run_sim(B = B,
-                 n = n,
-                 bA = 1.5,
+                 n_rct = n_rct,
+                 n_rwd = n_rwd,
+                 ate = ate,
                  bias = bias,
                  nuisance_method = nuisance_method,
                  working_model = working_model,
-                 pRCT = pRCT,
+                 g_rct = g_rct,
                  verbose = verbose,
                  method = "escvtmle")
 mean(tmp_2$escvtmle_prop_selected)
@@ -74,7 +77,7 @@ B <- 300
 covered <- vector(length = B)
 all_res <- vector(length = B)
 for (i in 1:B) {
-  data <- generate_realistic_data(1.5, n_rct = 200, n_rwd = 2000, g_rct = 0.67, bias = 100)
+  data <- generate_realistic_data(1.5, n_rct = 200, n_rwd = 2000, g_rct = 0.67, bias = "param_complex")
   S_node = 1
   W_node = c(2, 3, 4, 5)
   A_node = 6

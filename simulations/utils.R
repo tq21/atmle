@@ -6,6 +6,76 @@ load_all()
 
 `%+%` <- function(a, b) paste0(a, b)
 
+generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias) {
+  # total number of observations needed for RCT and RWD combined
+  n <- max(n_rct, n_rwd) * 2  # ensure we get at least n_rct and n_rwd after applying the criteria
+
+  # baseline covariates
+  W1 <- runif(n, 0, 1)
+  W2 <- runif(n, 0, 1)
+  W3 <- runif(n, 0, 1)
+  W4 <- runif(n, 0, 1)
+
+  # probability being in RCT based on inclusion criteria
+  prob_rct <- plogis(0.7+0.3*W1+1.1*W2-0.9*W3-0.9*W4)
+  in_rct <- rbinom(n, 1, prob_rct)
+
+  # ensure exactly n_rct and n_rwd samples
+  rct_indices <- sample(which(in_rct == 1), n_rct, replace = TRUE)
+  rwd_indices <- sample(which(in_rct == 0), n_rwd, replace = TRUE)
+
+  # assign treatment in RCT
+  A_rct <- rbinom(n_rct, 1, g_rct)
+
+  # assign treatment in RWD based on doctor's decision rule
+  #decision_rule <- plogis(0.5+0.7*W1[rwd_indices]+1.2*W2[rwd_indices]-0.9*W3[rwd_indices]-0.6*W4[rwd_indices])
+  decision_rule <- 0.7
+  A_rwd <- rbinom(n_rwd, 1, decision_rule)
+
+  # outcome Y for RCT data without bias
+  Y_rct <- 2.1+0.8*W1[rct_indices]+2.5*W2[rct_indices]-3.1*W3[rct_indices]+0.9*W4[rct_indices]+ate*A_rct
+
+  # bias term for RWD data
+  b <- NULL
+  if (is.numeric(bias)) {
+    if (bias == 0) {
+      b <- rep(0, n_rwd)
+    } else {
+      b <- rnorm(n_rwd, bias, 0.5)*A_rwd
+    }
+  } else if (bias == "param_simple") {
+    b <- 1.9+(2.6*W1[rwd_indices])*A_rwd
+  } else if (bias == "param_complex") {
+    b <- (1.5+1.7*W2[rwd_indices]+1.7*W2[rwd_indices]*0.9*W3[rwd_indices]+2.1*W4[rwd_indices])*A_rwd
+  }
+
+  # outcome Y for RWD data with bias
+  Y_rwd <- 2.1+0.8*W1[rwd_indices]+2.5*W2[rwd_indices]-3.1*W3[rwd_indices]+0.9*W4[rwd_indices]+ate*A_rwd+b
+
+  # data frames for RCT and RWD
+  rct_data <- data.frame(
+    S = rep(1, n_rct),
+    W1 = W1[rct_indices],
+    W2 = W2[rct_indices],
+    W3 = W3[rct_indices],
+    W4 = W4[rct_indices],
+    A = A_rct,
+    Y = Y_rct
+  )
+
+  rwd_data <- data.frame(
+    S = rep(0, n_rwd),
+    W1 = W1[rwd_indices],
+    W2 = W2[rwd_indices],
+    W3 = W3[rwd_indices],
+    W4 = W4[rwd_indices],
+    A = A_rwd,
+    Y = Y_rwd
+  )
+
+  return(rbind(rct_data, rwd_data))
+}
+
 generate_data <- function(N, bA, bias, pRCT){
   # U
   UY <- rnorm(N, 0, 1)
@@ -83,84 +153,19 @@ generate_data <- function(N, bA, bias, pRCT){
   return(data)
 }
 
-generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias) {
-  # total number of observations needed for RCT and RWD combined
-  n <- max(n_rct, n_rwd) * 2  # ensure we get at least n_rct and n_rwd after applying the criteria
-
-  # baseline covariates
-  W1 <- runif(n, 0, 1)
-  W2 <- runif(n, 0, 1)
-  W3 <- runif(n, 0, 1)
-  W4 <- runif(n, 0, 1)
-
-  # probability being in RCT based on inclusion criteria
-  prob_rct <- plogis(0.7+0.3*W1+1.1*W2-0.9*W3-0.9*W4)
-  in_rct <- rbinom(n, 1, prob_rct)
-
-  # ensure exactly n_rct and n_rwd samples
-  rct_indices <- sample(which(in_rct == 1), n_rct, replace = TRUE)
-  rwd_indices <- sample(which(in_rct == 0), n_rwd, replace = TRUE)
-
-  # assign treatment in RCT
-  A_rct <- rbinom(n_rct, 1, g_rct)
-
-  # assign treatment in RWD based on doctor's decision rule
-  #decision_rule <- plogis(0.5+0.7*W1[rwd_indices]+1.2*W2[rwd_indices]-0.9*W3[rwd_indices]-0.6*W4[rwd_indices])
-  decision_rule <- 0.5
-  A_rwd <- rbinom(n_rwd, 1, decision_rule)
-
-  # outcome Y for RCT data without bias
-  Y_rct <- 2.1+0.8*W1[rct_indices]+2.5*W2[rct_indices]-3.1*W3[rct_indices]+0.9*W4[rct_indices]+ate*A_rct
-
-  # bias term for RWD data
-  b <- NULL
-  if (is.numeric(bias)) {
-    b <- bias
-  } else if (bias == "param_simple") {
-    b <- 1.9+(2.6*W1[rwd_indices])*A_rwd
-  } else if (bias == "param_complex") {
-    b <- (1.5+1.7*W2[rwd_indices]+1.7*W2[rwd_indices]*0.9*W3[rwd_indices]+2.1*W4[rwd_indices])*A_rwd
-  }
-
-  # outcome Y for RWD data with bias
-  Y_rwd <- 2.1+0.8*W1[rwd_indices]+2.5*W2[rwd_indices]-3.1*W3[rwd_indices]+0.9*W4[rwd_indices]+ate*A_rwd+b
-
-  # data frames for RCT and RWD
-  rct_data <- data.frame(
-    S = rep(1, n_rct),
-    W1 = W1[rct_indices],
-    W2 = W2[rct_indices],
-    W3 = W3[rct_indices],
-    W4 = W4[rct_indices],
-    A = A_rct,
-    Y = Y_rct
-  )
-
-  rwd_data <- data.frame(
-    S = rep(0, n_rwd),
-    W1 = W1[rwd_indices],
-    W2 = W2[rwd_indices],
-    W3 = W3[rwd_indices],
-    W4 = W4[rwd_indices],
-    A = A_rwd,
-    Y = Y_rwd
-  )
-
-  return(rbind(rct_data, rwd_data))
-}
-
 #' @param B Number of simulations to run
 #' @param n Sample size of each data
 #' @param bA True ATE
 #' @param nuisance_method Fitting method for nuisance parts, "lasso" or "HAL"
 #' @param working_model Working model types, "lasso" or "HAL"
 run_sim <- function(B,
-                    n,
-                    bA,
+                    n_rct,
+                    n_rwd,
+                    ate,
                     bias,
                     nuisance_method,
                     working_model,
-                    pRCT,
+                    g_rct,
                     verbose=TRUE,
                     method="atmle") {
   # results
@@ -174,7 +179,7 @@ run_sim <- function(B,
     if (verbose) print(i)
 
     # simulate data
-    data <- generate_data(n, bA, bias, pRCT)
+    data <- generate_realistic_data(ate, n_rct, n_rwd, g_rct, bias)
 
     # fit
     res <- NULL
@@ -184,9 +189,10 @@ run_sim <- function(B,
                    W_node = c(2, 3, 4, 5),
                    A_node = 6,
                    Y_node = 7,
-                   nuisance_method=nuisance_method,
-                   working_model=working_model,
-                   p_rct = pRCT,
+                   atmle_pooled = TRUE,
+                   nuisance_method = nuisance_method,
+                   working_model = working_model,
+                   g_rct = g_rct,
                    verbose = FALSE)
     } else if (method == "atmle_tmle") {
       res <- atmle_tmle(data,
@@ -194,9 +200,9 @@ run_sim <- function(B,
                         W_node = c(2, 3, 4, 5),
                         A_node = 6,
                         Y_node = 7,
-                        nuisance_method=nuisance_method,
-                        working_model=working_model,
-                        p_rct = pRCT,
+                        nuisance_method = nuisance_method,
+                        working_model = working_model,
+                        g_rct = g_rct,
                         verbose = FALSE)
     } else if (method == "atmle psi_tilde") {
       res <- psi_tilde_only_atmle(data,
@@ -204,9 +210,9 @@ run_sim <- function(B,
                                   W_node = c(2, 3, 4, 5),
                                   A_node = 6,
                                   Y_node = 7,
-                                  nuisance_method=nuisance_method,
-                                  working_model=working_model,
-                                  p_rct = pRCT,
+                                  nuisance_method = nuisance_method,
+                                  working_model = working_model,
+                                  g_rct = g_rct,
                                   verbose = FALSE)
     } else if (method == "tmle psi_tilde") {
       res <- psi_tilde_only_tmle(data,
@@ -214,12 +220,11 @@ run_sim <- function(B,
                                  W_node = c(2, 3, 4, 5),
                                  A_node = 6,
                                  Y_node = 7,
-                                 nuisance_method=nuisance_method,
-                                 working_model=working_model,
-                                 p_rct = pRCT,
+                                 nuisance_method = nuisance_method,
+                                 working_model = working_model,
+                                 g_rct = g_rct,
                                  verbose = FALSE)
     } else if (method == "escvtmle") {
-      #data$S <- 1 - data$S
       tmp <- ES.cvtmle(txinrwd = TRUE,
                        data = data,
                        study = "S",
@@ -227,7 +232,7 @@ run_sim <- function(B,
                        treatment_var = "A",
                        treatment = 1,
                        outcome = "Y",
-                       pRCT = pRCT,
+                       pRCT = g_rct,
                        family = "gaussian",
                        Q.SL.library = c("SL.glm"),
                        g.SL.library = c("SL.glm"),
@@ -244,8 +249,8 @@ run_sim <- function(B,
                       W_node = c(2, 3, 4, 5),
                       A_node = 6,
                       Y_node = 7,
-                      nuisance_method=nuisance_method,
-                      p_rct = pRCT,
+                      nuisance_method = nuisance_method,
+                      g_rct = g_rct,
                       verbose = FALSE)
     } else if (method == "tmle") {
       res <- nonparametric(data,
@@ -255,11 +260,11 @@ run_sim <- function(B,
                            Y_node = 7,
                            nuisance_method = nuisance_method,
                            working_model = working_model,
-                           p_rct = pRCT,
+                           g_rct = g_rct,
                            verbose = FALSE)
     }
 
-    if (res$lower <= bA & res$upper >= bA) {
+    if (res$lower <= ate & res$upper >= ate) {
       psi_coverage[i] <- 1
       if (verbose) print("psi covered")
     } else {
@@ -329,9 +334,10 @@ run_sim_n_increase <- function(B,
                      W_node = c(2, 3, 4, 5),
                      A_node = 6,
                      Y_node = 7,
+                     atmle_pooled = TRUE,
                      nuisance_method=nuisance_method,
                      working_model=working_model,
-                     p_rct = pRCT,
+                     g_rct = g_rct,
                      verbose = FALSE)
       } else if (method == "atmle_tmle") {
         res <- atmle_tmle(data,
@@ -341,7 +347,7 @@ run_sim_n_increase <- function(B,
                           Y_node = 7,
                           nuisance_method=nuisance_method,
                           working_model=working_model,
-                          p_rct = pRCT,
+                          g_rct = pRCT,
                           verbose = FALSE)
       } else if (method == "atmle psi_tilde") {
         res <- psi_tilde_only_atmle(data,
@@ -351,7 +357,7 @@ run_sim_n_increase <- function(B,
                                     Y_node = 7,
                                     nuisance_method=nuisance_method,
                                     working_model=working_model,
-                                    p_rct = pRCT,
+                                    g_rct = pRCT,
                                     verbose = FALSE)
       } else if (method == "tmle psi_tilde") {
         res <- psi_tilde_only_tmle(data,
@@ -361,7 +367,7 @@ run_sim_n_increase <- function(B,
                                    Y_node = 7,
                                    nuisance_method=nuisance_method,
                                    working_model=working_model,
-                                   p_rct = pRCT,
+                                   g_rct = pRCT,
                                    verbose = FALSE)
       } else if (method == "escvtmle") {
         #data$S <- 1 - data$S
@@ -391,7 +397,7 @@ run_sim_n_increase <- function(B,
                              Y_node = 7,
                              nuisance_method = nuisance_method,
                              working_model = working_model,
-                             p_rct = pRCT,
+                             g_rct = pRCT,
                              verbose = FALSE)
       } else if (method == "rct_only") {
         res <- rct_only(data,
@@ -400,7 +406,7 @@ run_sim_n_increase <- function(B,
                         A_node = 6,
                         Y_node = 7,
                         nuisance_method = nuisance_method,
-                        p_rct = pRCT,
+                        g_rct = pRCT,
                         verbose = FALSE)
       }
 

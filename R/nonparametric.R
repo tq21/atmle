@@ -4,7 +4,7 @@ nonparametric <- function(data,
                           W_node,
                           A_node,
                           Y_node,
-                          p_rct,
+                          g_rct,
                           nuisance_method="glm",
                           working_model="lasso",
                           verbose=TRUE) {
@@ -21,7 +21,7 @@ nonparametric <- function(data,
   Q <- learn_Q_SWA(S, W, A, Y, method = nuisance_method)
 
   if (verbose) print("learning P(A=1|S,W)")
-  g <- learn_g_SW(S, W, A, p_rct, method = nuisance_method)
+  g <- learn_g_SW(S, W, A, g_rct, method = nuisance_method)
 
   if (verbose) print("learning P(S=1|W)")
   Pi <- learn_S_W(S, W, method = nuisance_method)
