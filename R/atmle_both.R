@@ -4,8 +4,8 @@ atmle <- function(data,
                   W_node,
                   A_node,
                   Y_node,
-                  nuisance_method="lasso",
-                  working_model="lasso",
+                  nuisance_method="glmnet",
+                  working_model="glmnet",
                   p_rct=0.5,
                   verbose=TRUE,
                   transform=TRUE) {
@@ -20,7 +20,7 @@ atmle <- function(data,
   # estimate bias psi_pound ----------------------------------------------------
   # learn nuisance parts
   if (verbose) print("learning E(Y|W,A)")
-  theta <- learn_theta(W, A, Y, nuisance_method)
+  theta <- learn_theta(W, A, Y, family = "gaussian", nuisance_method)
 
   if (verbose) print("learning P(S=1|W,A)")
   Pi <- learn_Pi(S, W, A, nuisance_method)
@@ -40,21 +40,23 @@ atmle <- function(data,
   psi_pound_eic <- NULL
 
   # TMLE to target Pi
-  if (verbose) print("targeting P(S=1|W,A)")
-  for (i in 1:1) {
-    # TMLE to target Pi
-    Pi_star <- Pi_tmle(S, W, A, g, tau, Pi)
-
-    # re-learn working model tau with targeted Pi
-    tau_star <- NULL
-    if (transform) {
-      tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, working_model)
-    } else {
-      tau_star <- learn_tau_test(S, W, A, Y, Pi_star, theta, working_model)
-    }
-    Pi <- Pi_star
-    tau <- tau_star
-  }
+  # if (verbose) print("targeting P(S=1|W,A)")
+  # for (i in 1:1) {
+  #   # TMLE to target Pi
+  #   print("target Pi")
+  #   Pi_star <- Pi_tmle(S, W, A, g, tau, Pi)
+#
+  #   # re-learn working model tau with targeted Pi
+  #   tau_star <- NULL
+  #   print("relearn tau")
+  #   if (transform) {
+  #     tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, working_model)
+  #   } else {
+  #     tau_star <- learn_tau_test(S, W, A, Y, Pi_star, theta, working_model)
+  #   }
+  #   Pi <- Pi_star
+  #   tau <- tau_star
+  # }
 
   psi_pound_est <- mean((1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1)
   psi_pound_eic <- get_eic_psi_pound(Pi, tau, g, theta, psi_pound_est, S, A, Y, n)
@@ -67,7 +69,7 @@ atmle <- function(data,
   # estimate pooled ATE psi_tilde ----------------------------------------------
   # learn nuisance parts
   if (verbose) print("learning E(Y|W)")
-  theta_tilde <- learn_theta_tilde(W, Y, nuisance_method)
+  theta_tilde <- learn_theta_tilde(W, Y, family = "gaussian", "glmnet")
 
   # learn psi_tilde using R-loss
   if (verbose) print("learning psi_tilde")

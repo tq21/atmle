@@ -25,7 +25,7 @@ learn_Pi <- function(S, W, A, method = "glmnet", v_folds = 5) {
     A1 <- as.numeric(predict(fit_A1, newdata = W, type = "response"))
     A0 <- as.numeric(predict(fit_A0, newdata = W, type = "response"))
   } else if (method == "sl3") {
-    lrnr_stack <- Stack$new(list(Lrnr_earth$new(degree = 2, family = "binomial"),
+    lrnr_stack <- Stack$new(list(Lrnr_earth$new(degree = 3, family = "binomial"),
                                  Lrnr_xgboost$new(max_depth = 4, nrounds = 20, verbose = 0)))
     lrnr_Pi <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack), Lrnr_cv_selector$new(loss_loglik_binomial))
     task_Pi <- sl3_Task$new(data = data.table(W, A = A, S = S),

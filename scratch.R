@@ -2,8 +2,8 @@ options(sl3.verbose = TRUE)
 source("utils.R")
 set.seed(29857)
 
-data <- generate_data(50000, 1.5, 20, 0.5)
-data <- generate_realistic_data(1.5, n_rct = 500, n_rwd = 2000, g_rct = 0.67, "param_simple")
+data <- generate_data(1000, 1.5, 2.6, 0.67)
+#data <- generate_realistic_data(1.5, n_rct = 500, n_rwd = 2000, g_rct = 0.67, "param_simple")
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
@@ -16,12 +16,12 @@ transform=TRUE
 
 #source("utils_positivity.R")
 
-B <- 200
-n <- 500
+B <- 100
+n <- 2000
 bias <- 0.7
-nuisance_method = "glm"
+nuisance_method = "sl3"
 working_model = "lasso"
-pRCT = 0.5
+pRCT = 0.67
 verbose = TRUE
 
 tmp <- run_sim(B = B,
@@ -73,7 +73,7 @@ var(tmp_3$psi_est)+(mean(tmp_3$psi_est)-1.5)^2
 B <- 200
 covered <- vector(length = B)
 for (i in 1:B) {
-  data <- generate_realistic_data(1.5, n_rct = 500, n_rwd = 2000, g_rct = 0.67, "param_simple")
+  data <- generate_realistic_data(1.5, n_rct = 500, n_rwd = 2000, g_rct = 0.67, 0)
   S_node = 1
   W_node = c(2, 3, 4, 5)
   A_node = 6

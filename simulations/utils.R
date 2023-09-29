@@ -10,7 +10,7 @@ generate_data <- function(N, bA, bias, pRCT){
   UY <- rnorm(N, 0, 1)
 
   # S
-  S <- rbinom(N, 1, 0.5)
+  S <- rbinom(N, 1, 0.05)
   #S <- sample(c(rep(1, 200), rep(0, N - 200)))
 
   # W
@@ -26,8 +26,8 @@ generate_data <- function(N, bA, bias, pRCT){
   # A
   A <- vector(length = N)
   #A[S == 0] <- rbinom(N - sum(S), 1, 0.6*W1)
-  #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-0.5*W1+0.9*W2-1.2*W3+0.3*W4))
-  A[S == 0] <- rbinom(N - sum(S), 1, 0.5)
+  A[S == 0] <- rbinom(N - sum(S), 1, plogis(-0.5*W1+0.9*W2))
+  #A[S == 0] <- rbinom(N - sum(S), 1, )
   #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-2*W1-2*W2+1.2*W3-0.3*W4))
   A[S == 1] <- rbinom(sum(S), 1, pRCT)
 
