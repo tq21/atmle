@@ -1,6 +1,7 @@
 library(ggplot2)
 library(devtools)
 library(EScvtmle)
+library(sl3)
 load_all()
 
 `%+%` <- function(a, b) paste0(a, b)
@@ -10,7 +11,7 @@ generate_data <- function(N, bA, bias, pRCT){
   UY <- rnorm(N, 0, 1)
 
   # S
-  S <- rbinom(N, 1, 0.05)
+  S <- rbinom(N, 1, 0.1)
   #S <- sample(c(rep(1, 200), rep(0, N - 200)))
 
   # W
@@ -26,7 +27,7 @@ generate_data <- function(N, bA, bias, pRCT){
   # A
   A <- vector(length = N)
   #A[S == 0] <- rbinom(N - sum(S), 1, 0.6*W1)
-  A[S == 0] <- rbinom(N - sum(S), 1, plogis(-0.5*W1+0.9*W2))
+  A[S == 0] <- rbinom(N - sum(S), 1, plogis(-0.5*W1+0.9*W2-1.2*W3+0.3*W4))
   #A[S == 0] <- rbinom(N - sum(S), 1, )
   #A[S == 0] <- rbinom(N - sum(S), 1, plogis(-2*W1-2*W2+1.2*W3-0.3*W4))
   A[S == 1] <- rbinom(sum(S), 1, pRCT)
@@ -104,7 +105,8 @@ generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias) {
   A_rct <- rbinom(n_rct, 1, g_rct)
 
   # assign treatment in RWD based on doctor's decision rule
-  decision_rule <- plogis(0.5+0.7*W1[rwd_indices]+1.2*W2[rwd_indices]-0.9*W3[rwd_indices]-0.6*W4[rwd_indices])
+  #decision_rule <- plogis(0.5+0.7*W1[rwd_indices]+1.2*W2[rwd_indices]-0.9*W3[rwd_indices]-0.6*W4[rwd_indices])
+  decision_rule <- 0.5
   A_rwd <- rbinom(n_rwd, 1, decision_rule)
 
   # outcome Y for RCT data without bias

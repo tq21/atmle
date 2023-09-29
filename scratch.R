@@ -2,7 +2,7 @@ options(sl3.verbose = TRUE)
 source("utils.R")
 set.seed(29857)
 
-data <- generate_data(1000, 1.5, 2.6, 0.67)
+data <- generate_data(2000, 1.5, 0.7, 0.67)
 #data <- generate_realistic_data(1.5, n_rct = 500, n_rwd = 2000, g_rct = 0.67, "param_simple")
 S_node = 1
 W_node = c(2, 3, 4, 5)
@@ -18,7 +18,7 @@ transform=TRUE
 
 B <- 100
 n <- 2000
-bias <- 0.7
+bias <- 0
 nuisance_method = "sl3"
 working_model = "lasso"
 pRCT = 0.67
@@ -70,15 +70,16 @@ hist(tmp_3$psi_est)
 mean(tmp_3$psi_est)-1.5
 var(tmp_3$psi_est)+(mean(tmp_3$psi_est)-1.5)^2
 
-B <- 200
+B <- 300
 covered <- vector(length = B)
+all_res <- vector(length = B)
 for (i in 1:B) {
-  data <- generate_realistic_data(1.5, n_rct = 500, n_rwd = 2000, g_rct = 0.67, 0)
+  data <- generate_realistic_data(1.5, n_rct = 200, n_rwd = 2000, g_rct = 0.67, bias = 100)
   S_node = 1
   W_node = c(2, 3, 4, 5)
   A_node = 6
   Y_node = 7
-  p_rct=0.67
+  p_rct = 0.67
   res <- atmle(data = data,
                S_node = S_node,
                W_node = W_node,
@@ -89,13 +90,54 @@ for (i in 1:B) {
                p_rct=0.67,
                verbose=FALSE,
                transform=TRUE)
+  all_res[i] <- res$est
   if (res$lower <= 1.5 & res$upper >= 1.5) {
-    print("covered")
+    print(i %+% ": covered")
     covered[i] <- 1
   } else {
-    print("not covered")
+    print(i %+% ": not covered")
     covered[i] <- 0
   }
 }
 mean(covered)
+hist(all_res)
+var(all_res)
 
+
+
+# real data comparison
+data(wash)
+#For unbiased external controls, use:
+#dat <- wash[which(wash$study %in% c(1,2)),]
+dat$study[which(dat$study==2)]<-0
+dat$study[which(dat$study==3)]<-0
+dat$sex <- as.numeric(dat$sex)-1
+dat$momedu <- as.numeric(dat$momedu)-1
+dat$hfiacat <- as.numeric(dat$hfiacat)-1
+
+set.seed(2022)
+res_escvtmle <- ES.cvtmle(txinrwd=TRUE,
+                          data=dat, study="study",
+                          covariates=c("aged", "sex", "momedu", "hfiacat"),
+                          treatment_var="intervention", treatment=1,
+                          outcome="laz", NCO="Nlt18scale",
+                          Delta=NULL, Delta_NCO=NULL,
+                          pRCT=0.5, V=5, Q.SL.library=c("SL.glm"),
+                          g.SL.library=c("SL.glm"), Q.discreteSL=TRUE, g.discreteSL=TRUE,
+                          family="gaussian", family_nco="gaussian", fluctuation = "logistic",
+                          comparisons = list(c(1),c(1,0)), adjustnco = FALSE, target.gwt = TRUE)
+print.EScvtmle(res_escvtmle)
+
+res_atmle <- atmle(data = dat,
+                   S_node = 2,
+                   W_node = c(4, 5, 6, 7),
+                   A_node = 1,
+                   Y_node = 3,
+                   nuisance_method="sl3",
+                   working_model="lasso",
+                   p_rct=0.5,
+                   verbose=TRUE,
+                   transform=TRUE)
+res_atmle$est
+res_atmle$lower
+res_atmle$upper
