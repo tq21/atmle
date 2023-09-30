@@ -10,6 +10,7 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
   x_basis <- NULL
   x_basis_A1 <- NULL
   x_basis_A0 <- NULL
+  coefs <- NULL
 
   # design matrix: (intercept, W, A, W * A)
   X_A1A0 <- cbind(W * A, A, W * (1-A))
@@ -23,8 +24,9 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
     fit <- cv.glmnet(x = as.matrix(X_A1A0) , y = pseudo_outcome, intercept = TRUE,
                      family = "gaussian", weights = pseudo_weights,
                      keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
-    A1 <- as.numeric(as.matrix(X_A1_counter) %*% matrix(coef(fit, s = "lambda.min")))
-    A0 <- as.numeric(as.matrix(X_A0_counter) %*% matrix(coef(fit, s = "lambda.min")))
+    coefs <- coef(fit, s = "lambda.min")
+    A1 <- as.numeric(as.matrix(X_A1_counter) %*% matrix(coefs))
+    A0 <- as.numeric(as.matrix(X_A0_counter) %*% matrix(coefs))
     pred[A == 1] <- A1[A == 1]
     pred[A == 0] <- A0[A == 0]
 
@@ -54,5 +56,6 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
               x_basis = x_basis,
               x_basis_A1 = x_basis_A1,
               x_basis_A0 = x_basis_A0,
-              pred = pred))
+              pred = pred,
+              coefs = coefs))
 }

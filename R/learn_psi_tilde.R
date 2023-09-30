@@ -6,11 +6,13 @@ learn_psi_tilde <- function(W, A, Y, g, theta, method = "lasso") {
 
   pred <- NULL
   x_basis <- NULL
+  coefs <- NULL
   if (method == "lasso") {
     fit <- cv.glmnet(x = as.matrix(W),
                      y = pseudo_outcome, family = "gaussian", weights = pseudo_weights,
                      keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
-    pred <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coef(fit, s = "lambda.min")))
+    coefs <- coef(fit, s = "lambda.min")
+    pred <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coefs))
     #pred <- as.numeric(predict(fit, newx = as.matrix(data.table(W)), s = y_lambda_min, type = "response"))
 
     # design matrix
@@ -27,5 +29,6 @@ learn_psi_tilde <- function(W, A, Y, g, theta, method = "lasso") {
   }
 
   return(list(pred = pred,
-              x_basis = x_basis))
+              x_basis = x_basis,
+              coefs = coefs))
 }

@@ -15,11 +15,11 @@ transform=TRUE
 
 #source("utils_positivity.R")
 
-B <- 100
-n_rct <- 100
-n_rwd <- 1000
+B <- 300
+n_rct <- 200
+n_rwd <- 2000
 ate <- 1.5
-bias <- 0
+bias <- "param_simple"
 nuisance_method = "glm"
 working_model = "lasso"
 g_rct = 0.67
@@ -77,7 +77,7 @@ B <- 300
 covered <- vector(length = B)
 all_res <- vector(length = B)
 for (i in 1:B) {
-  data <- generate_realistic_data(1.5, n_rct = 200, n_rwd = 2000, g_rct = 0.67, bias = "param_complex")
+  data <- generate_realistic_data(1.5, n_rct = 200, n_rwd = 2000, g_rct = 0.67, bias = "param_simple")
   S_node = 1
   W_node = c(2, 3, 4, 5)
   A_node = 6
@@ -88,11 +88,12 @@ for (i in 1:B) {
                W_node = W_node,
                A_node = A_node,
                Y_node = Y_node,
+               atmle_pooled = TRUE,
+               var_method = "bootstrap",
                nuisance_method="glm",
                working_model="lasso",
-               p_rct=0.67,
-               verbose=FALSE,
-               transform=TRUE)
+               g_rct=0.67,
+               verbose=FALSE)
   all_res[i] <- res$est
   if (res$lower <= 1.5 & res$upper >= 1.5) {
     print(i %+% ": covered")
@@ -105,7 +106,6 @@ for (i in 1:B) {
 mean(covered)
 hist(all_res)
 var(all_res)
-
 
 
 # real data comparison

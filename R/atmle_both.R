@@ -5,6 +5,7 @@ atmle <- function(data,
                   A_node,
                   Y_node,
                   atmle_pooled = TRUE,
+                  var_method = "bootstrap",
                   nuisance_method="glmnet",
                   working_model="glmnet",
                   g_rct=0.5,
@@ -45,10 +46,9 @@ atmle <- function(data,
   }
 
   psi_pound_est <- mean((1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1)
-  psi_pound_eic <- get_eic_psi_pound(Pi, tau, g, theta, psi_pound_est, S, A, Y, n)
-  print("psi pound eic: " %+% mean(psi_pound_eic))
 
   # estimate pooled-ATE psi_tilde ----------------------------------------------
+  psi_tilde <- NULL
   psi_tilde_est <- NULL
   psi_tilde_eic <- NULL
   if (atmle_pooled) {
@@ -74,28 +74,65 @@ atmle <- function(data,
     psi_tilde_eic <- Q_star$estimates$IC$IC.ATE
   }
 
-  print("psi tilde eic: " %+% mean(psi_tilde_eic))
-
   # final estimates ------------------------------------------------------------
-  psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE)/n)
-  psi_pound_ci_lower <- psi_pound_est+qnorm(0.025)*psi_pound_se
-  psi_pound_ci_upper <- psi_pound_est+qnorm(0.975)*psi_pound_se
-  psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE)/n)
-  psi_tilde_ci_lower <- psi_tilde_est+qnorm(0.025)*psi_tilde_se
-  psi_tilde_ci_upper <- psi_tilde_est+qnorm(0.975)*psi_tilde_se
-  psi_est <- psi_tilde_est - psi_pound_est
-  psi_eic <- psi_tilde_eic - psi_pound_eic
-  psi_se <- sqrt(var(psi_eic, na.rm = TRUE)/n)
-  psi_ci_lower <- psi_est+qnorm(0.025)*psi_se
-  psi_ci_upper <- psi_est+qnorm(0.975)*psi_se
+  est <- NULL
+  lower <- NULL
+  upper <- NULL
+  psi_pound_lower <- NULL
+  psi_pound_upper <- NULL
+  psi_tilde_lower <- NULL
+  psi_tilde_upper <- NULL
 
-  return(list(est = psi_est,
-              lower = psi_ci_lower,
-              upper = psi_ci_upper,
+  if (var_method == "ic") {
+    # bias parameter
+    psi_pound_eic <- get_eic_psi_pound(Pi, tau, g, theta, psi_pound_est, S, A, Y, n)
+    psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE)/n)
+    psi_pound_lower <- psi_pound_est+qnorm(0.025)*psi_pound_se
+    psi_pound_upper <- psi_pound_est+qnorm(0.975)*psi_pound_se
+
+    # pooled-ATE parameter
+    psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE)/n)
+    psi_tilde_lower <- psi_tilde_est+qnorm(0.025)*psi_tilde_se
+    psi_tilde_upper <- psi_tilde_est+qnorm(0.975)*psi_tilde_se
+
+    # RCT-ATE
+    est <- psi_tilde_est - psi_pound_est
+    eic <- psi_tilde_eic - psi_pound_eic
+    se <- sqrt(var(eic, na.rm = TRUE)/n)
+    lower <- est+qnorm(0.025)*se
+    upper <- est+qnorm(0.975)*se
+  } else if (var_method == "bootstrap") {
+    # bias parameter
+    psi_pound_se <- bootstrap_psi_pound(tau, W, Pi)
+    psi_pound_lower <- psi_pound_est+qnorm(0.025)*psi_pound_se
+    psi_pound_upper <- psi_pound_est+qnorm(0.975)*psi_pound_se
+
+    # pooled-ATE parameter (use ic-based for now)
+    psi_tilde_se <- NULL
+    #if (atmle_pooled) {
+    #  psi_tilde_se <- bootstrap_psi_tilde(W, psi_tilde)
+    #  psi_tilde_lower <- psi_tilde_est+qnorm(0.025)*psi_tilde_se
+    #  psi_tilde_upper <- psi_tilde_est+qnorm(0.975)*psi_tilde_se
+    #} else {
+    psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE)/n)
+    psi_tilde_lower <- psi_tilde_est+qnorm(0.025)*psi_tilde_se
+    psi_tilde_upper <- psi_tilde_est+qnorm(0.975)*psi_tilde_se
+    #}
+
+    # RCT-ATE
+    est <- psi_tilde_est - psi_pound_est
+    se <- sqrt(psi_pound_se^2+psi_tilde_se^2)
+    lower <- est+qnorm(0.025)*se
+    upper <- est+qnorm(0.975)*se
+  }
+
+  return(list(est = est,
+              lower = lower,
+              upper = upper,
               psi_pound_est = psi_pound_est,
-              psi_pound_lower = psi_pound_ci_lower,
-              psi_pound_upper = psi_pound_ci_upper,
+              psi_pound_lower = psi_pound_lower,
+              psi_pound_upper = psi_pound_upper,
               psi_tilde_est = psi_tilde_est,
-              psi_tilde_lower = psi_tilde_ci_lower,
-              psi_tilde_upper = psi_tilde_ci_upper))
+              psi_tilde_lower = psi_tilde_lower,
+              psi_tilde_upper = psi_tilde_upper))
 }
