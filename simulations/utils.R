@@ -28,8 +28,8 @@ generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias) {
   A_rct <- rbinom(n_rct, 1, g_rct)
 
   # assign treatment in RWD based on doctor's decision rule
-  #decision_rule <- plogis(0.5+0.7*W1[rwd_indices]+1.2*W2[rwd_indices]-0.9*W3[rwd_indices]-0.6*W4[rwd_indices])
-  decision_rule <- 0.7
+  decision_rule <- plogis(0.5+0.7*W1[rwd_indices]+1.2*W2[rwd_indices]-0.9*W3[rwd_indices]-0.6*W4[rwd_indices])
+  #decision_rule <- 0.7
   A_rwd <- rbinom(n_rwd, 1, decision_rule)
 
   # outcome Y for RCT data without bias
@@ -46,7 +46,7 @@ generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias) {
   } else if (bias == "param_simple") {
     b <- 1.9+(2.6*W1[rwd_indices])*A_rwd
   } else if (bias == "param_complex") {
-    b <- (1.5+1.7*W2[rwd_indices]+1.7*W2[rwd_indices]*0.9*W3[rwd_indices]+2.1*W4[rwd_indices])*A_rwd
+    b <- 1.9+(1.5+1.7*W2[rwd_indices]-1.2*W2[rwd_indices]+2.1*W4[rwd_indices])*A_rwd
   }
 
   # outcome Y for RWD data with bias

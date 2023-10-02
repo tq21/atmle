@@ -15,11 +15,11 @@ transform=TRUE
 
 #source("utils_positivity.R")
 
-B <- 300
-n_rct <- 200
+B <- 200
+n_rct <- 100
 n_rwd <- 2000
 ate <- 1.5
-bias <- "param_simple"
+bias <- 0
 nuisance_method = "glm"
 working_model = "lasso"
 g_rct = 0.67
@@ -106,7 +106,6 @@ for (i in 1:B) {
 mean(covered)
 hist(all_res)
 var(all_res)
-
 
 # real data comparison
 data(wash)
