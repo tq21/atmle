@@ -1,5 +1,5 @@
 # function to learn tau, R-loss
-learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
+learn_tau <- function(S, W, A, Y, Pi, theta, method = "glmnet") {
   weights <- 1
   pseudo_outcome <- (Y-theta$pred)/(S-Pi$pred)
   pseudo_weights <- (S-Pi$pred)^2*weights
@@ -20,7 +20,7 @@ learn_tau <- function(S, W, A, Y, Pi, theta, method = "lasso") {
   X_A1_counter <- cbind(1, W, 1, zero_W)
   X_A0_counter <- cbind(1, zero_W, 0, W)
 
-  if (method == "lasso") {
+  if (method == "glmnet") {
     fit <- cv.glmnet(x = as.matrix(X_A1A0) , y = pseudo_outcome, intercept = TRUE,
                      family = "gaussian", weights = pseudo_weights,
                      keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)

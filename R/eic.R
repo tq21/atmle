@@ -40,6 +40,6 @@ get_eic_psi_tilde_2 <- function(g, Q_A1, Q_A0, A, Y) {
 
 get_eic_psi_nonparametric <- function(Q, Pi, g, S, A, Y, psi_est) {
   W_comp <- Q$S1A1-Q$S1A0-psi_est
-  Q_comp <- (S/Pi$pred)*(A/g$pred-(1-A)/(1-g$pred))*(Y-Q$pred)
+  Q_comp <- (S/Pi$pred)*(A/g-(1-A)/(1-g))*(Y-Q$pred)
   return(W_comp+Q_comp)
 }

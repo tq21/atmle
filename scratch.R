@@ -2,26 +2,26 @@ options(sl3.verbose = TRUE)
 source("utils.R")
 set.seed(29857)
 
-data <- generate_realistic_data(1.5, n_rct = 500, n_rwd = 2000, g_rct = 0.67, bias = 0)
+data <- generate_realistic_data(1.5, n_rct = 200, n_rwd = 2000, g_rct = 0.67, bias = 0)
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
 Y_node = 7
 nuisance_method="glm"
-working_model="lasso"
-p_rct=0.67
+working_model="glmnet"
+g_rct=0.67
 verbose=TRUE
 transform=TRUE
 
 #source("utils_positivity.R")
 
-B <- 200
-n_rct <- 100
+B <- 500
+n_rct <- 200
 n_rwd <- 2000
 ate <- 1.5
-bias <- 0
+bias <- "param_complex"
 nuisance_method = "glm"
-working_model = "lasso"
+working_model = "glmnet"
 g_rct = 0.67
 verbose = TRUE
 
@@ -59,14 +59,15 @@ mean(tmp_2$psi_est)-1.5
 var(tmp_2$psi_est)+(mean(tmp_2$psi_est)-1.5)^2
 
 tmp_3 <- run_sim(B = B,
-                 n = n,
-                 bA = 1.5,
+                 n_rct = n_rct,
+                 n_rwd = n_rwd,
+                 ate = ate,
                  bias = bias,
                  nuisance_method = nuisance_method,
                  working_model = working_model,
-                 pRCT = pRCT,
+                 g_rct = g_rct,
                  verbose = verbose,
-                 method = "atmle_tmle")
+                 method = "nonparametric")
 mean(tmp_3$psi_coverage)
 var(tmp_3$psi_est)
 hist(tmp_3$psi_est)
@@ -110,7 +111,7 @@ var(all_res)
 # real data comparison
 data(wash)
 #For unbiased external controls, use:
-#dat <- wash[which(wash$study %in% c(1,2)),]
+dat <- wash[which(wash$study %in% c(1,2)),]
 dat$study[which(dat$study==2)]<-0
 dat$study[which(dat$study==3)]<-0
 dat$sex <- as.numeric(dat$sex)-1
@@ -135,11 +136,13 @@ res_atmle <- atmle(data = dat,
                    W_node = c(4, 5, 6, 7),
                    A_node = 1,
                    Y_node = 3,
-                   nuisance_method="sl3",
+                   nuisance_method="glm",
                    working_model="lasso",
-                   p_rct=0.5,
-                   verbose=TRUE,
-                   transform=TRUE)
+                   g_rct=0.5,
+                   verbose=TRUE)
+print("ATMLE estimate: " %+% round(res_atmle$est, 3) %+% " (" %+%
+        round(res_atmle$lower, 3) %+% ", " %+% round(res_atmle$upper, 3) %+% ")")
+
 res_atmle$est
 res_atmle$lower
 res_atmle$upper

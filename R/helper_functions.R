@@ -57,20 +57,15 @@ Q_tmle <- function(g, Q, A, Y_bound) {
               A0 = Q_A0_star))
 }
 
-learn_Q_SWA <- function(S, W, A, Y, method = "glm") {
-  # bound Y
-  min_Y <- min(Y)
-  max_Y <- max(Y)
-  Y_bounded <- (Y-min_Y)/(max_Y-min_Y)
-
+learn_Q_S1 <- function(S, W, A, Y, method = "glm") {
   pred <- numeric(length = length(A))
   S1A1 <- numeric(length = length(A))
   S1A0 <- numeric(length = length(A))
-  X <- data.frame(S = S, W, A = A)
-  X_S1A1 <- data.frame(S = 1, W, A = 1)
-  X_S1A0 <- data.frame(S = 1, W, A = 0)
+  X <- data.frame(W, A = A)[S == 1,]
+  X_S1A1 <- data.frame(W, A = 1)
+  X_S1A0 <- data.frame(W, A = 0)
 
-  if (method == "lasso") {
+  if (method == "glmnet") {
     fit <- cv.glmnet(x = as.matrix(X), y = Y_bounded, keep = TRUE, alpha = 1, nfolds = 5, family = "gaussian")
     pred <- as.numeric(predict(fit, newx = as.matrix(X), s = "lambda.min", type = "response"))
     S1A1 <- as.numeric(predict(fit, newx = as.matrix(X_S1A1), s = "lambda.min", type = "response"))
@@ -81,15 +76,11 @@ learn_Q_SWA <- function(S, W, A, Y, method = "glm") {
     S1A1 <- as.numeric(predict(fit, new_data = as.matrix(X_S1A1)))
     S1A0 <- as.numeric(predict(fit, new_data = as.matrix(X_S1A0)))
   } else if (method == "glm") {
-    fit <- glm(Y_bounded ~ S:W1 + S:W2 + S:W3 + S:W4 + ., data = X, family = "quasibinomial")
-    pred <- as.numeric(predict(fit, newdata = X, type = "response"))
+    fit <- glm(Y[S == 1] ~ ., data = X, family = "gaussian")
+    pred <- as.numeric(predict(fit, newdata = data.frame(W, A = A), type = "response"))
     S1A1 <- as.numeric(predict(fit, newdata = X_S1A1, type = "response"))
     S1A0 <- as.numeric(predict(fit, newdata = X_S1A0, type = "response"))
   }
-
-  # pred <- .bound(pred, 0.001, 0.999)
-  # S1A1 <- .bound(S1A1, 0.001, 0.999)
-  # S1A0 <- .bound(S1A0, 0.001, 0.999)
 
   return(list(pred = pred,
               S1A1 = S1A1,
@@ -100,7 +91,7 @@ learn_Q_SWA <- function(S, W, A, Y, method = "glm") {
   return(pmin(pmax(x, lower), upper))
 }
 
-learn_g_SW <- function(S, W, A, p_rct, method = "lasso") {
+learn_g_S1 <- function(S, W, A, g_rct, method = "glmnet") {
   pred <- numeric(length = length(A))
   pred[S == 1] <- p_rct
   X <- data.frame(W[S == 0, ])
@@ -119,11 +110,11 @@ learn_g_SW <- function(S, W, A, p_rct, method = "lasso") {
   return(list(pred = pred))
 }
 
-learn_S_W <- function(S, W, method = "lasso") {
+learn_S_W <- function(S, W, method = "glmnet") {
   pred <- numeric(length = length(S))
   X <- data.frame(W)
 
-  if (method == "lasso") {
+  if (method == "glmnet") {
     fit <- cv.glmnet(x = as.matrix(X), y = S, keep = TRUE, alpha = 1, nfolds = 5, family = "binomial")
     pred <- as.numeric(predict(fit, newx = as.matrix(X), s = "lambda.min", type = "response"))
   } else if (method == "HAL") {
@@ -137,27 +128,34 @@ learn_S_W <- function(S, W, method = "lasso") {
   return(list(pred = pred))
 }
 
-target_Q <- function(S, W, A, Y, Pi, g, Q, target_wt=TRUE) {
+target_Q <- function(S, W, A, Y, Pi, g, Q) {
   # bound Y
-  min_Y <- min(Y)
-  max_Y <- max(Y)
+  min_Y <- min(Y, Q$pred, Q$S1A1, Q$S1A0)-0.001
+  max_Y <- max(Y, Q$pred, Q$S1A1, Q$S1A0)+0.001
   Y_bounded <- (Y-min_Y)/(max_Y-min_Y)
+  Q$pred <- (Q$pred-min_Y)/(max_Y-min_Y)
+  Q$S1A1 <- (Q$S1A1-min_Y)/(max_Y-min_Y)
+  Q$S1A0 <- (Q$S1A0-min_Y)/(max_Y-min_Y)
 
-  H1_n <- (S/Pi$pred)*(A/g$pred)
-  H0_n <- (S/Pi$pred)*((1-A)/(1-g$pred))
-  H_n <- H1_n - H0_n
+  # clever covariates
+  wt <- S/Pi$pred
+  H1_n <- wt*(A/g)
+  H0_n <- wt*((1-A)/(1-g))
 
   # logistic submodel
-  suppressWarnings(
-    epsilon <- coef(glm(Y_bounded ~ -1 + offset(qlogis(Q$pred)) + H1_n + H0_n, family = "binomial"))
-  )
+  epsilon <- coef(glm(Y_bounded ~ -1 + offset(qlogis(Q$pred)) + H0_n + H1_n, family = "quasibinomial"))
   epsilon[is.na(epsilon)] <- 0
 
   # TMLE updates
   Q_star <- NULL
-  Q_star$pred <- plogis(qlogis(Q$pred)+epsilon[1]*H1_n+epsilon[2]*H0_n)
-  Q_star$S1A1 <- plogis(qlogis(Q$S1A1)+epsilon[1]*H1_n)
-  Q_star$S1A0 <- plogis(qlogis(Q$S1A0)+epsilon[2]*H0_n)
+  Q_star$pred <- plogis(qlogis(Q$pred)+epsilon[1]*H0_n+epsilon[2]*H1_n)
+  Q_star$S1A0 <- plogis(qlogis(Q$S1A0)+epsilon[1]*H0_n)
+  Q_star$S1A1 <- plogis(qlogis(Q$S1A1)+epsilon[2]*H1_n)
+
+  # scale back
+  Q_star$pred <- Q_star$pred*(max_Y-min_Y)+min_Y
+  Q_star$S1A0 <- Q_star$S1A0*(max_Y-min_Y)+min_Y
+  Q_star$S1A1 <- Q_star$S1A1*(max_Y-min_Y)+min_Y
 
   return(Q_star)
 }

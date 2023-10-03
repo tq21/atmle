@@ -9,16 +9,16 @@ source("utils.R")
 
 # simulation parameters --------------------------------------------------------
 B <- 500 # number of runs for each sample size n
-n_min <- 500 # smallest sample size
-n_max <- 3000 # largest sample size
+n_min <- 1000 # smallest sample size
+n_max <- 4000 # largest sample size
 n_step <- 500 # sample size increment
 bA <- 1.5 # true ATE
 bias <- "param_simple" # true bias
 nuisance_method <- "glm"
-working_model <- "lasso"
-pRCT <- 0.67
-f_name <- "param_simple_glm_lasso"
-date_name <- "926"
+working_model <- "glmnet"
+g_rct <- 0.67
+f_name <- "param_simple_glm_glmnet"
+date_name <- "1003"
 
 # 1. A-TMLE both psi_pound and psi_tilde
 atmle_both_res <- run_sim_n_increase(B = B,
@@ -27,7 +27,7 @@ atmle_both_res <- run_sim_n_increase(B = B,
                                      n_step = n_step,
                                      bA = bA,
                                      bias = bias,
-                                     pRCT = pRCT,
+                                     g_rct = g_rct,
                                      nuisance_method = nuisance_method,
                                      working_model = working_model,
                                      verbose = TRUE,
@@ -42,7 +42,7 @@ atmle_tmle_res <- run_sim_n_increase(B = B,
                                      n_step = n_step,
                                      bA = bA,
                                      bias = bias,
-                                     pRCT = pRCT,
+                                     g_rct = g_rct,
                                      nuisance_method = nuisance_method,
                                      working_model = working_model,
                                      verbose = TRUE,
@@ -57,7 +57,7 @@ escvtmle_res <- run_sim_n_increase(B = B,
                                    n_step = n_step,
                                    bA = bA,
                                    bias = bias,
-                                   pRCT = pRCT,
+                                   g_rct = g_rct,
                                    nuisance_method = nuisance_method,
                                    working_model = working_model,
                                    verbose = TRUE,
@@ -72,7 +72,7 @@ rct_only_res <- run_sim_n_increase(B = B,
                                    n_step = n_step,
                                    bA = bA,
                                    bias = bias,
-                                   pRCT = pRCT,
+                                   g_rct = g_rct,
                                    nuisance_method = nuisance_method,
                                    working_model = working_model,
                                    verbose = TRUE,
@@ -80,16 +80,17 @@ rct_only_res <- run_sim_n_increase(B = B,
 saveRDS(rct_only_res,
         file = "out/rct_only_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
 
-# # 4. Nonparametric TMLE
-# tmle_res <- run_sim_n_increase(B = B,
-#                                n_min = n_min,
-#                                n_max = n_max,
-#                                n_step = n_step,
-#                                bA = bA,
-#                                bias = bias,
-#                                nuisance_method = nuisance_method,
-#                                working_model = working_model,
-#                                verbose = TRUE,
-#                                method = "tmle")
-# saveRDS(tmle_res,
-#         file = "out/tmle_param_simple_glm_lasso_" %+% format(Sys.time(), "%Y%m%d_%H%M%S") %+% ".RDS")
+# 4. Nonparametric TMLE
+tmle_res <- run_sim_n_increase(B = B,
+                               n_min = n_min,
+                               n_max = n_max,
+                               n_step = n_step,
+                               bA = bA,
+                               bias = bias,
+                               g_rct = g_rct,
+                               nuisance_method = nuisance_method,
+                               working_model = working_model,
+                               verbose = TRUE,
+                               method = "tmle")
+saveRDS(tmle_res,
+        file = "out/tmle_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
