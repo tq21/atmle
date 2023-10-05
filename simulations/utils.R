@@ -6,11 +6,11 @@ load_all()
 
 `%+%` <- function(a, b) paste0(a, b)
 
-generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias) {
+generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias, controls_only) {
   # total number of observations needed for RCT and RWD combined
   n <- max(n_rct, n_rwd) * 2  # ensure we get at least n_rct and n_rwd after applying the criteria
 
-  UY <- rnorm(n, 0, 1)
+  UY <- rnorm(n, 0, 0.5)
 
   # baseline covariates
   W1 <- rnorm(n, 0, 1)
@@ -20,7 +20,7 @@ generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias) {
 
   # probability being in RCT based on inclusion criteria
   #prob_rct <- plogis(0.7+0.3*W1+1.1*W2-0.9*W3-0.9*W4)
-  prob_rct <- 0.5
+  prob_rct <- 0.2
   in_rct <- rbinom(n, 1, prob_rct)
 
   # ensure exactly n_rct and n_rwd samples
@@ -31,9 +31,9 @@ generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias) {
   A_rct <- rbinom(n_rct, 1, g_rct)
 
   # assign treatment in RWD based on doctor's decision rule
-  #decision_rule <- plogis(0.5+0.7*W1[rwd_indices]+1.2*W2[rwd_indices]-0.9*W3[rwd_indices]-0.6*W4[rwd_indices])
-  decision_rule <- 0.5
-  A_rwd <- rbinom(n_rwd, 1, decision_rule)
+  #decision_rule <- plogis(0.7*W1[rwd_indices]-1.1*W2[rwd_indices])
+  decision_rule <- 0.4
+  A_rwd <- if (controls_only) rep(0, n_rwd) else rbinom(n_rwd, 1, decision_rule)
 
   # outcome Y for RCT data without bias
   Y_rct <- 2.1+0.8*W1[rct_indices]+2.5*W2[rct_indices]-3.1*W3[rct_indices]+0.9*W4[rct_indices]+ate*A_rct+UY[rct_indices]
@@ -44,12 +44,12 @@ generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias) {
     if (bias == 0) {
       b <- rep(0, n_rwd)
     } else {
-      b <- rnorm(n_rwd, bias, 0.1)
+      b <- rnorm(n_rwd, bias, 0.1)*(1-A_rwd)
     }
   } else if (bias == "param_simple") {
-    b <- 1.9+(2.6*W1[rwd_indices])*A_rwd+rnorm(n_rwd, 0, 0.1)
+    b <- (1.9+2.3*W1[rwd_indices]+rnorm(n_rwd, 0, 0.1))*(1-A_rwd)
   } else if (bias == "param_complex") {
-    b <- 1.9+(0.7+0.8*W1[rwd_indices]+1.2+W2[rwd_indices]+0.5*W3[rwd_indices])*A_rwd+rnorm(n_rwd, 0, 0.1)
+    b <- (1.9+2.3*W1[rwd_indices]+1.2*W2[rwd_indices]+0.5*W3[rwd_indices]+rnorm(n_rwd, 0, 0.1))*(1-A_rwd)
   }
 
   # outcome Y for RWD data with bias
@@ -92,6 +92,7 @@ run_sim <- function(B,
                     nuisance_method,
                     working_model,
                     g_rct,
+                    controls_only,
                     verbose=TRUE,
                     method="atmle") {
   # results
@@ -105,7 +106,7 @@ run_sim <- function(B,
     if (verbose) print(i)
 
     # simulate data
-    data <- generate_realistic_data(ate, n_rct, n_rwd, g_rct, bias)
+    data <- generate_realistic_data(ate, n_rct, n_rwd, g_rct, bias, controls_only)
 
     # fit
     res <- NULL
@@ -115,6 +116,7 @@ run_sim <- function(B,
                    W_node = c(2, 3, 4, 5),
                    A_node = 6,
                    Y_node = 7,
+                   controls_only = controls_only,
                    atmle_pooled = TRUE,
                    nuisance_method = nuisance_method,
                    working_model = working_model,
@@ -126,6 +128,7 @@ run_sim <- function(B,
                    W_node = c(2, 3, 4, 5),
                    A_node = 6,
                    Y_node = 7,
+                   controls_only = controls_only,
                    atmle_pooled = FALSE,
                    nuisance_method = nuisance_method,
                    working_model = working_model,
@@ -152,14 +155,14 @@ run_sim <- function(B,
                                  g_rct = g_rct,
                                  verbose = FALSE)
     } else if (method == "escvtmle") {
-      tmp <- ES.cvtmle(txinrwd = TRUE,
+      tmp <- ES.cvtmle(txinrwd = !controls_only,
                        data = data,
                        study = "S",
                        covariates = c("W1", "W2", "W3", "W4"),
                        treatment_var = "A",
                        treatment = 1,
                        outcome = "Y",
-                       g_rct = g_rct,
+                       pRCT = g_rct,
                        family = "gaussian",
                        Q.SL.library = c("SL.glm"),
                        g.SL.library = c("SL.glm"),
@@ -227,6 +230,7 @@ run_sim_n_increase <- function(B,
                                nuisance_method,
                                working_model,
                                g_rct,
+                               controls_only,
                                verbose=TRUE,
                                method="atmle") {
 
@@ -253,7 +257,7 @@ run_sim_n_increase <- function(B,
       # simulate data
       n_rwd <- n
       n_rct <- round(n * 0.1)
-      data <- generate_realistic_data(bA, n_rct, n_rwd, g_rct, bias)
+      data <- generate_realistic_data(bA, n_rct, n_rwd, g_rct, bias, controls_only)
 
       # fit
       res <- NULL
@@ -301,14 +305,14 @@ run_sim_n_increase <- function(B,
                                    verbose = FALSE)
       } else if (method == "escvtmle") {
         #data$S <- 1 - data$S
-        tmp <- ES.cvtmle(txinrwd = TRUE,
+        tmp <- ES.cvtmle(txinrwd = !controls_only,
                          data = data,
                          study = "S",
                          covariates = c("W1", "W2", "W3", "W4"),
                          treatment_var = "A",
                          treatment = 1,
                          outcome = "Y",
-                         g_rct = g_rct,
+                         pRCT = g_rct,
                          family = "gaussian",
                          Q.SL.library = c("SL.glm"),
                          g.SL.library = c("SL.glm"),

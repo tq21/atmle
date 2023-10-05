@@ -1,19 +1,33 @@
 # function to perform TMLE update of Pi
-Pi_tmle <- function(S, W, A, g, tau, Pi) {
-  H1_n <- A/g*tau$A1
-  H0_n <- (1-A)/(1-g)*tau$A0
+Pi_tmle <- function(S, W, A, g, tau, Pi, controls_only) {
 
-  # logistic submodel
-  suppressWarnings(
+  Pi_star <- Pi
+
+  if (controls_only) {
+    # clever covariate, controls only
+    H0_n <- 1/(1-g[A == 0])*tau$A0[A == 0]
+
+    # logistic submodel, controls only
+    epsilon <- coef(glm(S[A == 0] ~ -1 + offset(qlogis(Pi$pred[A == 0])) + H0_n, family = "binomial"))
+    epsilon[is.na(epsilon)] <- 0
+
+    # TMLE update
+    Pi_star$pred[A == 0] <- plogis(qlogis(Pi$pred[A == 0])+epsilon[1]*H0_n)
+    Pi_star$A0[A == 0] <- plogis(qlogis(Pi$A0[A == 0])+epsilon[1]*H0_n)
+  } else {
+    # clever covariates, both treated and controls
+    H1_n <- A/g*tau$A1
+    H0_n <- (1-A)/(1-g)*tau$A0
+
+    # logistic submodel, both treated and controls
     epsilon <- coef(glm(S ~ -1 + offset(qlogis(Pi$pred)) + H0_n + H1_n, family = "binomial"))
-  )
-  epsilon[is.na(epsilon)] <- 0
+    epsilon[is.na(epsilon)] <- 0
 
-  # TMLE updates
-  Pi_star <- list()
-  Pi_star$pred <- plogis(qlogis(Pi$pred)+epsilon[1]*H0_n+epsilon[2]*H1_n)
-  Pi_star$A0 <- plogis(qlogis(Pi$A0)+epsilon[1]*H0_n)
-  Pi_star$A1 <- plogis(qlogis(Pi$A1)+epsilon[2]*H1_n)
+    # TMLE updates
+    Pi_star$pred <- plogis(qlogis(Pi$pred)+epsilon[1]*H0_n+epsilon[2]*H1_n)
+    Pi_star$A0 <- plogis(qlogis(Pi$A0)+epsilon[1]*H0_n)
+    Pi_star$A1 <- plogis(qlogis(Pi$A1)+epsilon[2]*H1_n)
+  }
 
   return(Pi_star)
 }

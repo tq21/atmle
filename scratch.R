@@ -2,7 +2,7 @@ options(sl3.verbose = TRUE)
 source("utils.R")
 set.seed(29857)
 
-data <- generate_realistic_data(1.5, n_rct = 200, n_rwd = 2000, g_rct = 0.67, bias = 0)
+data <- generate_realistic_data(1.5, n_rct = 200, n_rwd = 2000, g_rct = 0.67, bias = "param_simple", TRUE)
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
@@ -12,18 +12,20 @@ working_model="glmnet"
 g_rct=0.67
 verbose=TRUE
 transform=TRUE
+controls_only = TRUE
 
 #source("utils_positivity.R")
 
-B <- 500
+B <- 200
 n_rct <- 200
-n_rwd <- 2000
+n_rwd <- 1000
 ate <- 1.5
 bias <- "param_complex"
 nuisance_method = "glm"
 working_model = "glmnet"
 g_rct = 0.67
 verbose = TRUE
+controls_only = TRUE
 
 tmp <- run_sim(B = B,
                n_rct = n_rct,
@@ -33,6 +35,7 @@ tmp <- run_sim(B = B,
                nuisance_method = nuisance_method,
                working_model = working_model,
                g_rct = g_rct,
+               controls_only = controls_only,
                verbose = verbose,
                method = "atmle")
 mean(tmp$psi_coverage)
@@ -49,6 +52,7 @@ tmp_2 <- run_sim(B = B,
                  nuisance_method = nuisance_method,
                  working_model = working_model,
                  g_rct = g_rct,
+                 controls_only = controls_only,
                  verbose = verbose,
                  method = "escvtmle")
 mean(tmp_2$escvtmle_prop_selected)

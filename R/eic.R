@@ -2,27 +2,32 @@ get_eic_Pi <- function(g, tau, Pi, S, A) {
   return((A/g*tau$A1-(1-A)/(1-g)*tau$A0)*(S-Pi$pred)-mean(Pi$pred))
 }
 
-get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound_est, S, A, Y, n) {
-  W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound_est # solved
-  Pi_comp <- ((A/g*tau$A1-(1-A)/(1-g)*tau$A0))*(S-Pi$pred) # solved
-  IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
-  #IM_A1 <- solve(t(tau$x_basis_A1)%*%diag((Pi$A1*(1-Pi$A1)))%*%tau$x_basis_A1/n)
-  #IM_A0 <- solve(t(tau$x_basis_A0)%*%diag((Pi$A0*(1-Pi$A0)))%*%tau$x_basis_A0/n)
-  #IM_A0 <- IM%*%colMeans(diag(1-Pi$A0)%*%tau$x_basis_A0)
-  #IM_A1 <- IM%*%colMeans(diag(1-Pi$A1)%*%tau$x_basis_A1)
-  IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
-  IM_A1 <- IM%*%colMeans(tau$x_basis_A1*(1-Pi$A1))
-  tmp <- vector(length = n)
-  tmp[A == 1] <- tau$A1[A == 1]
-  tmp[A == 0] <- tau$A0[A == 0]
-  D_beta_A0 <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta$pred-(S-Pi$pred)*tmp)
-  D_beta_A1 <- as.numeric(tau$x_basis%*%IM_A1)*(S-Pi$pred)*(Y-theta$pred-(S-Pi$pred)*tmp)
-  beta_comp <- D_beta_A0-D_beta_A1
-  #D_beta_A1 <- as.numeric(tau$x_basis_A1%*%IM_A1)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
-  #D_beta_A0 <- as.numeric(tau$x_basis_A0%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
-  #beta_comp <- D_beta_A0*(1-Pi$A0)-D_beta_A1*(1-Pi$A1)
+get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound_est, S, A, Y, n, controls_only) {
+  if (controls_only) {
+    W_comp <- (1-Pi$A0)*tau$A0-psi_pound_est
+    Pi_comp <- -1/(1-g)*tau$A0*(S-Pi$pred)
+    IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
+    IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
+    tmp <- tau$A0
+    beta_comp <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta$pred-(S-Pi$pred)*tmp)
 
-  return(W_comp+Pi_comp+beta_comp)
+    return(W_comp+Pi_comp+beta_comp)
+
+  } else {
+    W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound_est
+    Pi_comp <- ((A/g*tau$A1-(1-A)/(1-g)*tau$A0))*(S-Pi$pred)
+    IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
+    IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
+    IM_A1 <- IM%*%colMeans(tau$x_basis_A1*(1-Pi$A1))
+    tmp <- vector(length = n)
+    tmp[A == 1] <- tau$A1[A == 1]
+    tmp[A == 0] <- tau$A0[A == 0]
+    D_beta_A0 <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta$pred-(S-Pi$pred)*tmp)
+    D_beta_A1 <- as.numeric(tau$x_basis%*%IM_A1)*(S-Pi$pred)*(Y-theta$pred-(S-Pi$pred)*tmp)
+    beta_comp <- D_beta_A0-D_beta_A1
+
+    return(W_comp+Pi_comp+beta_comp)
+  }
 }
 
 get_eic_psi_tilde <- function(psi_tilde, g_pred, theta, Y, A, n) {
