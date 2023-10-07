@@ -6,11 +6,10 @@ load_all()
 
 `%+%` <- function(a, b) paste0(a, b)
 
-generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias, controls_only) {
-  # total number of observations needed for RCT and RWD combined
-  n <- max(n_rct, n_rwd) * 2  # ensure we get at least n_rct and n_rwd after applying the criteria
-
-  UY <- rnorm(n, 0, 0.5)
+generate_realistic_data <- function(ate, n, rct_prop, g_rct, bias, controls_only) {
+  # error
+  UY <- rnorm(n, 0, 1)
+  U_bias <- rnorm(n, 0, 0.05)
 
   # baseline covariates
   W1 <- rnorm(n, 0, 1)
@@ -18,65 +17,44 @@ generate_realistic_data <- function(ate, n_rct, n_rwd, g_rct, bias, controls_onl
   W3 <- rnorm(n, 0, 1)
   W4 <- rnorm(n, 0, 1)
 
-  # probability being in RCT based on inclusion criteria
-  #prob_rct <- plogis(0.7+0.3*W1+1.1*W2-0.9*W3-0.9*W4)
-  prob_rct <- 0.2
-  in_rct <- rbinom(n, 1, prob_rct)
+  # study indicator, S=1 for RCT, S=0 for RWD
+  S <- rbinom(n, 1, rct_prop)
 
-  # ensure exactly n_rct and n_rwd samples
-  rct_indices <- sample(which(in_rct == 1), n_rct, replace = TRUE)
-  rwd_indices <- sample(which(in_rct == 0), n_rwd, replace = TRUE)
-
-  # assign treatment in RCT
-  A_rct <- rbinom(n_rct, 1, g_rct)
-
-  # assign treatment in RWD based on doctor's decision rule
-  #decision_rule <- plogis(0.7*W1[rwd_indices]-1.1*W2[rwd_indices])
-  decision_rule <- 0.4
-  A_rwd <- if (controls_only) rep(0, n_rwd) else rbinom(n_rwd, 1, decision_rule)
-
-  # outcome Y for RCT data without bias
-  Y_rct <- 2.1+0.8*W1[rct_indices]+2.5*W2[rct_indices]-3.1*W3[rct_indices]+0.9*W4[rct_indices]+ate*A_rct+UY[rct_indices]
+  # treatments (external data has both treated and controls)
+  A <- numeric(length = n)
+  A[S == 1] <- rbinom(sum(S), 1, g_rct)
+  if (controls_only) {
+    A[S == 0] <- rep(0, n - sum(S))
+  } else {
+    A[S == 0] <- rbinom(n - sum(S), 1, plogis(0.9*W1+0.4*W2-0.5*W4))
+    #A_rwd <- rbinom(n_rwd, 1, 0.67)
+    #A_rwd <- rbinom(n_rwd, 1, plogis(-2*W1-2*W2+0.9*W2-1.2*W3+0.3*W4)) # positivity violation in rwd
+  }
 
   # bias term for RWD data
   b <- NULL
   if (is.numeric(bias)) {
-    if (bias == 0) {
-      b <- rep(0, n_rwd)
-    } else {
-      b <- rnorm(n_rwd, bias, 0.1)*(1-A_rwd)
-    }
+    b <- bias
   } else if (bias == "param_simple") {
-    b <- (1.9+2.3*W1[rwd_indices]+rnorm(n_rwd, 0, 0.1))*(1-A_rwd)
+    b <- 4.2*W1+U_bias
   } else if (bias == "param_complex") {
-    b <- (1.9+2.3*W1[rwd_indices]+1.2*W2[rwd_indices]+0.5*W3[rwd_indices]+rnorm(n_rwd, 0, 0.1))*(1-A_rwd)
+    b <- 3.4*W1+1.5*W2+1.4*W3+1.7*W4+U_bias
   }
 
-  # outcome Y for RWD data with bias
-  Y_rwd <- 2.1+0.8*W1[rwd_indices]+2.5*W2[rwd_indices]-3.1*W3[rwd_indices]+0.9*W4[rwd_indices]+ate*A_rwd+b+UY[rwd_indices]
+  # outcome
+  Y <- 0.5+0.8*W1+1.1*W2+0.9*W3+1.3*W4+ate*A+UY+
+    as.numeric(S == 0)*(1-A)*b
 
-  # data frames for RCT and RWD
-  rct_data <- data.frame(
-    S = rep(1, n_rct),
-    W1 = W1[rct_indices],
-    W2 = W2[rct_indices],
-    W3 = W3[rct_indices],
-    W4 = W4[rct_indices],
-    A = A_rct,
-    Y = Y_rct
-  )
+  # data frames combining RCT and RWD
+  data <- data.frame(S = S,
+                     W1 = W1,
+                     W2 = W2,
+                     W3 = W3,
+                     W4 = W4,
+                     A = A,
+                     Y = Y)
 
-  rwd_data <- data.frame(
-    S = rep(0, n_rwd),
-    W1 = W1[rwd_indices],
-    W2 = W2[rwd_indices],
-    W3 = W3[rwd_indices],
-    W4 = W4[rwd_indices],
-    A = A_rwd,
-    Y = Y_rwd
-  )
-
-  return(rbind(rct_data, rwd_data))
+  return(data)
 }
 
 #' @param B Number of simulations to run
@@ -106,7 +84,7 @@ run_sim <- function(B,
     if (verbose) print(i)
 
     # simulate data
-    data <- generate_realistic_data(ate, n_rct, n_rwd, g_rct, bias, controls_only)
+    data <- generate_realistic_data(ate, n_rct+n_rwd, 0.2, g_rct, bias, controls_only)
 
     # fit
     res <- NULL
@@ -227,10 +205,10 @@ run_sim_n_increase <- function(B,
                                n_step,
                                bA,
                                bias,
+                               controls_only,
                                nuisance_method,
                                working_model,
                                g_rct,
-                               controls_only,
                                verbose=TRUE,
                                method="atmle") {
 
@@ -255,9 +233,7 @@ run_sim_n_increase <- function(B,
 
     for (j in 1:B) {
       # simulate data
-      n_rwd <- n
-      n_rct <- round(n * 0.1)
-      data <- generate_realistic_data(bA, n_rct, n_rwd, g_rct, bias, controls_only)
+      data <- generate_realistic_data(bA, n, 0.2, g_rct, bias, controls_only)
 
       # fit
       res <- NULL
@@ -268,6 +244,7 @@ run_sim_n_increase <- function(B,
                      A_node = 6,
                      Y_node = 7,
                      atmle_pooled = TRUE,
+                     controls_only = controls_only,
                      nuisance_method=nuisance_method,
                      working_model=working_model,
                      g_rct = g_rct,
@@ -279,6 +256,7 @@ run_sim_n_increase <- function(B,
                      A_node = 6,
                      Y_node = 7,
                      atmle_pooled = FALSE,
+                     controls_only = controls_only,
                      nuisance_method=nuisance_method,
                      working_model=working_model,
                      g_rct = g_rct,

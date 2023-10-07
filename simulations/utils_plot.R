@@ -14,47 +14,47 @@ get_cover <- function(res) {
   return(unlist(map(res$all_psi_coverage, function(.x) mean(.x))))
 }
 
-get_res <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, rct_only_res) {
+get_res <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res) {
   # bias
   bias_atmle_both <- get_bias(atmle_both_res, bA)
   bias_atmle_tmle <- get_bias(atmle_tmle_res, bA)
   bias_escvtmle <- get_bias(escvtmle_res, bA)
-  bias_rct_only <- get_bias(rct_only_res, bA)
+  bias_tmle <- get_bias(tmle_res, bA)
 
   # standard error
   se_atmle_both <- get_se(atmle_both_res)
   se_atmle_tmle <- get_se(atmle_tmle_res)
   se_escvtmle <- get_se(escvtmle_res)
-  se_rct_only <- get_se(rct_only_res)
+  se_tmle <- get_se(tmle_res)
 
   # variance
   var_atmle_both <- get_var(atmle_both_res)
   var_atmle_tmle <- get_var(atmle_tmle_res)
   var_escvtmle <- get_var(escvtmle_res)
-  var_rct_only <- get_var(rct_only_res)
+  var_tmle <- get_var(tmle_res)
 
   # mse
   mse_atmle_both <- bias_atmle_both^2 + var_atmle_both
   mse_atmle_tmle <- bias_atmle_tmle^2 + var_atmle_tmle
   mse_escvtmle <- bias_escvtmle^2 + var_escvtmle
-  mse_rct_only <- bias_rct_only^2 + var_rct_only
+  mse_tmle <- bias_tmle^2 + var_tmle
 
   # coverage
   cover_atmle_both <- get_cover(atmle_both_res)
   cover_atmle_tmle <- get_cover(atmle_tmle_res)
   cover_escvtmle <- get_cover(escvtmle_res)
-  cover_rct_only <- get_cover(rct_only_res)
+  cover_tmle <- get_cover(tmle_res)
 
   return(data.frame(n = seq(n_min, n_max, n_step),
-                    estimator = rep(c("A-TMLE", "A-TMLE*", "ESCVTMLE", "RCT ONLY"), each = length(bias_atmle_both)),
-                    bias = c(bias_atmle_both, bias_atmle_tmle, bias_escvtmle, bias_rct_only),
-                    se = c(se_atmle_both, se_atmle_tmle, se_escvtmle, se_rct_only),
-                    mse = c(mse_atmle_both, mse_atmle_tmle, mse_escvtmle, mse_rct_only),
-                    coverage = c(cover_atmle_both, cover_atmle_tmle, cover_escvtmle, cover_rct_only)))
+                    estimator = rep(c("A-TMLE", "A-TMLE*", "ESCVTMLE", "TMLE"), each = length(bias_atmle_both)),
+                    bias = c(bias_atmle_both, bias_atmle_tmle, bias_escvtmle, bias_tmle),
+                    se = c(se_atmle_both, se_atmle_tmle, se_escvtmle, se_tmle),
+                    mse = c(mse_atmle_both, mse_atmle_tmle, mse_escvtmle, mse_tmle),
+                    coverage = c(cover_atmle_both, cover_atmle_tmle, cover_escvtmle, cover_tmle)))
 }
 
-get_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, rct_only_res, title) {
-  dt_res <- get_res(atmle_both_res, atmle_tmle_res, escvtmle_res, rct_only_res)
+get_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res, title) {
+  dt_res <- get_res(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res)
   dt_res <- dt_res[order(dt_res$n), ]
 
   p_bias <- ggplot(dt_res, aes(x = n, y = abs(bias), color = estimator)) +
@@ -117,8 +117,8 @@ get_plot_selected <- function(escvtmle_res, name) {
   return(p)
 }
 
-get_relative_mse_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, rct_only_res, name) {
-  dt_res <- get_res(atmle_both_res, atmle_tmle_res, escvtmle_res, rct_only_res)
+get_relative_mse_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res, name) {
+  dt_res <- get_res(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res)
   mse_atmle <- dt_res[dt_res$estimator == "A-TMLE", "mse"]
   mse_atmle_star <- dt_res[dt_res$estimator == "A-TMLE*", "mse"]
   mse_escvtmle <- dt_res[dt_res$estimator == "ESCVTMLE", "mse"]

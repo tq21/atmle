@@ -2,7 +2,7 @@ options(sl3.verbose = TRUE)
 source("utils.R")
 set.seed(29857)
 
-data <- generate_realistic_data(1.5, n_rct = 200, n_rwd = 2000, g_rct = 0.67, bias = "param_simple", TRUE)
+data <- generate_realistic_data(1.5, 2000, 0.2, g_rct = 0.67, bias = 0, TRUE)
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
@@ -20,12 +20,12 @@ B <- 200
 n_rct <- 200
 n_rwd <- 1000
 ate <- 1.5
-bias <- "param_complex"
+bias <- "param_simple"
 nuisance_method = "glm"
 working_model = "glmnet"
 g_rct = 0.67
 verbose = TRUE
-controls_only = TRUE
+controls_only = FALSE
 
 tmp <- run_sim(B = B,
                n_rct = n_rct,
@@ -43,6 +43,7 @@ var(tmp$psi_est)
 hist(tmp$psi_est)
 mean(tmp$psi_est)-1.5
 var(tmp$psi_est)+(mean(tmp$psi_est)-1.5)^2
+tmp$psi_ci_upper-tmp$psi_ci_lower
 
 tmp_2 <- run_sim(B = B,
                  n_rct = n_rct,
@@ -61,22 +62,25 @@ var(tmp_2$psi_est)
 hist(tmp_2$psi_est)
 mean(tmp_2$psi_est)-1.5
 var(tmp_2$psi_est)+(mean(tmp_2$psi_est)-1.5)^2
+tmp_2$psi_ci_upper-tmp_2$psi_ci_lower
 
 tmp_3 <- run_sim(B = B,
                  n_rct = n_rct,
                  n_rwd = n_rwd,
                  ate = ate,
                  bias = bias,
+                 controls_only = controls_only,
                  nuisance_method = nuisance_method,
                  working_model = working_model,
                  g_rct = g_rct,
                  verbose = verbose,
-                 method = "nonparametric")
+                 method = "rct_only")
 mean(tmp_3$psi_coverage)
 var(tmp_3$psi_est)
 hist(tmp_3$psi_est)
 mean(tmp_3$psi_est)-1.5
 var(tmp_3$psi_est)+(mean(tmp_3$psi_est)-1.5)^2
+tmp_3$psi_ci_upper-tmp_3$psi_ci_lower
 
 B <- 300
 covered <- vector(length = B)

@@ -10,7 +10,7 @@ source("utils.R")
 # simulation parameters --------------------------------------------------------
 B <- 500 # number of runs for each sample size n
 n_min <- 1000 # smallest sample size
-n_max <- 4000 # largest sample size
+n_max <- 3000 # largest sample size
 n_step <- 500 # sample size increment
 bA <- 1.5 # true ATE
 bias <- 0 # true bias
@@ -18,7 +18,8 @@ nuisance_method <- "glm"
 working_model <- "glmnet"
 g_rct <- 0.67
 f_name <- "0_bias_glm_glmnet"
-date_name <- "1003"
+date_name <- "1007"
+controls_only <- FALSE
 
 # 1. A-TMLE both psi_pound and psi_tilde
 atmle_both_res <- run_sim_n_increase(B = B,
@@ -28,6 +29,7 @@ atmle_both_res <- run_sim_n_increase(B = B,
                                      bA = bA,
                                      bias = bias,
                                      g_rct = g_rct,
+                                     controls_only = controls_only,
                                      nuisance_method = nuisance_method,
                                      working_model = working_model,
                                      verbose = TRUE,
@@ -43,6 +45,7 @@ atmle_tmle_res <- run_sim_n_increase(B = B,
                                      bA = bA,
                                      bias = bias,
                                      g_rct = g_rct,
+                                     controls_only = controls_only,
                                      nuisance_method = nuisance_method,
                                      working_model = working_model,
                                      verbose = TRUE,
@@ -58,6 +61,7 @@ escvtmle_res <- run_sim_n_increase(B = B,
                                    bA = bA,
                                    bias = bias,
                                    g_rct = g_rct,
+                                   controls_only = controls_only,
                                    nuisance_method = nuisance_method,
                                    working_model = working_model,
                                    verbose = TRUE,
@@ -73,6 +77,7 @@ rct_only_res <- run_sim_n_increase(B = B,
                                    bA = bA,
                                    bias = bias,
                                    g_rct = g_rct,
+                                   controls_only = controls_only,
                                    nuisance_method = nuisance_method,
                                    working_model = working_model,
                                    verbose = TRUE,
@@ -80,7 +85,7 @@ rct_only_res <- run_sim_n_increase(B = B,
 saveRDS(rct_only_res,
         file = "out/rct_only_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
 
-# 4. Nonparametric TMLE
+# 5. Nonparametric TMLE
 tmle_res <- run_sim_n_increase(B = B,
                                n_min = n_min,
                                n_max = n_max,
@@ -88,6 +93,7 @@ tmle_res <- run_sim_n_increase(B = B,
                                bA = bA,
                                bias = bias,
                                g_rct = g_rct,
+                               controls_only = controls_only,
                                nuisance_method = nuisance_method,
                                working_model = working_model,
                                verbose = TRUE,
