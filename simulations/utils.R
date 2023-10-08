@@ -9,7 +9,7 @@ load_all()
 generate_realistic_data <- function(ate, n, rct_prop, g_rct, bias, controls_only) {
   # error
   UY <- rnorm(n, 0, 1)
-  U_bias <- rnorm(n, 0, 0.05)
+  U_bias <- rnorm(n, 0, 0.02)
 
   # baseline covariates
   W1 <- rnorm(n, 0, 1)
@@ -36,14 +36,13 @@ generate_realistic_data <- function(ate, n, rct_prop, g_rct, bias, controls_only
   if (is.numeric(bias)) {
     b <- bias
   } else if (bias == "param_simple") {
-    b <- 4.2*W1+U_bias
+    b <- 0.8*W1+U_bias
   } else if (bias == "param_complex") {
-    b <- 3.4*W1+1.5*W2+1.4*W3+1.7*W4+U_bias
+    b <- 0.6*W1+1.5*W2+1.4*W3+U_bias
   }
 
   # outcome
-  Y <- 0.5+0.8*W1+1.1*W2+0.9*W3+1.3*W4+ate*A+UY+
-    as.numeric(S == 0)*(1-A)*b
+  Y <- 0.5+0.8*W1+1.1*W2+0.9*W3+1.3*W4+ate*A+UY+(1-S)*(1-A)*b
 
   # data frames combining RCT and RWD
   data <- data.frame(S = S,

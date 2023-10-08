@@ -2,30 +2,31 @@ options(sl3.verbose = TRUE)
 source("utils.R")
 set.seed(29857)
 
-data <- generate_realistic_data(1.5, 2000, 0.2, g_rct = 0.67, bias = 0, TRUE)
+data <- generate_two_covs(1.5, 500, 0.2, g_rct = 0.67, bias = "HAL", FALSE)
 S_node = 1
-W_node = c(2, 3, 4, 5)
-A_node = 6
-Y_node = 7
+W_node = c(2, 3)
+A_node = 4
+Y_node = 5
 nuisance_method="glm"
-working_model="glmnet"
+working_model="HAL"
 g_rct=0.67
 verbose=TRUE
 transform=TRUE
-controls_only = TRUE
+controls_only = FALSE
 
 #source("utils_positivity.R")
 
 B <- 200
 n_rct <- 200
-n_rwd <- 1000
+n_rwd <- 500
 ate <- 1.5
-bias <- "param_simple"
+bias <- "HAL"
 nuisance_method = "glm"
-working_model = "glmnet"
+working_model = "HAL"
 g_rct = 0.67
 verbose = TRUE
 controls_only = FALSE
+num_covs <- 2
 
 tmp <- run_sim(B = B,
                n_rct = n_rct,
@@ -36,6 +37,7 @@ tmp <- run_sim(B = B,
                working_model = working_model,
                g_rct = g_rct,
                controls_only = controls_only,
+               num_cov = num_cov,
                verbose = verbose,
                method = "atmle")
 mean(tmp$psi_coverage)
@@ -54,6 +56,7 @@ tmp_2 <- run_sim(B = B,
                  working_model = working_model,
                  g_rct = g_rct,
                  controls_only = controls_only,
+                 num_covs = num_covs,
                  verbose = verbose,
                  method = "escvtmle")
 mean(tmp_2$escvtmle_prop_selected)
@@ -125,9 +128,11 @@ dat$study[which(dat$study==3)]<-0
 dat$sex <- as.numeric(dat$sex)-1
 dat$momedu <- as.numeric(dat$momedu)-1
 dat$hfiacat <- as.numeric(dat$hfiacat)-1
+dat <- subset(dat, !(study == 0 & intervention == 1))
+
 
 set.seed(2022)
-res_escvtmle <- ES.cvtmle(txinrwd=TRUE,
+res_escvtmle <- ES.cvtmle(txinrwd=FALSE,
                           data=dat, study="study",
                           covariates=c("aged", "sex", "momedu", "hfiacat"),
                           treatment_var="intervention", treatment=1,
@@ -144,8 +149,9 @@ res_atmle <- atmle(data = dat,
                    W_node = c(4, 5, 6, 7),
                    A_node = 1,
                    Y_node = 3,
-                   nuisance_method="glm",
-                   working_model="lasso",
+                   controls_only = TRUE,
+                   nuisance_method="sl3",
+                   working_model="glmnet",
                    g_rct=0.5,
                    verbose=TRUE)
 print("ATMLE estimate: " %+% round(res_atmle$est, 3) %+% " (" %+%

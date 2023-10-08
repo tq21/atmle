@@ -64,7 +64,7 @@ A <- c(A_rct, A_rwd)
 
 # outcome
 Y <- 2.1+0.8*W1+2.5*W2-3.1*W3+0.9*W4+true_ate*A+UY+
-  as.numeric(S == 0)*(A*(2.9*W1+2.3*W2+U_bias))
+  (1-S)*(A*(2.9*W1+2.3*W2+U_bias))
 
 # data frames combining RCT and RWD
 data <- data.frame(S = S,
@@ -91,6 +91,8 @@ res <- atmle(data = data,
 print("A-TMLE ATE estimate: " %+% round(res$est, 2) %+% 
         " (" %+% round(res$lower, 2) %+% ", " %+% round(res$upper, 2) %+% ")")
 #> [1] "A-TMLE ATE estimate: 1.55 (1.47, 1.64)"
+print("True ATE: " %+% true_ate)
+#> [1] "True ATE: 1.5"
 
 # compared to ES-CVTMLE
 escvtmle_res <- ES.cvtmle(txinrwd = TRUE,

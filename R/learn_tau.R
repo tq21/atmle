@@ -72,10 +72,20 @@ learn_tau <- function(S, W, A, Y, Pi, theta, controls_only, method = "glmnet") {
 
   } else if (method == "HAL") {
     # TODO: not working right now
-    fit <- fit_relaxed_hal(X = X, Y = pseudo_outcome,
+    fit <- fit_relaxed_hal(X = as.matrix(cbind(W, A = A)), Y = pseudo_outcome,
                            family = "gaussian",
                            weights = pseudo_weights)
-    A1 <- as.numeric(make_counter_design_matrix(fit_A1$basis_list, as.matrix(W), add_main_terms = add_main_terms) %*% matrix(fit_A1$beta))
+
+    # design matrices
+    x_basis <- make_counter_design_matrix(fit$basis_list, as.matrix(cbind(W, A = A)))
+    x_basis_A1 <- make_counter_design_matrix(fit$basis_list, as.matrix(cbind(W, A = 1)))
+    x_basis_A0 <- make_counter_design_matrix(fit$basis_list, as.matrix(cbind(W, A = 0)))
+
+    # predictions
+    A1 <- as.numeric(x_basis_A1 %*% matrix(fit$beta))
+    A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
+    pred[A == 1] <- A1[A == 1]
+    pred[A == 0] <- A0[A == 0]
   }
 
   return(list(A1 = A1,
