@@ -26,6 +26,9 @@ learn_tau <- function(S, W, A, Y, Pi, theta, controls_only, method = "glmnet") {
     # design matrix, only controls (X: W)
     X <- W[A == 0, ]
 
+    # counterfactual design matrices
+    X_A1_counter <- X_A0_counter <- cbind(1, W)
+
   } else {
     pred <- numeric(length = length(A))
 
@@ -46,32 +49,31 @@ learn_tau <- function(S, W, A, Y, Pi, theta, controls_only, method = "glmnet") {
     fit <- cv.glmnet(x = as.matrix(X) , y = pseudo_outcome, intercept = TRUE,
                      family = "gaussian", weights = pseudo_weights,
                      keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
-    coefs <- coef(fit, s = "lambda.min")
+    non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
+    coefs <- coef(fit, s = "lambda.min")[non_zero]
 
     if (controls_only) {
-      A0 <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coefs))
-      pred <- A0
+      # selected counterfactual bases
+      x_basis <- x_basis_A0 <- as.matrix(cbind(1, W)[, non_zero, drop = FALSE])
 
-      # design matrices, only controls
-      non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
-      x_basis <- as.matrix(cbind(1, W)[, non_zero, drop = FALSE])
-      x_basis_A0 <- x_basis
+      # predictions
+      pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
 
     } else {
-      A1 <- as.numeric(as.matrix(X_A1_counter) %*% matrix(coefs))
-      A0 <- as.numeric(as.matrix(X_A0_counter) %*% matrix(coefs))
-      pred[A == 1] <- A1[A == 1]
-      pred[A == 0] <- A0[A == 0]
-
-      # design matrices
-      non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
+      # selected counterfactual bases
       x_basis <- as.matrix(cbind(1, X)[, non_zero, drop = FALSE])
       x_basis_A1 <- as.matrix(X_A1_counter[, non_zero, drop = FALSE])
       x_basis_A0 <- as.matrix(X_A0_counter[, non_zero, drop = FALSE])
+
+      # predictions
+      A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
+      A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
+      pred[A == 1] <- A1[A == 1]
+      pred[A == 0] <- A0[A == 0]
     }
 
   } else if (method == "HAL") {
-    # TODO: not working right now
+    # TODO: not fully working right now
     fit <- fit_relaxed_hal(X = as.matrix(cbind(W, A = A)), Y = pseudo_outcome,
                            family = "gaussian",
                            weights = pseudo_weights)
@@ -86,6 +88,8 @@ learn_tau <- function(S, W, A, Y, Pi, theta, controls_only, method = "glmnet") {
     A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
     pred[A == 1] <- A1[A == 1]
     pred[A == 0] <- A0[A == 0]
+
+    coefs <- fit$beta
   }
 
   return(list(A1 = A1,

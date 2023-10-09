@@ -8,7 +8,7 @@
 source("utils.R")
 
 # simulation parameters --------------------------------------------------------
-B <- 5 # number of runs for each sample size n
+B <- 200 # number of runs for each sample size n
 n_min <- 1000 # smallest sample size
 n_max <- 3000 # largest sample size
 n_step <- 500 # sample size increment
@@ -21,6 +21,7 @@ num_covs <- 2
 f_name <- "HAL_glm_HAL"
 date_name <- "1008"
 controls_only <- FALSE
+var_method <- "bootstrap"
 
 # 1. A-TMLE both psi_pound and psi_tilde
 atmle_both_res <- run_sim_n_increase(B = B,
@@ -31,6 +32,7 @@ atmle_both_res <- run_sim_n_increase(B = B,
                                      bias = bias,
                                      g_rct = g_rct,
                                      controls_only = controls_only,
+                                     var_method = var_method,
                                      num_covs = num_covs,
                                      nuisance_method = nuisance_method,
                                      working_model = working_model,
@@ -49,6 +51,7 @@ saveRDS(atmle_both_res,
 #                                      g_rct = g_rct,
 #                                      controls_only = controls_only,
 #                                      num_covs = num_covs,
+#.                                     var_method = var_method,
 #                                      nuisance_method = nuisance_method,
 #                                      working_model = working_model,
 #                                      verbose = TRUE,
@@ -66,6 +69,7 @@ escvtmle_res <- run_sim_n_increase(B = B,
                                    g_rct = g_rct,
                                    controls_only = controls_only,
                                    num_covs = num_covs,
+                                   var_method = var_method,
                                    nuisance_method = nuisance_method,
                                    working_model = working_model,
                                    verbose = TRUE,
@@ -83,6 +87,7 @@ rct_only_res <- run_sim_n_increase(B = B,
                                    g_rct = g_rct,
                                    controls_only = controls_only,
                                    num_covs = num_covs,
+                                   var_method = var_method,
                                    nuisance_method = nuisance_method,
                                    working_model = working_model,
                                    verbose = TRUE,
@@ -100,6 +105,7 @@ tmle_res <- run_sim_n_increase(B = B,
                                g_rct = g_rct,
                                controls_only = controls_only,
                                num_covs = num_covs,
+                               var_method = var_method,
                                nuisance_method = nuisance_method,
                                working_model = working_model,
                                verbose = TRUE,

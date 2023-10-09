@@ -1,6 +1,11 @@
 .Rproj.user
+
 .Rhistory
-.RData
+
+*.RData
+
 .Ruserdata
-.RDS
+
+*.RDS
+
 .DS_Store

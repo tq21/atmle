@@ -2,13 +2,13 @@ options(sl3.verbose = TRUE)
 source("utils.R")
 set.seed(29857)
 
-data <- generate_two_covs(1.5, 500, 0.2, g_rct = 0.67, bias = "HAL", FALSE)
+data <- generate_four_covs(1.5, 5000, 0.2, g_rct = 0.67, bias = "param_complex", FALSE)
 S_node = 1
-W_node = c(2, 3)
-A_node = 4
-Y_node = 5
+W_node = c(2, 3, 4, 5)
+A_node = 6
+Y_node = 7
 nuisance_method="glm"
-working_model="HAL"
+working_model="glmnet"
 g_rct=0.67
 verbose=TRUE
 transform=TRUE
@@ -18,15 +18,15 @@ controls_only = FALSE
 
 B <- 200
 n_rct <- 200
-n_rwd <- 500
+n_rwd <- 1000
 ate <- 1.5
-bias <- "HAL"
+bias <- "param_complex"
 nuisance_method = "glm"
-working_model = "HAL"
+working_model = "glmnet"
 g_rct = 0.67
 verbose = TRUE
 controls_only = FALSE
-num_covs <- 2
+num_cov <- 4
 
 tmp <- run_sim(B = B,
                n_rct = n_rct,

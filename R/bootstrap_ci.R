@@ -5,12 +5,9 @@ bootstrap_psi_pound <- function(tau, W, Pi, B = 1000) {
     # sample rows
     psi_pound_samp_idx <- sample(nrow(tau$x_basis), replace = TRUE)
 
-    # make counterfactual design matrices, predict
-    zero_W <- matrix(0, nrow = nrow(W), ncol = ncol(W))
-    X_A1_counter <- cbind(1, W, 1, zero_W)[psi_pound_samp_idx, ]
-    X_A0_counter <- cbind(1, zero_W, 0, W)[psi_pound_samp_idx, ]
-    A1 <- as.numeric(as.matrix(X_A1_counter) %*% matrix(tau$coefs))
-    A0 <- as.numeric(as.matrix(X_A0_counter) %*% matrix(tau$coefs))
+    # predictions
+    A1 <- as.numeric(tau$x_basis_A1[psi_pound_samp_idx,] %*% matrix(tau$coefs))
+    A0 <- as.numeric(tau$x_basis_A0[psi_pound_samp_idx,] %*% matrix(tau$coefs))
 
     return(mean((1-Pi$A0[psi_pound_samp_idx])*A0-(1-Pi$A1[psi_pound_samp_idx])*A1))
   })))
