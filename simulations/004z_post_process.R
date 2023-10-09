@@ -50,7 +50,7 @@ atmle_tmle_res <- readRDS("out/atmle_tmle_param_complex_glm_glmnet_1007.RDS")
 escvtmle_res <- readRDS("out/escvtmle_param_complex_glm_glmnet_1007.RDS")
 rct_only_res <- readRDS("out/rct_only_param_complex_glm_glmnet_1007.RDS")
 tmle_res <- readRDS("out/tmle_param_complex_glm_glmnet_1007.RDS")
-plt_param_complex_bias <- get_plot(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res, "Complex parametric bias")
+plt_param_complex_bias <- get_plot(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res, "Parametric bias")
 plt_relative_mse_param_complex_bias <- get_relative_mse_plot(atmle_both_res, atmle_tmle_res, escvtmle_res, rct_only_res, "Complex parametric bias")
 plt_param_complex_bias_prop <- get_plot_selected(escvtmle_res, "Complex parametric bias")
 ggsave(filename = "param_complex_bias.pdf", plot = plt_param_complex_bias, device = "pdf",
