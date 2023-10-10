@@ -5,6 +5,7 @@ atmle <- function(data,
                   A_node,
                   Y_node,
                   controls_only,
+                  family="gaussian",
                   atmle_pooled = TRUE,
                   var_method = "ic",
                   nuisance_method="glmnet",
@@ -22,7 +23,7 @@ atmle <- function(data,
   # estimate bias psi_pound ----------------------------------------------------
   # learn nuisance parts
   if (verbose) print("learning E(Y|W,A)")
-  theta <- learn_theta(W, A, Y, controls_only, family = "gaussian", nuisance_method)
+  theta <- learn_theta(W, A, Y, controls_only, family, nuisance_method)
 
   if (verbose) print("learning P(S=1|W,A)")
   Pi <- learn_Pi(S, W, A, controls_only, nuisance_method)
@@ -60,10 +61,10 @@ atmle <- function(data,
   if (atmle_pooled) {
     # use atmle for pooled-ATE
     if (verbose) print("learning E(Y|W)")
-    theta_tilde <- learn_theta_tilde(W, Y, family = "gaussian", nuisance_method)
+    theta_tilde <- learn_theta_tilde(W, Y, family, nuisance_method)
 
     if (verbose) print("learning psi_tilde")
-    psi_tilde <- learn_psi_tilde(W, A, Y, g, theta_tilde, "lasso")
+    psi_tilde <- learn_psi_tilde(W, A, Y, g, theta_tilde, "glmnet")
 
     # estimates
     psi_tilde_est <- mean(psi_tilde$pred)

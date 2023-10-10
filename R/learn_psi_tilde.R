@@ -1,5 +1,6 @@
 # function to learn psi_tilde, R-learner
-learn_psi_tilde <- function(W, A, Y, g, theta, method = "lasso") {
+learn_psi_tilde <- function(W, A, Y, g, theta,
+                            method = "glmnet") {
   weights <- 1
   pseudo_outcome <- (Y-theta)/(A-g)
   pseudo_weights <- (A-g)^2*weights
@@ -7,7 +8,7 @@ learn_psi_tilde <- function(W, A, Y, g, theta, method = "lasso") {
   pred <- NULL
   x_basis <- NULL
   coefs <- NULL
-  if (method == "lasso") {
+  if (method == "glmnet") {
     fit <- cv.glmnet(x = as.matrix(W),
                      y = pseudo_outcome, family = "gaussian", weights = pseudo_weights,
                      keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)

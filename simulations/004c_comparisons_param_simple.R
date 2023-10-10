@@ -18,10 +18,12 @@ nuisance_method <- "glm"
 working_model <- "glmnet"
 g_rct <- 0.67
 f_name <- "param_simple_glm_glmnet"
-date_name <- "1007"
+date_name <- "1010"
 controls_only <- FALSE
+num_covs <- 4
+var_method <- "ic"
 
-# 1. A-TMLE both psi_pound and psi_tilde
+# 1. A-TMLE, both psi_pound and psi_tilde
 atmle_both_res <- run_sim_n_increase(B = B,
                                      n_min = n_min,
                                      n_max = n_max,
@@ -29,6 +31,8 @@ atmle_both_res <- run_sim_n_increase(B = B,
                                      bA = bA,
                                      bias = bias,
                                      g_rct = g_rct,
+                                     num_covs = num_covs,
+                                     var_method = var_method,
                                      controls_only = controls_only,
                                      nuisance_method = nuisance_method,
                                      working_model = working_model,
@@ -37,7 +41,25 @@ atmle_both_res <- run_sim_n_increase(B = B,
 saveRDS(atmle_both_res,
         file = "out/atmle_both_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
 
-# 2. A-TMLE psi_pound, regular TMLE psi_tilde
+# 2. Oracle A-TMLE, both psi_pound and psi_tilde
+oracle_atmle_both_res <- run_sim_n_increase(B = B,
+                                            n_min = n_min,
+                                            n_max = n_max,
+                                            n_step = n_step,
+                                            bA = bA,
+                                            bias = bias,
+                                            g_rct = g_rct,
+                                            num_covs = num_covs,
+                                            var_method = var_method,
+                                            controls_only = controls_only,
+                                            nuisance_method = nuisance_method,
+                                            working_model = working_model,
+                                            verbose = TRUE,
+                                            method = "oracle_atmle")
+saveRDS(oracle_atmle_both_res,
+        file = "out/oracle_atmle_both_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
+
+# 3. A-TMLE psi_pound, regular TMLE psi_tilde
 atmle_tmle_res <- run_sim_n_increase(B = B,
                                      n_min = n_min,
                                      n_max = n_max,
@@ -45,6 +67,8 @@ atmle_tmle_res <- run_sim_n_increase(B = B,
                                      bA = bA,
                                      bias = bias,
                                      g_rct = g_rct,
+                                     num_covs = num_covs,
+                                     var_method = var_method,
                                      controls_only = controls_only,
                                      nuisance_method = nuisance_method,
                                      working_model = working_model,
@@ -53,7 +77,25 @@ atmle_tmle_res <- run_sim_n_increase(B = B,
 saveRDS(atmle_tmle_res,
         file = "out/atmle_tmle_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
 
-# 3. ESCVTMLE
+# 4. Oracle A-TMLE psi_pound, regular TMLE psi_tilde
+oracle_atmle_tmle_res <- run_sim_n_increase(B = B,
+                                            n_min = n_min,
+                                            n_max = n_max,
+                                            n_step = n_step,
+                                            bA = bA,
+                                            bias = bias,
+                                            g_rct = g_rct,
+                                            num_covs = num_covs,
+                                            var_method = var_method,
+                                            controls_only = controls_only,
+                                            nuisance_method = nuisance_method,
+                                            working_model = working_model,
+                                            verbose = TRUE,
+                                            method = "oracle_atmle_tmle")
+saveRDS(oracle_atmle_tmle_res,
+        file = "out/oracle_atmle_tmle_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
+
+# 5. ESCVTMLE
 escvtmle_res <- run_sim_n_increase(B = B,
                                    n_min = n_min,
                                    n_max = n_max,
@@ -61,6 +103,8 @@ escvtmle_res <- run_sim_n_increase(B = B,
                                    bA = bA,
                                    bias = bias,
                                    g_rct = g_rct,
+                                   num_covs = num_covs,
+                                   var_method = var_method,
                                    controls_only = controls_only,
                                    nuisance_method = nuisance_method,
                                    working_model = working_model,
@@ -69,23 +113,7 @@ escvtmle_res <- run_sim_n_increase(B = B,
 saveRDS(escvtmle_res,
         file = "out/escvtmle_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
 
-# 4. RCT only
-rct_only_res <- run_sim_n_increase(B = B,
-                                   n_min = n_min,
-                                   n_max = n_max,
-                                   n_step = n_step,
-                                   bA = bA,
-                                   bias = bias,
-                                   g_rct = g_rct,
-                                   controls_only = controls_only,
-                                   nuisance_method = nuisance_method,
-                                   working_model = working_model,
-                                   verbose = TRUE,
-                                   method = "rct_only")
-saveRDS(rct_only_res,
-        file = "out/rct_only_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
-
-# 5. Nonparametric TMLE
+# 6. Nonparametric TMLE
 tmle_res <- run_sim_n_increase(B = B,
                                n_min = n_min,
                                n_max = n_max,
@@ -93,6 +121,8 @@ tmle_res <- run_sim_n_increase(B = B,
                                bA = bA,
                                bias = bias,
                                g_rct = g_rct,
+                               num_covs = num_covs,
+                               var_method = var_method,
                                controls_only = controls_only,
                                nuisance_method = nuisance_method,
                                working_model = working_model,
@@ -100,3 +130,21 @@ tmle_res <- run_sim_n_increase(B = B,
                                method = "tmle")
 saveRDS(tmle_res,
         file = "out/tmle_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
+
+# 7. RCT only
+rct_only_res <- run_sim_n_increase(B = B,
+                                   n_min = n_min,
+                                   n_max = n_max,
+                                   n_step = n_step,
+                                   bA = bA,
+                                   bias = bias,
+                                   g_rct = g_rct,
+                                   num_covs = num_covs,
+                                   var_method = var_method,
+                                   controls_only = controls_only,
+                                   nuisance_method = nuisance_method,
+                                   working_model = working_model,
+                                   verbose = TRUE,
+                                   method = "rct_only")
+saveRDS(rct_only_res,
+        file = "out/rct_only_" %+% f_name %+% "_" %+% date_name %+% ".RDS")

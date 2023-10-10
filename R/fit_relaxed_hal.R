@@ -28,7 +28,8 @@ fit_relaxed_hal <- function(X, Y, family, weights = NULL, X_no_basis = NULL) {
                        family = family,
                        weights = weights,
                        max_degree = 3,
-                       smoothness_orders = 0)
+                       smoothness_orders = 0,
+                       num_knots = c(100, 1, 1))
     basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
 
     # basis list empty

@@ -8,7 +8,7 @@
 source("utils.R")
 
 # simulation parameters --------------------------------------------------------
-B <- 200 # number of runs for each sample size n
+B <- 500 # number of runs for each sample size n
 n_min <- 1000 # smallest sample size
 n_max <- 3000 # largest sample size
 n_step <- 500 # sample size increment
@@ -21,7 +21,7 @@ num_covs <- 2
 f_name <- "HAL_glm_HAL"
 date_name <- "1008"
 controls_only <- FALSE
-var_method <- "bootstrap"
+var_method <- "ic"
 
 # 1. A-TMLE both psi_pound and psi_tilde
 atmle_both_res <- run_sim_n_increase(B = B,

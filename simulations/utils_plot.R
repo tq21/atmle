@@ -14,47 +14,27 @@ get_cover <- function(res) {
   return(unlist(map(res$all_psi_coverage, function(.x) mean(.x))))
 }
 
-get_res <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res) {
-  # bias
-  bias_atmle_both <- get_bias(atmle_both_res, bA)
-  bias_atmle_tmle <- get_bias(atmle_tmle_res, bA)
-  bias_escvtmle <- get_bias(escvtmle_res, bA)
-  bias_tmle <- get_bias(tmle_res, bA)
+get_res <- function(res, bA, estimator_name) {
 
-  # standard error
-  se_atmle_both <- get_se(atmle_both_res)
-  se_atmle_tmle <- get_se(atmle_tmle_res)
-  se_escvtmle <- get_se(escvtmle_res)
-  se_tmle <- get_se(tmle_res)
-
-  # variance
-  var_atmle_both <- get_var(atmle_both_res)
-  var_atmle_tmle <- get_var(atmle_tmle_res)
-  var_escvtmle <- get_var(escvtmle_res)
-  var_tmle <- get_var(tmle_res)
-
-  # mse
-  mse_atmle_both <- bias_atmle_both^2 + var_atmle_both
-  mse_atmle_tmle <- bias_atmle_tmle^2 + var_atmle_tmle
-  mse_escvtmle <- bias_escvtmle^2 + var_escvtmle
-  mse_tmle <- bias_tmle^2 + var_tmle
-
-  # coverage
-  cover_atmle_both <- get_cover(atmle_both_res)
-  cover_atmle_tmle <- get_cover(atmle_tmle_res)
-  cover_escvtmle <- get_cover(escvtmle_res)
-  cover_tmle <- get_cover(tmle_res)
+  bias <- get_bias(res, bA)
+  se <- get_se(res)
+  var <- get_var(res)
+  mse <- bias^2+var
+  cover <- get_cover(res)
 
   return(data.frame(n = seq(n_min, n_max, n_step),
-                    estimator = rep(c("A-TMLE", "A-TMLE*", "ESCVTMLE", "TMLE"), each = length(bias_atmle_both)),
-                    bias = c(bias_atmle_both, bias_atmle_tmle, bias_escvtmle, bias_tmle),
-                    se = c(se_atmle_both, se_atmle_tmle, se_escvtmle, se_tmle),
-                    mse = c(mse_atmle_both, mse_atmle_tmle, mse_escvtmle, mse_tmle),
-                    coverage = c(cover_atmle_both, cover_atmle_tmle, cover_escvtmle, cover_tmle)))
+                    estimator = estimator_name,
+                    bias = bias,
+                    se = se,
+                    mse = mse,
+                    cover = cover))
 }
 
-get_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res, title) {
-  dt_res <- get_res(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res)
+get_plot <- function(title, names, ...) {
+  res_list <- list(...)
+  dt_res <- map_dfr(1:length(res_list), function(i) {
+    return(get_res(res_list[[i]], bA, names[i]))
+  })
   dt_res <- dt_res[order(dt_res$n), ]
 
   p_bias <- ggplot(dt_res, aes(x = n, y = abs(bias), color = estimator)) +
@@ -84,7 +64,7 @@ get_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res, tit
     theme_minimal() +
     theme(text = element_text(size = 16))
 
-  p_cover <- ggplot(dt_res, aes(x = n, y = coverage, color = estimator)) +
+  p_cover <- ggplot(dt_res, aes(x = n, y = cover, color = estimator)) +
     geom_point() +
     geom_line() +
     geom_hline(yintercept = 0.95, color = "red", linetype = "dashed", linewidth = 1) +
@@ -117,20 +97,30 @@ get_plot_selected <- function(escvtmle_res, name) {
   return(p)
 }
 
-get_relative_mse_plot <- function(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res, name) {
-  dt_res <- get_res(atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res)
-  mse_atmle <- dt_res[dt_res$estimator == "A-TMLE", "mse"]
-  mse_atmle_star <- dt_res[dt_res$estimator == "A-TMLE*", "mse"]
-  mse_escvtmle <- dt_res[dt_res$estimator == "ESCVTMLE", "mse"]
-  dt_relative <- data.frame(n = rep(seq(n_min, n_max, n_step), 2),
-                            names = rep(c("mse(ESCVTMLE)/mse(A-TMLE)", "mse(ESCVTMLE)/mse(A-TMLE*)"),
-                                        each = length(seq(n_min, n_max, n_step))),
-                            ratio = c(mse_escvtmle / mse_atmle, mse_escvtmle / mse_atmle_star))
+get_relative_mse_plot <- function(title, estimator_names, comparisons, ...) {
+  res_list <- list(...)
+  dt_res <- map_dfr(1:length(res_list), function(i) {
+    return(get_res(res_list[[i]], bA, estimator_names[i]))
+  })
+
+  # get second estimator name of all comparisons
+  comparator_names <- unlist(map(comparisons, function(.x) .x[1]))
+
+  # compute relative MSE, for each comparison, first is comparator, second is reference
+  dt_relative <- data.frame(n = dt_res$n,
+                            names = rep(comparator_names, each = length(dt_res$n)),
+                            ratio = rep(NA, length(dt_res$n) * length(comparisons)))
+  for (i in 1:length(comparisons)) {
+    comparator <- comparisons[[i]][1]
+    reference <- comparisons[[i]][2]
+    dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$estimator == comparator] / dt_res$mse[dt_res$estimator == reference]
+  }
+
   relative_mse_plot <- ggplot(dt_relative, aes(x = n, y = ratio, color = names)) +
     geom_point(size = 1.5) +
     geom_line(linewidth = 1) +
     geom_hline(yintercept = 1, color = "red", linetype = "dashed", linewidth = 1) +
-    labs(title = name,
+    labs(title = title,
          x = "n",
          y = "relative mse") +
     theme_minimal() +

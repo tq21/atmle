@@ -2,7 +2,7 @@ options(sl3.verbose = TRUE)
 source("utils.R")
 set.seed(29857)
 
-data <- generate_four_covs(1.5, 5000, 0.2, g_rct = 0.67, bias = "param_complex", FALSE)
+data <- generate_four_covs(1.5, 50000, 0.5, g_rct = 0.67, bias = "param_complex", FALSE, "gaussian")
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
@@ -13,12 +13,12 @@ g_rct=0.67
 verbose=TRUE
 transform=TRUE
 controls_only = FALSE
+family= "gaussian"
 
 #source("utils_positivity.R")
 
 B <- 200
-n_rct <- 200
-n_rwd <- 1000
+n <- 5000
 ate <- 1.5
 bias <- "param_complex"
 nuisance_method = "glm"
@@ -26,18 +26,33 @@ working_model = "glmnet"
 g_rct = 0.67
 verbose = TRUE
 controls_only = FALSE
-num_cov <- 4
+num_covs <- 4
+
+tmp_1 <- run_sim(B = B,
+                 n = n,
+                 ate = ate,
+                 bias = bias,
+                 nuisance_method = nuisance_method,
+                 working_model = working_model,
+                 g_rct = g_rct,
+                 controls_only = controls_only,
+                 var_method = "ic",
+                 num_covs = num_covs,
+                 verbose = verbose,
+                 method = "oracle_atmle")
+mean(tmp_1$psi_coverage)
+var(tmp_1$psi_est)+(mean(tmp_1$psi_est)-1.5)^2
 
 tmp <- run_sim(B = B,
-               n_rct = n_rct,
-               n_rwd = n_rwd,
+               n = n,
                ate = ate,
                bias = bias,
                nuisance_method = nuisance_method,
                working_model = working_model,
                g_rct = g_rct,
                controls_only = controls_only,
-               num_cov = num_cov,
+               var_method = "ic",
+               num_covs = num_covs,
                verbose = verbose,
                method = "atmle")
 mean(tmp$psi_coverage)
@@ -48,8 +63,7 @@ var(tmp$psi_est)+(mean(tmp$psi_est)-1.5)^2
 tmp$psi_ci_upper-tmp$psi_ci_lower
 
 tmp_2 <- run_sim(B = B,
-                 n_rct = n_rct,
-                 n_rwd = n_rwd,
+                 n = n,
                  ate = ate,
                  bias = bias,
                  nuisance_method = nuisance_method,
@@ -68,10 +82,10 @@ var(tmp_2$psi_est)+(mean(tmp_2$psi_est)-1.5)^2
 tmp_2$psi_ci_upper-tmp_2$psi_ci_lower
 
 tmp_3 <- run_sim(B = B,
-                 n_rct = n_rct,
-                 n_rwd = n_rwd,
+                 n = n,
                  ate = ate,
                  bias = bias,
+                 num_covs = num_covs,
                  controls_only = controls_only,
                  nuisance_method = nuisance_method,
                  working_model = working_model,

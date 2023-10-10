@@ -8,8 +8,18 @@
 #'               "glm" for linear regression,
 #'               "glmnet" for lasso,
 #'               "sl3" for super learner
-learn_theta <- function(W, A, Y, controls_only, family = "gaussian", method = "glmnet", v_folds = 5) {
+learn_theta <- function(W, A, Y,
+                        controls_only,
+                        family,
+                        method = "glmnet",
+                        v_folds = 5) {
   pred <- NULL
+  sl3_family <- NULL
+  if (family == "gaussian") {
+    sl3_family <- "continuous"
+  } else if (family == "binomial") {
+    sl3_family <- "binomial"
+  }
 
   if (method == "glmnet") {
     if (controls_only) {
@@ -33,24 +43,24 @@ learn_theta <- function(W, A, Y, controls_only, family = "gaussian", method = "g
     }
 
   } else if (method == "sl3") {
-    lrnr_stack <- Stack$new(list(Lrnr_earth$new(degree = 3, family = "binomial"),
+    lrnr_stack <- Stack$new(list(Lrnr_earth$new(degree = 3, family = family),
                                  Lrnr_xgboost$new(max_depth = 4, nrounds = 20, verbose = 0)))
     lrnr_theta <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack), Lrnr_cv_selector$new(loss_squared_error))
 
     if (controls_only) {
       task_theta <- sl3_Task$new(data = data.table(W, Y = Y)[A == 0, ],
                                  covariates = colnames(W),
-                                 outcome = "Y", outcome_type = "continuous")
+                                 outcome = "Y", outcome_type = sl3_family)
       pred_task <- sl3_Task$new(data = data.table(W, Y = Y),
                                 covariates = colnames(W),
-                                outcome = "Y", outcome_type = "continuous")
+                                outcome = "Y", outcome_type = "sl3_family")
       fit_theta <- lrnr_theta$train(task_theta)
       pred <- fit_theta$predict(pred_task)
 
     } else {
       task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
                                  covariates = c(colnames(W), "A"),
-                                 outcome = "Y", outcome_type = "continuous")
+                                 outcome = "Y", outcome_type = sl3_family)
       fit_theta <- lrnr_theta$train(task_theta)
       pred <- fit_theta$predict(task_theta)
     }

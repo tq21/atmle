@@ -1,5 +1,7 @@
 # function to learn tau, R-loss
-learn_tau <- function(S, W, A, Y, Pi, theta, controls_only, method = "glmnet") {
+learn_tau <- function(S, W, A, Y, Pi, theta,
+                      controls_only,
+                      method = "glmnet") {
 
   pred <- NULL
   A1 <- numeric(length = length(A))
@@ -46,7 +48,7 @@ learn_tau <- function(S, W, A, Y, Pi, theta, controls_only, method = "glmnet") {
   }
 
   if (method == "glmnet") {
-    fit <- cv.glmnet(x = as.matrix(X) , y = pseudo_outcome, intercept = TRUE,
+    fit <- cv.glmnet(x = as.matrix(X), y = pseudo_outcome, intercept = TRUE,
                      family = "gaussian", weights = pseudo_weights,
                      keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
     non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
@@ -90,6 +92,7 @@ learn_tau <- function(S, W, A, Y, Pi, theta, controls_only, method = "glmnet") {
     pred[A == 0] <- A0[A == 0]
 
     coefs <- fit$beta
+    #print("bases selected: " %+% length(coefs))
   }
 
   return(list(A1 = A1,
