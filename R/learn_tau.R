@@ -73,26 +73,43 @@ learn_tau <- function(S, W, A, Y, Pi, theta,
       pred[A == 1] <- A1[A == 1]
       pred[A == 0] <- A0[A == 0]
     }
+    print("bases selected: " %+% length(coefs))
+
 
   } else if (method == "HAL") {
     # TODO: not fully working right now
-    fit <- fit_relaxed_hal(X = as.matrix(cbind(W, A = A)), Y = pseudo_outcome,
+    X <- NULL
+    if (controls_only) {
+      X <- as.matrix(W[A == 0, ])
+    } else {
+      X <- as.matrix(cbind(W, A))
+    }
+
+    fit <- fit_relaxed_hal(X = X, Y = pseudo_outcome,
                            family = "gaussian",
                            weights = pseudo_weights)
 
-    # design matrices
-    x_basis <- make_counter_design_matrix(fit$basis_list, as.matrix(cbind(W, A = A)))
-    x_basis_A1 <- make_counter_design_matrix(fit$basis_list, as.matrix(cbind(W, A = 1)))
-    x_basis_A0 <- make_counter_design_matrix(fit$basis_list, as.matrix(cbind(W, A = 0)))
+    if (controls_only) {
+      # design matrices
+      x_basis <- x_basis_A0 <- make_counter_design_matrix(fit$basis_list, as.matrix(W))
 
-    # predictions
-    A1 <- as.numeric(x_basis_A1 %*% matrix(fit$beta))
-    A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
-    pred[A == 1] <- A1[A == 1]
-    pred[A == 0] <- A0[A == 0]
+      # predictions
+      pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
+    } else {
+      # design matrices
+      x_basis <- make_counter_design_matrix(fit$basis_list, X)
+      x_basis_A1 <- make_counter_design_matrix(fit$basis_list, as.matrix(cbind(W, A = 1)))
+      x_basis_A0 <- make_counter_design_matrix(fit$basis_list, as.matrix(cbind(W, A = 0)))
+
+      # predictions
+      A1 <- as.numeric(x_basis_A1 %*% matrix(fit$beta))
+      A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
+      pred[A == 1] <- A1[A == 1]
+      pred[A == 0] <- A0[A == 0]
+    }
 
     coefs <- fit$beta
-    #print("bases selected: " %+% length(coefs))
+    print("bases selected: " %+% length(coefs))
   }
 
   return(list(A1 = A1,

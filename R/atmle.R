@@ -1,11 +1,44 @@
-# A-TMLE
+#' @description Adaptive-TMLE (A-TMLE) for estimating the average treatment
+#' effect based on combined randomized controlled trial data and real-world
+#' data.
+#'
+#' @param data A data.frame containing baseline covariates (W), binary
+#' treatment indicator (A=1 for active treatment), outcome (Y), and binary
+#' indicator of whether the observation is from the randomized controlled
+#' trial (S=1) or from the external data (S=0).
+#' @param S_node The column indices of the S node in the data.frame.
+#' @param W_node The column indices of the W node in the data.frame.
+#' @param A_node The column indices of the A node in the data.frame.
+#' @param Y_node The column indices of the Y node in the data.frame.
+#' @param controls_only A logical indicating whether the external data has
+#' only controls or both controls and treated observations.
+#' @param atmle_pooled A logical indicating whether to A-TMLE also for the
+#' pooled-ATE parameter. If set to `FALSE`, use a regular TMLE.
+#' @param var_method The method to estimate the variance of the A-TMLE
+#' estimator. Either "ic" for influence curve-based variance estimator or
+#' "bootstrap" for bootstrap-based variance estimator. Default is "ic".
+#' @param nuisance_method The method to estimate the nuisance parameters.
+#' Either "glmnet" for lasso-based estimation or "sl" for super learner-based.
+#' Default is "glmnet". Later, we will allow users to specify their own
+#' super learner library.
+#' @param working_model The working model to estimate the outcome regression.
+#' Either "glmnet" for lasso-based working model or "HAL" for highly adaptive
+#' lasso-based working model. Default is "glmnet".
+#' @param g_rct The probability of receiving the active treatment in the
+#' randomized controlled trial. Default is 0.5.
+#' @param verbose A logical indicating whether to print out the progress.
+#' Default is `TRUE`.
+#' @return A list containing the following elements:
+#' \item{ate}{The estimated average treatment effect.}
+#' \item{ate_se}{The estimated standard error of the average treatment effect.}
+#' \item{ate_ci}{The estimated 95% confidence interval of the average treatment
+#' effect.}
 atmle <- function(data,
                   S_node,
                   W_node,
                   A_node,
                   Y_node,
                   controls_only,
-                  family="gaussian",
                   atmle_pooled = TRUE,
                   var_method = "ic",
                   nuisance_method="glmnet",
@@ -23,7 +56,7 @@ atmle <- function(data,
   # estimate bias psi_pound ----------------------------------------------------
   # learn nuisance parts
   if (verbose) print("learning E(Y|W,A)")
-  theta <- learn_theta(W, A, Y, controls_only, family, nuisance_method)
+  theta <- learn_theta(W, A, Y, controls_only, nuisance_method)
 
   if (verbose) print("learning P(S=1|W,A)")
   Pi <- learn_Pi(S, W, A, controls_only, nuisance_method)
@@ -61,7 +94,7 @@ atmle <- function(data,
   if (atmle_pooled) {
     # use atmle for pooled-ATE
     if (verbose) print("learning E(Y|W)")
-    theta_tilde <- learn_theta_tilde(W, Y, family, nuisance_method)
+    theta_tilde <- learn_theta_tilde(W, Y, "gaussian", nuisance_method)
 
     if (verbose) print("learning psi_tilde")
     psi_tilde <- learn_psi_tilde(W, A, Y, g, theta_tilde, "glmnet")

@@ -19,7 +19,7 @@ working_model <- "HAL"
 g_rct <- 0.67
 num_covs <- 2
 f_name <- "HAL_glm_HAL"
-date_name <- "1008"
+date_name <- "1010"
 controls_only <- FALSE
 var_method <- "ic"
 

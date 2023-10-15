@@ -113,7 +113,7 @@ get_relative_mse_plot <- function(title, estimator_names, comparisons, ...) {
   for (i in 1:length(comparisons)) {
     comparator <- comparisons[[i]][1]
     reference <- comparisons[[i]][2]
-    dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$estimator == comparator] / dt_res$mse[dt_res$estimator == reference]
+    dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$estimator == reference] / dt_res$mse[dt_res$estimator == comparator]
   }
 
   relative_mse_plot <- ggplot(dt_relative, aes(x = n, y = ratio, color = names)) +

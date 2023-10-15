@@ -1,7 +1,13 @@
 source("utils.R")
 
-bias <- "param_simple"
-data <- generate_four_covs(1.5, 10000, 0.5, g_rct = 0.67, bias = bias, FALSE, "gaussian")
+large_n <- 10000000
+W1 <- rnorm(large_n, 0, 1)
+W2 <- rnorm(large_n, 0, 1)
+W3 <- rnorm(large_n, 0, 1)
+W4 <- rnorm(large_n, 0, 1)
+ate <- mean(plogis(1.5+0.8*W1-1.1*W2+0.9*W3-1.3*W4)-plogis(-2+0.8*W1-1.1*W2+0.9*W3-1.3*W4))
+
+data <- sim_binary_outcome(1.5, 5000, 0.2, 0.67, "param_complex", FALSE)
 
 S_node = 1
 W_node = c(2, 3, 4, 5)
@@ -81,6 +87,6 @@ as.numeric(escvtmle_res$CI$b2v[2]-escvtmle_res$CI$b2v[1])
 tmle_res$upper-tmle_res$lower
 rct_only_res$upper-rct_only_res$lower
 escvtmle_res$proportionselected
-
+ate
 
 

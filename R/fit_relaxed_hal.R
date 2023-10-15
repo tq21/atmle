@@ -1,5 +1,9 @@
 
-fit_relaxed_hal <- function(X, Y, family, weights = NULL, X_no_basis = NULL) {
+fit_relaxed_hal <- function(X, Y,
+                            family,
+                            weights = NULL,
+                            X_no_basis = NULL,
+                            X_unpenalized = NULL) {
   x_basis <- NULL
   basis_list <- NULL
 
@@ -28,8 +32,8 @@ fit_relaxed_hal <- function(X, Y, family, weights = NULL, X_no_basis = NULL) {
                        family = family,
                        weights = weights,
                        max_degree = 3,
-                       smoothness_orders = 0,
-                       num_knots = c(100, 1, 1))
+                       smoothness_orders = 0)
+                       #num_knots = c(100, 50, 50))
     basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
 
     # basis list empty
