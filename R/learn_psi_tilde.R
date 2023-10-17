@@ -1,8 +1,8 @@
 # function to learn psi_tilde, R-learner
-learn_psi_tilde <- function(W, A, Y, g, theta,
+learn_psi_tilde <- function(W, A, Y, g, theta_tilde,
                             method = "glmnet") {
   weights <- 1
-  pseudo_outcome <- (Y-theta)/(A-g)
+  pseudo_outcome <- (Y-theta_tilde)/(A-g)
   pseudo_weights <- (A-g)^2*weights
 
   pred <- NULL
@@ -12,9 +12,8 @@ learn_psi_tilde <- function(W, A, Y, g, theta,
     fit <- cv.glmnet(x = as.matrix(W),
                      y = pseudo_outcome, family = "gaussian", weights = pseudo_weights,
                      keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
-    coefs <- coef(fit, s = "lambda.min")
+    coefs <- coef(fit, s = "lambda.min", gamma = 0)
     pred <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coefs))
-    #pred <- as.numeric(predict(fit, newx = as.matrix(data.table(W)), s = y_lambda_min, type = "response"))
 
     # design matrix
     x_basis <- as.matrix(cbind(1, W))
