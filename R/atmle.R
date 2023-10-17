@@ -62,7 +62,7 @@ atmle <- function(data,
   Pi <- learn_Pi(S, W, A, controls_only, nuisance_method)
 
   if (verbose) print("learning P(A=1|W)")
-  g <- learn_g(S, W, A, g_rct, nuisance_method)
+  g <- learn_g(S, W, A, g_rct, controls_only, nuisance_method)
 
   # learn working model tau for bias
   if (verbose) print("learning E(Y|S,W,A)")
