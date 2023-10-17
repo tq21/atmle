@@ -8,7 +8,7 @@
 #'               "glm" for linear regression,
 #'               "glmnet" for lasso,
 #'               "sl3" for super learner
-learn_g <- function(S, W, A, g_rct, method = "glmnet", v_folds = 5) {
+learn_g <- function(S, W, A, g_rct, controls_only, method = "glmnet", v_folds = 5) {
   pred <- NULL
 
   if (method == "glmnet") {
@@ -29,9 +29,13 @@ learn_g <- function(S, W, A, g_rct, method = "glmnet", v_folds = 5) {
     pred_s_w <- as.numeric(predict(fit_s_w, newdata = W, type = "response"))
 
     # P(A=1|S=0,W)
-    fit_a_ws0 <- glm(A[S == 0] ~., data = W[S == 0,], family = "binomial")
-    pred_a_ws0 <- as.numeric(predict(fit_a_ws0, newdata = W, type = "response"))
-    pred <- g_rct*pred_s_w+pred_a_ws0*(1-pred_s_w)
+    if (controls_only) {
+      pred <- g_rct*pred_s_w
+    } else {
+      fit_a_ws0 <- glm(A[S == 0] ~., data = W[S == 0,], family = "binomial")
+      pred_a_ws0 <- as.numeric(predict(fit_a_ws0, newdata = W, type = "response"))
+      pred <- g_rct*pred_s_w+pred_a_ws0*(1-pred_s_w)
+    }
 
   } else if (method == "sl3") {
     # P(S=1|W)
@@ -48,12 +52,20 @@ learn_g <- function(S, W, A, g_rct, method = "glmnet", v_folds = 5) {
     lrnr_stack_g <- Stack$new(list(Lrnr_earth$new(degree = 3, family = "binomial"),
                                    Lrnr_xgboost$new(max_depth = 4, nrounds = 20, verbose = 0)))
     lrnr_a_ws0 <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack_g), Lrnr_cv_selector$new(loss_loglik_binomial))
-    task_a_ws0 <- sl3_Task$new(data = data.table(W, A = A)[S == 0,],
-                               covariates = colnames(W),
-                               outcome = "A", outcome_type = "binomial")
-    fit_a_ws0 <- lrnr_a_ws0$train(task_a_ws0)
-    pred_a_ws0 <- fit_a_ws0$predict(task_a_ws0)
-    pred <- g_rct*pred_s_w+pred_a_ws0*(1-pred_s_w)
+
+    if (controls_only) {
+      pred <- g_rct*pred_s_w
+    } else {
+      task_a_ws0 <- sl3_Task$new(data = data.table(W, A = A)[S == 0,],
+                                 covariates = colnames(W),
+                                 outcome = "A", outcome_type = "binomial")
+      task_a_ws0_pred <- sl3_Task$new(data = data.table(W, A = A),
+                                      covariates = colnames(W),
+                                      outcome = "A", outcome_type = "binomial")
+      fit_a_ws0 <- lrnr_a_ws0$train(task_a_ws0)
+      pred_a_ws0 <- fit_a_ws0$predict(task_a_ws0_pred)
+      pred <- g_rct*pred_s_w+pred_a_ws0*(1-pred_s_w)
+    }
   }
 
   return(pred)
