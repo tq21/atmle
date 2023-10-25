@@ -8,12 +8,12 @@ load_all()
 
 generate_two_covs <- function(ate, n, rct_prop, g_rct, bias, controls_only) {
   # error
-  UY <- round(rnorm(n, 0, 1.8), 2)
-  U_bias <- round(rnorm(n, 0, 0.01), 2)
+  UY <- round(rnorm(n, 0, 1.8), 3)
+  U_bias <- round(rnorm(n, 0, 0.01), 3)
 
   # baseline covariates
-  W1 <- round(runif(n, 0, 1), 2)
-  W2 <- round(rbinom(n, 1, 0.5), 2)
+  W1 <- round(runif(n), 1)
+  W2 <- round(runif(n), 1)
 
   # study indicator, S=1 for RCT, S=0 for RWD
   S <- rbinom(n, 1, rct_prop)
@@ -24,8 +24,8 @@ generate_two_covs <- function(ate, n, rct_prop, g_rct, bias, controls_only) {
   if (controls_only) {
     A[S == 0] <- rep(0, n - sum(S))
   } else {
-    #A[S == 0] <- rbinom(n - sum(S), 1, plogis(0.9*W1+0.4*W2))
-    A[S == 0] <- rbinom(n - sum(S), 1, g_rct)
+    A[S == 0] <- rbinom(n - sum(S), 1, plogis(0.3*W1-0.2*W2))
+    #A[S == 0] <- rbinom(n - sum(S), 1, g_rct)
   }
 
   # bias term for RWD data
@@ -35,13 +35,13 @@ generate_two_covs <- function(ate, n, rct_prop, g_rct, bias, controls_only) {
   } else if (bias == "param_simple") {
     b <- 0.8*W1+U_bias
   } else if (bias == "param_complex") {
-    b <- 0.8*W1+0.4*W2+U_bias
+    b <- 1.9*W1+2.1*W2+U_bias
   } else if (bias == "HAL") {
-    b <- 0.3*W1+1.1*W2+0.6*W1*W2+0.9*sin(pi/2*W2)+U_bias
+    b <- 0.7*W1+1.1*W2+1.8*W2^2
   }
 
   # outcome
-  Y <- round(1.8+1.4*W1+0.9*W2+ate*A+UY+(1-S)*(1-A)*b, 2)
+  Y <- round(1.8+1.9*W1+2.1*W2+ate*A+UY+(1-S)*(1-A)*b, 3)
 
   # data frames combining RCT and RWD
   data <- data.frame(S = S,
@@ -141,8 +141,8 @@ run_sim <- function(B,
       A_node <- 4
       Y_node <- 5
     } else if (num_covs == 4) {
-      #data <- generate_four_covs(ate, n, 0.5, g_rct, bias, controls_only, "gaussian")
-      data <- sim_binary_outcome(ate, n, 0.2, g_rct, bias, controls_only)
+      #data <- sim_four_covs(ate, n, 0.5, g_rct, bias, controls_only, "gaussian")
+      data <- sim_four_covs(ate, n, 0.1, g_rct, bias, controls_only, "gaussian")
       W_node <- 2:5
       A_node <- 6
       Y_node <- 7
@@ -336,12 +336,12 @@ run_sim_n_increase <- function(B,
       S_node <- 1
       W_nodes <- NULL
       if (num_covs == 2) {
-        data <- generate_two_covs(bA, n, 0.5, g_rct, bias, controls_only)
+        data <- generate_two_covs(bA, n, 0.2, g_rct, bias, controls_only)
         W_node <- 2:3
         A_node <- 4
         Y_node <- 5
       } else if (num_covs == 4) {
-        data <- generate_four_covs(bA, n, 0.5, g_rct, bias, controls_only, "gaussian")
+        data <- sim_four_covs(bA, n, 0.2, g_rct, bias, controls_only, "gaussian")
         W_node <- 2:5
         A_node <- 6
         Y_node <- 7

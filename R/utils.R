@@ -1,15 +1,15 @@
 
-make_counter_design_matrix <- function(basis_list, X_counterfactual, add_main_terms = FALSE) {
-  if (add_main_terms) {
-    if (length(basis_list) == 1 & is.null(basis_list[[1]])) {
+make_counter_design_matrix <- function(basis_list, X_counterfactual, X_unpenalized = NULL) {
+  if (!is.null(X_unpenalized)) {
+    if (is_empty(basis_list)) {
       # intercept + main terms
-      return(cbind(1, X_counterfactual))
+      return(cbind(1, X_unpenalized))
     } else {
       # intercept + HAL bases + main terms
-      return(cbind(1, cbind(as.matrix(hal9001::make_design_matrix(X_counterfactual, basis_list)), X_counterfactual)))
+      return(cbind(1, cbind(as.matrix(hal9001::make_design_matrix(X_counterfactual, basis_list)), X_unpenalized)))
     }
   } else {
-    if (length(basis_list) == 0) {
+    if (is_empty(basis_list)) {
       # intercept
       return(matrix(rep(1, nrow(X_counterfactual))))
     } else {

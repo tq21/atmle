@@ -2,6 +2,8 @@
 #' effect based on combined randomized controlled trial data and real-world
 #' data.
 #'
+#' @export
+#'
 #' @param data A data.frame containing baseline covariates (W), binary
 #' treatment indicator (A=1 for active treatment), outcome (Y), and binary
 #' indicator of whether the observation is from the randomized controlled
@@ -39,45 +41,65 @@ atmle <- function(data,
                   A_node,
                   Y_node,
                   controls_only,
+                  family = "gaussian",
                   atmle_pooled = TRUE,
+                  theta_method = "glm",
+                  Pi_method = "glm",
+                  g_method = "glm",
+                  theta_tilde_method = "glm",
+                  Q_method = "glm",
+                  bias_working_model = "glmnet",
+                  pooled_working_model = "glmnet",
+                  g_rct,
                   var_method = "ic",
-                  nuisance_method="glmnet",
-                  working_model="glmnet",
-                  g_rct=0.5,
-                  verbose=TRUE) {
+                  max_iter = 1,
+                  v_folds = 5,
+                  verbose = TRUE) {
 
-  # define nodes
-  S <- data[, S_node]
-  W <- data[, W_node]
-  A <- data[, A_node]
-  Y <- data[, Y_node]
-  n <- nrow(data)
+  # sanity checks --------------------------------------------------------------
+  check_data_and_nodes(data, S_node, W_node, A_node, Y_node)
+  check_learners(theta_method, Pi_method, g_method, theta_tilde_method,
+                 Q_method, bias_working_model, pooled_working_model)
+  check_args(controls_only, atmle_pooled, var_method, g_rct, verbose)
+
+  # define nodes ---------------------------------------------------------------
+  S <- data[, S_node] # study indicator
+  W <- data[, W_node] # covariates
+  A <- data[, A_node] # treatment
+  Y <- data[, Y_node] # outcome
+  n <- nrow(data) # sample size
 
   # estimate bias psi_pound ----------------------------------------------------
   # learn nuisance parts
-  if (verbose) print("learning E(Y|W,A)")
-  theta <- learn_theta(W, A, Y, controls_only, nuisance_method)
+  if (verbose) print("learning \U03B8(W,A)=E(Y|W,A)")
+  theta <- learn_theta(W, A, Y, controls_only, theta_method, v_folds)
 
-  if (verbose) print("learning P(S=1|W,A)")
-  Pi <- learn_Pi(S, W, A, controls_only, nuisance_method)
+  if (verbose) print("learning \U03A0(S=1|W,A)=P(S=1|W,A)")
+  Pi <- learn_Pi(S, W, A, controls_only, Pi_method, v_folds)
 
-  if (verbose) print("learning P(A=1|W)")
-  g <- learn_g(S, W, A, g_rct, controls_only, nuisance_method)
+  if (verbose) print("learning g(A=1|W)=P(A=1|W)")
+  g <- learn_g(S, W, A, g_rct, controls_only, g_method, v_folds)
 
   # learn working model tau for bias
-  if (verbose) print("learning E(Y|S,W,A)")
-  tau <- learn_tau(S, W, A, Y, Pi, theta, controls_only, working_model)
+  if (verbose) print("learning \U03C4(Y|S,W,A)=E(Y|S,W,A)")
+  tau <- learn_tau(S, W, A, Y, Pi, theta, controls_only, bias_working_model,
+                   v_folds)
 
   # TMLE to target Pi
-  if (verbose) print("targeting P(S=1|W,A)")
-  for (i in 1:1) {
-    # TMLE to target Pi
+  if (verbose) print("targeting \U03A0(S=1|W,A)=P(S=1|W,A)")
+  iter <- 0
+  while (iter < max_iter) {
+    # TODO: check empirical mean of IC, iterate until convergence
+    # targeted Pi
     Pi_star <- Pi_tmle(S, W, A, g, tau, Pi, controls_only)
 
     # re-learn working model tau with targeted Pi
-    tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, controls_only, working_model)
+    tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, controls_only,
+                          bias_working_model, v_folds)
+
     Pi <- Pi_star
     tau <- tau_star
+    iter <- iter + 1
   }
 
   psi_pound_est <- NULL
@@ -88,23 +110,23 @@ atmle <- function(data,
   }
 
   # estimate pooled-ATE psi_tilde ----------------------------------------------
-  psi_tilde <- NULL
+  T_working <- NULL
   psi_tilde_est <- NULL
   psi_tilde_eic <- NULL
   if (atmle_pooled) {
     # use atmle for pooled-ATE
-    if (verbose) print("learning E(Y|W)")
-    theta_tilde <- learn_theta_tilde(W, Y, "gaussian", nuisance_method)
+    if (verbose) print("learning \U03B8\U0303(W)=E(Y|W)")
+    theta_tilde <- learn_theta_tilde(W, Y, theta_tilde_method, v_folds, family)
 
-    if (verbose) print("learning psi_tilde")
-    psi_tilde <- learn_psi_tilde(W, A, Y, g, theta_tilde, "glmnet")
+    if (verbose) print("learning \U03A4(W)=E(Y|W,A=1)-E(Y|W,A=0)")
+    T_working <- learn_T(W, A, Y, g, theta_tilde, pooled_working_model, v_folds)
 
     # estimates
-    psi_tilde_est <- mean(psi_tilde$pred)
-    psi_tilde_eic <- get_eic_psi_tilde(psi_tilde, g, theta_tilde, Y, A, n)
+    psi_tilde_est <- mean(T_working$pred)
+    psi_tilde_eic <- get_eic_psi_tilde(T_working, g, theta_tilde, Y, A, n)
   } else {
     # use regular TMLE for pooled-ATE
-    Q <- learn_Q(W, A, Y, method = nuisance_method)
+    Q <- learn_Q(W, A, Y, method = Q_method)
     Q_star <- tmle(Y = Y, A = A, W = W, g1W = g,
                    Q = as.matrix(data.frame(Q$A1, Q$A0)),
                    family = "gaussian")

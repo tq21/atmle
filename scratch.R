@@ -1,17 +1,11 @@
 options(sl3.verbose = TRUE)
 source("utils.R")
+source("sim_data.R")
 set.seed(29857)
 
-large_n <- 10000000
-W1 <- rnorm(large_n, 0, 1)
-W2 <- rnorm(large_n, 0, 1)
-W3 <- rnorm(large_n, 0, 1)
-W4 <- rnorm(large_n, 0, 1)
-ate <- mean(plogis(1.5+0.8*W1-1.1*W2+0.9*W3-1.3*W4)-plogis(-2+0.8*W1-1.1*W2+0.9*W3-1.3*W4))
+data <- sim_four_covs(1.5, 20000, 0.2, 0.67, 2, FALSE, "gaussian")
 
-data <- sim_binary_outcome(1.5, 5000, 0.2, 0.67, "param_simple", FALSE)
-
-#data <- generate_four_covs(1.5, 50000, 0.5, g_rct = 0.67, bias = 0, FALSE, "gaussian")
+#data <- sim_four_covs(1.5, 50000, 0.5, g_rct = 0.67, bias = 0, FALSE, "gaussian")
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
@@ -22,15 +16,14 @@ g_rct=0.67
 verbose=TRUE
 transform=TRUE
 controls_only = FALSE
-family= "binomial"
 
 #source("utils_positivity.R")
 
 B <- 200
 n <- 2000
-ate <- ate
-bias <- "param_complex"
-nuisance_method = "sl3"
+ate <- 1.5
+bias <- -0.9
+nuisance_method = "glm"
 working_model = "glmnet"
 g_rct = 0.67
 verbose = TRUE
@@ -142,50 +135,7 @@ mean(covered)
 hist(all_res)
 var(all_res)
 
-`%+%` <- function(a, b) paste0(a, b)
-# real data comparison
-data(wash)
-#For unbiased external controls, use:
-dat <- wash[which(wash$study %in% c(1,2)),]
-dat$study[which(dat$study==2)]<-0
-dat$study[which(dat$study==3)]<-0
-dat$sex <- as.numeric(dat$sex)-1
-dat$momedu <- as.numeric(dat$momedu)-1
-dat$hfiacat <- as.numeric(dat$hfiacat)-1
-#dat <- subset(dat, !(study == 0 & intervention == 1))
 
-# binary outcome
-dat$laz <- as.numeric(dat$laz > -2.3)
-
-set.seed(2022)
-res_escvtmle <- ES.cvtmle(txinrwd=TRUE,
-                          data=dat, study="study",
-                          covariates=c("aged", "sex", "momedu", "hfiacat"),
-                          treatment_var="intervention", treatment=1,
-                          outcome="laz", NCO="Nlt18scale",
-                          Delta=NULL, Delta_NCO=NULL,
-                          pRCT=0.5, V=5, Q.SL.library=c("SL.glm"),
-                          g.SL.library=c("SL.glm"), Q.discreteSL=TRUE, g.discreteSL=TRUE,
-                          family="binomial", family_nco="gaussian", fluctuation = "logistic",
-                          comparisons = list(c(1),c(1,0)), adjustnco = FALSE, target.gwt = TRUE)
-print.EScvtmle(res_escvtmle)
-
-res_atmle <- atmle(data = dat,
-                   S_node = 2,
-                   W_node = c(4, 5, 6, 7),
-                   A_node = 1,
-                   Y_node = 3,
-                   controls_only = FALSE,
-                   nuisance_method="sl3",
-                   working_model="glmnet",
-                   g_rct=0.5,
-                   verbose=TRUE)
-print("ATMLE estimate: " %+% round(res_atmle$est, 3) %+% " (" %+%
-        round(res_atmle$lower, 3) %+% ", " %+% round(res_atmle$upper, 3) %+% ")")
-
-res_atmle$est
-res_atmle$lower
-res_atmle$upper
 
 
 library(atmle)
@@ -223,7 +173,7 @@ A <- c(A_rct, A_rwd)
 
 # outcome
 Y <- 2.1+0.8*W1+2.5*W2-3.1*W3+0.9*W4+true_ate*A+UY+
-  (1-S)*(A*(2.9*W1+2.3*W2+U_bias))
+  (1-S)*(A*(2.9*W1+2.3*W2)+U_bias)
 
 # data frames combining RCT and RWD
 data <- data.frame(S = S,

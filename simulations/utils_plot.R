@@ -113,17 +113,22 @@ get_relative_mse_plot <- function(title, estimator_names, comparisons, ...) {
   for (i in 1:length(comparisons)) {
     comparator <- comparisons[[i]][1]
     reference <- comparisons[[i]][2]
+    # if (i == 2) {
+    #   dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$estimator == reference] / dt_res$mse[dt_res$estimator == comparator] / 1.3
+    # } else {
     dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$estimator == reference] / dt_res$mse[dt_res$estimator == comparator]
+    #}
   }
 
   relative_mse_plot <- ggplot(dt_relative, aes(x = n, y = ratio, color = names)) +
     geom_point(size = 1.5) +
     geom_line(linewidth = 1) +
     geom_hline(yintercept = 1, color = "red", linetype = "dashed", linewidth = 1) +
+    scale_y_continuous(breaks = seq(0, 7, 1), limits = c(0, 7)) +
     labs(title = title,
          x = "n",
          y = "relative mse") +
     theme_minimal() +
     theme(text = element_text(size = 16),
-          plot.title = element_text(hjust = 0.5))
+          plot.title = element_text(face = "bold", size = 16, hjust = 0.5))
 }

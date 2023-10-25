@@ -1,8 +1,11 @@
 # function to learn tau, R-loss
-learn_tau <- function(S, W, A, Y, Pi, theta,
+learn_tau <- function(S, W, A, Y,
+                      Pi, theta,
                       controls_only,
-                      method = "glmnet") {
+                      method,
+                      v_folds) {
 
+  # initialize
   pred <- NULL
   A1 <- numeric(length = length(A))
   A0 <- numeric(length = length(A))
@@ -38,19 +41,18 @@ learn_tau <- function(S, W, A, Y, Pi, theta,
     pseudo_outcome <- (Y-theta$pred)/(S-Pi$pred)
     pseudo_weights <- (S-Pi$pred)^2*weights
 
-    # design matrix, both treated and controls (X: W*I(A == 1), I(A == 1), W*I(A == 0))
-    X <- cbind(W * A, A, W * (1-A))
+    # design matrix
+    X <- cbind(W, A, W*A)
 
     # counterfactual design matrices
-    zero_W <- matrix(0, nrow = nrow(W), ncol = ncol(W))
-    X_A1_counter <- cbind(1, W, 1, zero_W)
-    X_A0_counter <- cbind(1, zero_W, 0, W)
+    X_A1_counter <- cbind(1, W, 1, W)
+    X_A0_counter <- cbind(1, W, 0, W*0)
   }
 
   if (method == "glmnet") {
     fit <- cv.glmnet(x = as.matrix(X), y = pseudo_outcome, intercept = TRUE,
                      family = "gaussian", weights = pseudo_weights,
-                     keep = TRUE, nfolds = 5, alpha = 1, relax = TRUE)
+                     keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE)
     non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
     coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
 
@@ -75,7 +77,6 @@ learn_tau <- function(S, W, A, Y, Pi, theta,
     }
     #print("bases selected: " %+% length(coefs))
 
-
   } else if (method == "HAL") {
     # TODO: not fully working right now
     X <- NULL
@@ -94,14 +95,13 @@ learn_tau <- function(S, W, A, Y, Pi, theta,
     # X_unpenalized_A1 <- as.matrix(cbind(W, A = 1))
     # X_unpenalized_A0 <- as.matrix(cbind(W, A = 0))
 
-    X <- as.matrix(cbind(W[, c(1, 2)], A))
-    X_unpenalized <- model.matrix(Y ~ -1 + (.)^2, data = data.frame(W[, c(1, 2)] * (1-A)))
+    # X <- as.matrix(cbind(W[, c(1, 2)], A))
+    # X_unpenalized <- model.matrix(Y ~ -1 + (.)^2, data = data.frame(W[, c(1, 2)] * (1-A)))
 
     # fit HAL
     fit <- fit_relaxed_hal(X = X, Y = pseudo_outcome,
                            family = "gaussian",
-                           weights = pseudo_weights,
-                           X_unpenalized = X_unpenalized)
+                           weights = pseudo_weights)
 
     if (controls_only) {
       # design matrices
@@ -112,8 +112,8 @@ learn_tau <- function(S, W, A, Y, Pi, theta,
     } else {
       # design matrices
       x_basis <- fit$x_basis
-      x_basis_A1 <- make_counter_design_matrix(fit$hal_basis_list, as.matrix(cbind(W, A = 1)), X_unpenalized)
-      x_basis_A0 <- make_counter_design_matrix(fit$hal_basis_list, as.matrix(cbind(W, A = 0)), X_unpenalized)
+      x_basis_A1 <- make_counter_design_matrix(fit$hal_basis_list, as.matrix(cbind(W, A = 1)))
+      x_basis_A0 <- make_counter_design_matrix(fit$hal_basis_list, as.matrix(cbind(W, A = 0)))
 
       # predictions
       A1 <- as.numeric(x_basis_A1 %*% matrix(fit$beta))

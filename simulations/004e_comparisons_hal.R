@@ -6,6 +6,7 @@
 #' Data generating distribution scenario: HAL
 
 source("utils.R")
+source("sim_data.R")
 
 # simulation parameters --------------------------------------------------------
 B <- 500 # number of runs for each sample size n
@@ -17,9 +18,9 @@ bias <- "HAL" # true bias
 nuisance_method <- "glm"
 working_model <- "HAL"
 g_rct <- 0.67
-num_covs <- 2
+num_covs <- 4
 f_name <- "HAL_glm_HAL"
-date_name <- "1010"
+date_name <- "1016"
 controls_only <- FALSE
 var_method <- "ic"
 
