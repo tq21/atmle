@@ -1,23 +1,17 @@
 source("utils.R")
+source("sim_data.R")
 
-large_n <- 10000000
-W1 <- rnorm(large_n, 0, 1)
-W2 <- rnorm(large_n, 0, 1)
-W3 <- rnorm(large_n, 0, 1)
-W4 <- rnorm(large_n, 0, 1)
-ate <- mean(plogis(1.5+0.8*W1-1.1*W2+0.9*W3-1.3*W4)-plogis(-2+0.8*W1-1.1*W2+0.9*W3-1.3*W4))
-
-data <- sim_binary_outcome(1.5, 5000, 0.2, 0.67, "param_complex", FALSE)
+data <- sim_four_covs(1.5, 5000, 0.2, 0.67, 0.9, TRUE, "gaussian")
 
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
 Y_node = 7
-nuisance_method = "glm"
+nuisance_method = "glmnet"
 working_model = "glmnet"
 g_rct = 0.67
 verbose = TRUE
-controls_only = FALSE
+controls_only = TRUE
 
 # atmle_oracle_res <- atmle_oracle(data,
 #                                  S_node = S_node,
@@ -61,32 +55,32 @@ escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
                           g.discreteSL = TRUE,
                           V = 5)
 
-tmle_res <- nonparametric(data = data,
-                          S_node = S_node,
-                          W_node = W_node,
-                          A_node = A_node,
-                          Y_node = Y_node,
-                          g_rct = g_rct,
-                          nuisance_method = nuisance_method,
-                          working_model = working_model,
-                          verbose = verbose)
-
-rct_only_res <- rct_only(data = data,
-                         S_node = S_node,
-                         W_node = W_node,
-                         A_node = A_node,
-                         Y_node = Y_node,
-                         g_rct = g_rct,
-                         nuisance_method = nuisance_method,
-                         verbose = verbose)
+# tmle_res <- nonparametric(data = data,
+#                           S_node = S_node,
+#                           W_node = W_node,
+#                           A_node = A_node,
+#                           Y_node = Y_node,
+#                           g_rct = g_rct,
+#                           nuisance_method = nuisance_method,
+#                           working_model = working_model,
+#                           verbose = verbose)
+#
+# rct_only_res <- rct_only(data = data,
+#                          S_node = S_node,
+#                          W_node = W_node,
+#                          A_node = A_node,
+#                          Y_node = Y_node,
+#                          g_rct = g_rct,
+#                          nuisance_method = nuisance_method,
+#                          verbose = verbose)
 
 #atmle_oracle_res$upper-atmle_oracle_res$lower
 
 atmle_res$upper-atmle_res$lower
 as.numeric(escvtmle_res$CI$b2v[2]-escvtmle_res$CI$b2v[1])
-tmle_res$upper-tmle_res$lower
-rct_only_res$upper-rct_only_res$lower
-escvtmle_res$proportionselected
-ate
+#tmle_res$upper-tmle_res$lower
+#rct_only_res$upper-rct_only_res$lower
+#escvtmle_res$proportionselected
+#ate
 
 
