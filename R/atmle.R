@@ -1,39 +1,69 @@
+#' Adaptive-TMLE
+#'
 #' @description Adaptive-TMLE (A-TMLE) for estimating the average treatment
 #' effect based on combined randomized controlled trial data and real-world
 #' data.
 #'
 #' @export
 #'
-#' @param data A data.frame containing baseline covariates (W), binary
-#' treatment indicator (A=1 for active treatment), outcome (Y), and binary
-#' indicator of whether the observation is from the randomized controlled
-#' trial (S=1) or from the external data (S=0).
-#' @param S_node The column indices of the S node in the data.frame.
-#' @param W_node The column indices of the W node in the data.frame.
-#' @param A_node The column indices of the A node in the data.frame.
-#' @param Y_node The column indices of the Y node in the data.frame.
+#' @param data A \code{data.frame} containing baseline covariates \eqn{W}, binary
+#' treatment indicator \eqn{A} (\eqn{A=1} for active treatment),
+#' outcome \eqn{Y}, and binary indicator of whether the observation is from the
+#' randomized controlled trial \eqn{S=1} or from the external data \eqn{S=0}.
+#' @param S_node The column indices of the \eqn{S} node in \code{data}.
+#' @param W_node The column indices of the \eqn{W} node in \code{data}.
+#' @param A_node The column indices of the \eqn{A} node in \code{data}.
+#' @param Y_node The column indices of the \eqn{Y} node in \code{data}.
 #' @param controls_only A logical indicating whether the external data has
-#' only controls or both controls and treated observations.
-#' @param atmle_pooled A logical indicating whether to A-TMLE also for the
-#' pooled-ATE parameter. If set to `FALSE`, use a regular TMLE.
-#' @param var_method The method to estimate the variance of the A-TMLE
-#' estimator. Either "ic" for influence curve-based variance estimator or
-#' "bootstrap" for bootstrap-based variance estimator. Default is "ic".
-#' @param nuisance_method The method to estimate the nuisance parameters.
-#' Either "glmnet" for lasso-based estimation or "sl" for super learner-based.
-#' Default is "glmnet". Later, we will allow users to specify their own
-#' super learner library.
-#' @param working_model The working model to estimate the outcome regression.
-#' Either "glmnet" for lasso-based working model or "HAL" for highly adaptive
-#' lasso-based working model. Default is "glmnet".
+#' only control-arm or both control-arm and treatment-arm.
+#' @param family A character string specifying the family of the outcome
+#' \eqn{Y}.
+#' Currently only \code{"gaussian"} and \code{"binomial"} is supported.
+#' @param atmle_pooled A logical indicating whether to use A-TMLE for the
+#' pooled-ATE parameter also. If set to \code{FALSE}, use a regular TMLE.
+#' Default is \code{TRUE}.
+#' @param theta_method The method to estimate the nuisance function
+#' \eqn{\theta(W,A)=\mathbb{E}(Y\mid W,A)}.
+#' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+#' or a \code{list} of \code{sl3} learners for super learner-based estimation.
+#' Default is \code{"glmnet"}.
+#' @param Pi_method The method to estimate the nuisance function
+#' \eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}.
+#' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+#' or a \code{list} of \code{sl3} learners for super learner-based estimation.
+#' @param g_method The method to estimate the nuisance function
+#' \eqn{g(A\mid W)=\mathbb{P}(A=1\mid W)}.
+#' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+#' or a \code{list} of \code{sl3} learners for super learner-based estimation.
+#' @param theta_tilde_method The method to estimate the nuisance function
+#' \eqn{\tilde{\theta}(W,A)=\mathbb{E}(Y\mid W,A,S=1)}.
+#' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+#' or a \code{list} of \code{sl3} learners for super learner-based estimation.
+#' @param Q_method The method to estimate the nuisance function
+#' \eqn{Q(A,W)=\mathbb{E}(Y\mid W,A)}.
+#' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+#' or a list of \code{sl3} learners for super learner-based estimation.
+#' @param bias_working_model The working model for the bias estimand.
+#' Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for highly adaptive
+#' lasso-based working model. Default is \code{"glmnet"}.
+#' @param pooled_working_model The working model for the pooled-ATE estimand.
+#' Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for highly adaptive
+#' lasso-based working model. Default is \code{"glmnet"}.
 #' @param g_rct The probability of receiving the active treatment in the
-#' randomized controlled trial. Default is 0.5.
+#' randomized controlled trial.
+#' @param var_method The method to estimate the variance of the A-TMLE
+#' estimator. Either \code{"ic"} for influence curve-based variance estimator or
+#' \code{"bootstrap"} for bootstrap-based variance estimator. Default is \code{"ic"}.
+#' @param max_iter The maximum number of iterations for TMLE targeting of
+#' \eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}. Default is \code{1}.
+#' @param v_folds The number of folds for cross-validation (whenever necessary).
+#' Default is \code{5}.
 #' @param verbose A logical indicating whether to print out the progress.
-#' Default is `TRUE`.
-#' @return A list containing the following elements:
-#' \item{ate}{The estimated average treatment effect.}
-#' \item{ate_se}{The estimated standard error of the average treatment effect.}
-#' \item{ate_ci}{The estimated 95% confidence interval of the average treatment
+#' Default is \code{TRUE}.
+#' @returns A \code{list} containing the following elements:
+#' \item{ate}{The estimated average treatment effect;}
+#' \item{ate_se}{The estimated standard error of the average treatment effect;}
+#' \item{ate_ci}{The estimated \eqn{95\%} confidence interval for the average treatment
 #' effect.}
 atmle <- function(data,
                   S_node,

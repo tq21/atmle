@@ -1,20 +1,13 @@
 source("utils.R")
 source("sim_data.R")
 
-# large_n <- 10000000
-# W1 <- rnorm(large_n, 0, 1)
-# W2 <- rnorm(large_n, 0, 1)
-# W3 <- rnorm(large_n, 0, 1)
-# W4 <- rnorm(large_n, 0, 1)
-# ate <- mean(plogis(1.5+0.8*W1-1.1*W2+0.9*W3-1.3*W4)-plogis(-2+0.8*W1-1.1*W2+0.9*W3-1.3*W4))
-
-data <- sim_four_covs(1.5, 1000, 0.2, 0.67, 15, FALSE, "gaussian")
+data <- sim_four_covs(1.5, 1000, 0.5, 0.5, 0, TRUE, "gaussian")
 
 S_node <- 1
 W_node <- c(2, 3, 4, 5)
 A_node <- 6
 Y_node <- 7
-controls_only <- FALSE
+controls_only <- TRUE
 var_method <- "ic"
 theta_method <- "glm"
 Pi_method <- "glm"
@@ -95,6 +88,6 @@ atmle_res$upper-atmle_res$lower
 as.numeric(escvtmle_res$CI$b2v[2]-escvtmle_res$CI$b2v[1])
 # tmle_res$upper-tmle_res$lower
 # rct_only_res$upper-rct_only_res$lower
-escvtmle_res$proportionselected
+#escvtmle_res$proportionselected
 
 

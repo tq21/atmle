@@ -1,12 +1,25 @@
-#' @description Function to learn the conditional mean of outcome given baseline covariates
+#' Learn nuisance function: conditional mean of outcome given baseline
+#' covariates
 #'
-#' @param W A matrix of baseline covariates
-#' @param Y A vector of outcomes
-#' @param family "gaussian" or "binomial"
-#' @param method Learning method,
-#'               "glm" for linear regression,
-#'               "glmnet" for lasso,
-#'               "sl3" for super learner
+#' @description Function to learn the conditional mean of outcome given
+#' baseline covariates, \eqn{\tilde{\theta}(W)=\mathbb{E}(Y\mid W)}.
+#'
+#' @export
+#'
+#' @param W A matrix of baseline covariates.
+#' @param Y A vector of outcomes.
+#' @param method Learning method. \code{"glm"} for main-term linear model,
+#' \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
+#' super learner-based estimation.
+#' @param v_folds A numeric of number of folds for cross-validation
+#' (when necessary).
+#' @param family A character string specifying the family of the outcome
+#' \eqn{Y}.
+#'
+#' @returns A \code{list} containing the following elements:
+#' \item{pred}{The estimated trial enrollment probabilities;}
+#' \item{A1}{The estimated trial enrollment probabilities under treatment;}
+#' \item{A0}{The estimated trial enrollment probabilities under control.}
 learn_theta_tilde <- function(W, Y,
                               method,
                               v_folds,

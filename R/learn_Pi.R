@@ -1,12 +1,27 @@
-#' @description Function to learn the trial enrollment mechanism
+#' Learn nuisance function: trial enrollment mechanism
 #'
-#' @param S A vector of study indicators, S = 1 for RCT, S = 0 for RWD
-#' @param W A matrix of baseline covariates
-#' @param A A vector of treatment indicators, A = 1 for treatment, A = 0 for control
-#' @param method Learning method,
-#'               "glm" for linear regression,
-#'               "glmnet" for lasso,
-#'               "sl3" for super learner
+#' @description Function to learn the trial enrollment mechanism
+#' \eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}.
+#'
+#' @export
+#'
+#' @param S A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.
+#' @param W A matrix of baseline covariates.
+#' @param A A vector of treatment indicators, \eqn{A=1} for treatment-arm,
+#' \eqn{A=0} for control-arm.
+#' @param controls_only A logical indicating whether to learn only among
+#' controls. This applies when the external data only has control-arm
+#' observations.
+#' @param method Learning method. \code{"glm"} for main-term linear model,
+#' \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
+#' super learner-based estimation.
+#' @param v_folds A numeric of number of folds for cross-validation
+#' (when necessary).
+#'
+#' @returns A \code{list} containing the following elements:
+#' \item{pred}{The estimated trial enrollment probabilities;}
+#' \item{A1}{The estimated trial enrollment probabilities under treatment;}
+#' \item{A0}{The estimated trial enrollment probabilities under control.}
 learn_Pi <- function(S, W, A,
                      controls_only,
                      method,

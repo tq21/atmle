@@ -1,13 +1,25 @@
-#' @description Function to learn the treatment mechanism
+#' Learn nuisance function: treatment mechanism
 #'
-#' @param S A vector of study indicators, S = 1 for RCT, S = 0 for RWD
-#' @param W A matrix of baseline covariates
-#' @param A A vector of treatment indicators, A = 1 for treatment, A = 0 for control
-#' @param g_rct A vector of treatment probability in RCT
-#' @param method Learning method,
-#'               "glm" for linear regression,
-#'               "glmnet" for lasso,
-#'               "sl3" for super learner
+#' @description Function to learn the treatment mechanism
+#' \eqn{g(A\mid W)=\mathbb{P}(A=1\mid W)}.
+#'
+#' @export
+#'
+#' @param S A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.
+#' @param W A matrix of baseline covariates.
+#' @param A A vector of treatment indicators, \eqn{A=1} for treatment-arm,
+#' \eqn{A=0} for control-arm.
+#' @param g_rct A numeric of treatment probability in RCT.
+#' @param controls_only A logical indicating whether to learn only among
+#' controls. This applies when the external data only has control-arm
+#' observations.
+#' @param method Learning method. \code{"glm"} for main-term linear model,
+#' \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
+#' super learner-based estimation.
+#' @param v_folds A numeric of number of folds for cross-validation
+#' (when necessary).
+#'
+#' @returns A numeric vector of estimated treatment probabilities.
 learn_g <- function(S, W, A,
                     g_rct,
                     controls_only,
