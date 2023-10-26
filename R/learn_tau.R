@@ -82,11 +82,11 @@ learn_tau <- function(S, W, A, Y,
     pseudo_weights <- (S-Pi$pred)^2*weights
 
     # design matrix
-    X <- cbind(W, A, W*A)
+    X <- cbind(W*A, A, W*(1-A))
 
     # counterfactual design matrices
-    X_A1_counter <- cbind(1, W, 1, W)
-    X_A0_counter <- cbind(1, W, 0, W*0)
+    X_A1_counter <- cbind(1, W, 1, W*0)
+    X_A0_counter <- cbind(1, W*0, 0, W)
   }
 
   if (method == "glmnet") {

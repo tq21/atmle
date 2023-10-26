@@ -23,7 +23,7 @@ res_escvtmle <- ES.cvtmle(txinrwd=TRUE,
                           outcome="laz", NCO="Nlt18scale",
                           Delta=NULL, Delta_NCO=NULL,
                           pRCT=0.5, V=5, Q.SL.library=c("SL.glm"),
-                          g.SL.library=c("SL.glm"), Q.discreteSL=TRUE, g.discreteSL=TRUE,
+                          g.SL.library=c("SL.glm", "SL.earth"), Q.discreteSL=TRUE, g.discreteSL=TRUE,
                           family="gaussian", family_nco="gaussian", fluctuation = "logistic",
                           comparisons = list(c(1),c(1,0)), adjustnco = FALSE, target.gwt = TRUE)
 
@@ -72,7 +72,7 @@ res_escvtmle <- ES.cvtmle(txinrwd=TRUE,
                           outcome="laz", NCO="Nlt18scale",
                           Delta=NULL, Delta_NCO=NULL,
                           pRCT=0.5, V=5, Q.SL.library=c("SL.glm"),
-                          g.SL.library=c("SL.glm"), Q.discreteSL=TRUE, g.discreteSL=TRUE,
+                          g.SL.library=c("SL.glm", "SL.earth"), Q.discreteSL=TRUE, g.discreteSL=TRUE,
                           family="gaussian", family_nco="gaussian", fluctuation = "logistic",
                           comparisons = list(c(1),c(1,0)), adjustnco = FALSE, target.gwt = TRUE)
 
@@ -106,7 +106,7 @@ res_df_biased <- data.frame(estimator = c("ES-CVTMLE", "A-TMLE glmnet", "A-TMLE 
                             lower = c(as.numeric(res_escvtmle$CI$b2v[1]), res_atmle_glmnet$lower, res_atmle_HAL$lower),
                             upper = c(as.numeric(res_escvtmle$CI$b2v[2]), res_atmle_glmnet$upper, res_atmle_HAL$upper))
 
-save(list = c("res_df_unbiased", "res_df_biased"), file = "out/wash.RData")
+#save(list = c("res_df_unbiased", "res_df_biased"), file = "out/wash.RData")
 
 res_df_unbiased$bias <- "unbiased external"
 res_df_biased$bias <- "biased external"
@@ -145,5 +145,5 @@ p_biased <- ggplot(res_df_biased, aes(x = estimator, y = est)) +
         legend.text = element_text(size = 14))
 
 wash_plt <- ggarrange(p_unbiased, p_biased, nrow = 1, ncol = 2)
-ggsave(filename = "wash.pdf", plot = wash_plt, device = "pdf",
-       path = "plot", width = 10, height = 8, dpi = 300)
+# ggsave(filename = "wash.pdf", plot = wash_plt, device = "pdf",
+#        path = "plot", width = 10, height = 8, dpi = 300)

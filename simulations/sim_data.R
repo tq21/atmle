@@ -1,5 +1,4 @@
-
-sim_four_covs <- function(ate, n, rct_prop, g_rct, bias, controls_only, outcome_type) {
+sim_four_covs <- function(ate, n, rct_prop, g_rct, bias, controls_only) {
   # error
   UY <- rnorm(n, 0, 1.5)
   U_bias <- rnorm(n, 0, 0.01)
@@ -30,7 +29,7 @@ sim_four_covs <- function(ate, n, rct_prop, g_rct, bias, controls_only, outcome_
   } else if (bias == "param_simple") {
     b <- 2.6*W1
   } else if (bias == "param_complex") {
-    b <- 10.2+5.3*W1+2.7*W2
+    b <- 20.5+5.3*W1+2.7*W2
   } else if (bias == "HAL") {
     b <- 0.3+8*W1^2.3*W2
   } else if (bias == "sinusoidal") {
@@ -39,12 +38,7 @@ sim_four_covs <- function(ate, n, rct_prop, g_rct, bias, controls_only, outcome_
   }
 
   # outcome
-  Y <- NULL
-  if (outcome_type == "binomial") {
-    Y <- rbinom(n, 1, plogis(0.5+0.8*W1+1.1*W2+0.9*W3+1.3*W4+ate*A+UY+(1-S)*(1-A)*b))
-  } else {
-    Y <- -5.2+3.1*W1+1.1*W2+0.9*W3+1.3*W4+ate*A+UY+(1-S)*(1-A)*(b)+(1-S)*U_bias
-  }
+  Y <- -5.2+3.1*W1+1.1*W2+0.9*W3+1.3*W4+ate*A+UY+(1-S)*(b)+(1-S)*U_bias
 
   # data frames combining RCT and RWD
   data <- data.frame(S = S,
