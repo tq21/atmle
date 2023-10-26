@@ -5,6 +5,9 @@
 #'
 #' @export
 #'
+#' @importFrom glmnet cv.glmnet
+#' @importFrom data.table data.table
+#'
 #' @param W A matrix of baseline covariates.
 #' @param A A vector of treatment indicators, \eqn{A=1} for treatment-arm,
 #' \eqn{A=0} for control-arm.

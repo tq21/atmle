@@ -7,6 +7,8 @@
 #'
 #' @export
 #'
+#' @importFrom glmnet cv.glmnet
+#'
 #' @param S A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.
 #' @param W A matrix of baseline covariates.
 #' @param A A vector of treatment indicators, \eqn{A=1} for treatment-arm,
@@ -63,7 +65,7 @@ learn_tau <- function(S, W, A, Y,
     pred <- numeric(length = length(A))
 
     # R-transformations, only controls
-    pseudo_outcome <- (Y[A == 0]-theta$pred[A == 0])/(S[A == 0]-Pi$pred[A == 0])
+    pseudo_outcome <- (Y[A == 0]-theta[A == 0])/(S[A == 0]-Pi$pred[A == 0])
     pseudo_weights <- (S[A == 0]-Pi$pred[A == 0])^2*weights
 
     # design matrix, only controls (X: W)
@@ -76,7 +78,7 @@ learn_tau <- function(S, W, A, Y,
     pred <- numeric(length = length(A))
 
     # R-transformations
-    pseudo_outcome <- (Y-theta$pred)/(S-Pi$pred)
+    pseudo_outcome <- (Y-theta)/(S-Pi$pred)
     pseudo_weights <- (S-Pi$pred)^2*weights
 
     # design matrix

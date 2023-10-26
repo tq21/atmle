@@ -5,6 +5,16 @@
 #'
 #' @export
 #'
+#' @importFrom glmnet cv.glmnet
+#' @importFrom data.table data.table
+#' @importFrom sl3 Stack
+#' @importFrom sl3 make_learner
+#' @importFrom sl3 sl3_Task
+#' @importFrom sl3 Pipeline
+#' @importFrom sl3 Lrnr_cv
+#' @importFrom sl3 Lrnr_cv_selector
+#' @importFrom sl3 loss_loglik_binomial
+#'
 #' @param S A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.
 #' @param W A matrix of baseline covariates.
 #' @param A A vector of treatment indicators, \eqn{A=1} for treatment-arm,

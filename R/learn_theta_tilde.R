@@ -6,6 +6,17 @@
 #'
 #' @export
 #'
+#' @importFrom glmnet cv.glmnet
+#' @importFrom data.table data.table
+#' @importFrom sl3 Stack
+#' @importFrom sl3 make_learner
+#' @importFrom sl3 sl3_Task
+#' @importFrom sl3 Pipeline
+#' @importFrom sl3 Lrnr_cv
+#' @importFrom sl3 Lrnr_cv_selector
+#' @importFrom sl3 loss_loglik_binomial
+#' @importFrom sl3 loss_squared_error
+#'
 #' @param W A matrix of baseline covariates.
 #' @param Y A vector of outcomes.
 #' @param method Learning method. \code{"glm"} for main-term linear model,
@@ -16,10 +27,7 @@
 #' @param family A character string specifying the family of the outcome
 #' \eqn{Y}.
 #'
-#' @returns A \code{list} containing the following elements:
-#' \item{pred}{The estimated trial enrollment probabilities;}
-#' \item{A1}{The estimated trial enrollment probabilities under treatment;}
-#' \item{A0}{The estimated trial enrollment probabilities under control.}
+#' @returns A numeric vector of the estimated values.
 learn_theta_tilde <- function(W, Y,
                               method,
                               v_folds,

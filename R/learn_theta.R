@@ -1,12 +1,32 @@
-#' @description Function to learn the conditional mean of outcome given treatment and baseline covariates
+#' Learn nuisance function: conditional mean of outcome given baseline
+#' covariates and treatment
 #'
-#' @param W A matrix of baseline covariates
-#' @param A A vector of treatment indicators, A = 1 for treatment, A = 0 for control
-#' @param Y A vector of outcomes
-#' @param method Learning method,
-#'               "glm" for linear regression,
-#'               "glmnet" for lasso,
-#'               "sl3" for super learner
+#' @description Function to learn the conditional mean of outcome given
+#' baseline covariates and treatment,
+#' \eqn{\theta(W,A)=\mathbb{E}(Y\mid W,A)}.
+#'
+#' @export
+#'
+#' @importFrom glmnet cv.glmnet
+#' @importFrom data.table data.table
+#' @importFrom sl3 Stack
+#' @importFrom sl3 make_learner
+#' @importFrom sl3 sl3_Task
+#' @importFrom sl3 Pipeline
+#' @importFrom sl3 Lrnr_cv
+#' @importFrom sl3 Lrnr_cv_selector
+#' @importFrom sl3 loss_squared_error
+#'
+#' @param W A matrix of baseline covariates.
+#' @param A A vector of treatment indicators.
+#' @param Y A vector of outcomes.
+#' @param method Learning method. \code{"glm"} for main-term linear model,
+#' \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
+#' super learner-based estimation.
+#' @param v_folds A numeric of number of folds for cross-validation
+#' (when necessary).
+#'
+#' @returns A numeric vector of the estimated values.
 learn_theta <- function(W, A, Y,
                         controls_only,
                         method,
@@ -66,5 +86,5 @@ learn_theta <- function(W, A, Y,
     }
   }
 
-  return(list(pred = pred))
+  return(pred)
 }

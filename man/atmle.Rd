@@ -2,7 +2,7 @@
 % Please edit documentation in R/atmle.R
 \name{atmle}
 \alias{atmle}
-\title{Adaptive-TMLE}
+\title{Adaptive-TMLE for RCT-ATE}
 \usage{
 atmle(
   data,
@@ -104,9 +104,9 @@ Default is \code{TRUE}.}
 }
 \value{
 A \code{list} containing the following elements:
-\item{ate}{The estimated average treatment effect.}
-\item{ate_se}{The estimated standard error of the average treatment effect.}
-\item{ate_ci}{The estimated \eqn{95\%} confidence interval of the average treatment
+\item{ate}{The estimated average treatment effect;}
+\item{ate_se}{The estimated standard error of the average treatment effect;}
+\item{ate_ci}{The estimated \eqn{95\%} confidence interval for the average treatment
 effect.}
 }
 \description{

@@ -1,6 +1,38 @@
-# function to perform TMLE update of Pi
+#' TMLE update of the trial enrollment probabilities
+#'
+#' @export
+#'
+#' @param S A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.
+#' @param W A matrix of baseline covariates.
+#' @param A A vector of treatment indicators, \eqn{A=1} for treatment-arm,
+#' \eqn{A=0} for control-arm.
+#' @param g A vector of estimated treatment probabilities,
+#' \eqn{g(A\mid W)=\mathbb{P}(A=1\mid W)}.
+#' @param tau A \code{list} containing the following elements:
+#' \item{A1}{A numeric vector of the estimated counterfactual conditional
+#' effects under treatment;}
+#' \item{A0}{A numeric vector of the estimated counterfactual conditional
+#' effects under control;}
+#' \item{x_basis}{A numeric matrix of the working model bases;}
+#' \item{x_basis_A1}{A numeric matrix of the counterfactual working model bases
+#' under treatment;}
+#' \item{x_basis_A0}{A numeric matrix of the counterfactual working model bases
+#' under control;}
+#' \item{pred}{A numeric vector of estimated conditional effects;}
+#' \item{coefs}{A numeric vector of the working model coefficients.}
+#' @param Pi A \code{list} containing the following elements:
+#' \item{pred}{The estimated trial enrollment probabilities;}
+#' \item{A1}{The estimated trial enrollment probabilities under treatment;}
+#' \item{A0}{The estimated trial enrollment probabilities under control.}
+#' @param controls_only A logical indicating whether to learn only among
+#' controls. This applies when the external data only has control-arm
+#' observations.
+#'
+#' @returns A \code{list} containing the following elements:
+#' \item{pred}{Targeted estimates of trial enrollment probabilities;}
+#' \item{A1}{Targeted estimates of trial enrollment probabilities under treatment;}
+#' \item{A0}{Targeted estimates of trial enrollment probabilities under control.}
 Pi_tmle <- function(S, W, A, g, tau, Pi, controls_only) {
-
   Pi_star <- Pi
 
   if (controls_only) {

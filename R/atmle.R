@@ -1,10 +1,12 @@
-#' Adaptive-TMLE
+#' @title Adaptive-TMLE for RCT-ATE
 #'
 #' @description Adaptive-TMLE (A-TMLE) for estimating the average treatment
 #' effect based on combined randomized controlled trial data and real-world
 #' data.
 #'
 #' @export
+#'
+#' @importFrom tmle tmle
 #'
 #' @param data A \code{data.frame} containing baseline covariates \eqn{W}, binary
 #' treatment indicator \eqn{A} (\eqn{A=1} for active treatment),

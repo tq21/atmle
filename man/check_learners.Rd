@@ -14,6 +14,42 @@ check_learners(
   pooled_working_model
 )
 }
+\arguments{
+\item{theta_method}{The method to estimate the nuisance function
+\eqn{\theta(W,A)=\mathbb{E}(Y\mid W,A)}.
+\code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+or a \code{list} of \code{sl3} learners for super learner-based estimation.
+Default is \code{"glmnet"}.}
+
+\item{Pi_method}{The method to estimate the nuisance function
+\eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}.
+\code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+or a \code{list} of \code{sl3} learners for super learner-based estimation.}
+
+\item{g_method}{The method to estimate the nuisance function
+\eqn{g(A\mid W)=\mathbb{P}(A=1\mid W)}.
+\code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+or a \code{list} of \code{sl3} learners for super learner-based estimation.}
+
+\item{theta_tilde_method}{The method to estimate the nuisance function
+\eqn{\tilde{\theta}(W,A)=\mathbb{E}(Y\mid W,A,S=1)}.
+\code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+or a \code{list} of \code{sl3} learners for super learner-based estimation.}
+
+\item{Q_method}{The method to estimate the nuisance function
+\eqn{Q(A,W)=\mathbb{E}(Y\mid W,A)}.
+\code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+or a list of \code{sl3} learners for super learner-based estimation.}
+
+\item{bias_working_model}{The working model for the bias estimand.
+Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for highly adaptive
+lasso-based working model. Default is \code{"glmnet"}.}
+
+\item{pooled_working_model}{The working model for the pooled-ATE estimand.
+Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for highly adaptive
+lasso-based working model. Default is \code{"glmnet"}.}
+}
 \description{
 Sanity checks for learners
 }
+\keyword{internal}

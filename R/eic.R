@@ -9,7 +9,7 @@ get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound_est, S, A, Y, n, cont
     IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
     IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
     tmp <- tau$A0
-    beta_comp <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta$pred-(S-Pi$pred)*tmp)
+    beta_comp <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
 
     return(W_comp+Pi_comp+beta_comp)
 
@@ -22,8 +22,8 @@ get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound_est, S, A, Y, n, cont
     tmp <- vector(length = n)
     tmp[A == 1] <- tau$A1[A == 1]
     tmp[A == 0] <- tau$A0[A == 0]
-    D_beta_A0 <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta$pred-(S-Pi$pred)*tmp)
-    D_beta_A1 <- as.numeric(tau$x_basis%*%IM_A1)*(S-Pi$pred)*(Y-theta$pred-(S-Pi$pred)*tmp)
+    D_beta_A0 <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
+    D_beta_A1 <- as.numeric(tau$x_basis%*%IM_A1)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
     beta_comp <- D_beta_A0-D_beta_A1
 
     return(W_comp+Pi_comp+beta_comp)
