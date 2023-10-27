@@ -37,9 +37,9 @@ to_prob <- function(pred) {
   return(1 / (1 + exp(-pred)))
 }
 
-bound <- function(X) {
-  X_max <- max(X, na.rm = TRUE)
-  X_min <- min(X, na.rm = TRUE)
+.bound <- function(X, bounds) {
+  X[X < bounds[1]] <- bounds[1]
+  X[X > bounds[2]] <- bounds[2]
 
-  return((X-X_min)/(X_max-X_min))
+  return(X)
 }

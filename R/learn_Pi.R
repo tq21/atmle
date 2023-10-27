@@ -217,7 +217,7 @@ learn_Pi <- function(S,
          list of sl3 learners.")
   }
 
-  return(list(pred = pred,
-              A1 = A1,
-              A0 = A0))
+  return(list(pred = .bound(pred, Pi_bounds),
+              A1 = .bound(A1, Pi_bounds),
+              A0 = .bound(A0, Pi_bounds)))
 }
