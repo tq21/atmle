@@ -37,7 +37,26 @@ learn_theta <- function(W, A, Y,
 
   pred <- numeric(length = length(A))
 
-  if (method == "glm") {
+  if (is.list(method)) {
+    lrnr_stack <- Stack$new(method)
+    lrnr_theta <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
+                               Lrnr_cv_selector$new(loss_squared_error))
+
+    if (controls_only) {
+      task_theta <- sl3_Task$new(data = data.table(W, Y = Y)[A == 0, ],
+                                 covariates = colnames(W),
+                                 outcome = "Y", outcome_type = "continuous")
+      fit_theta <- lrnr_theta$train(task_theta)
+      pred[A == 0] <- fit_theta$predict(task_theta)
+
+    } else {
+      task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
+                                 covariates = c(colnames(W), "A"),
+                                 outcome = "Y", outcome_type = "continuous")
+      fit_theta <- lrnr_theta$train(task_theta)
+      pred <- fit_theta$predict(task_theta)
+    }
+  } else if (method == "glm") {
     # A = 0
     fit_A0 <- glm(Y[A == 0] ~., data = data.frame(W[A == 0, ]), family = "gaussian")
     A0 <- as.numeric(predict(fit_A0, newdata = data.frame(W[A == 0, ]), type = "response"))
@@ -63,26 +82,6 @@ learn_theta <- function(W, A, Y,
                           keep = TRUE, alpha = 1, nfolds = v_folds, family = "gaussian")
       A1 <- as.numeric(predict(fit, newx = as.matrix(W[A == 1, ]), s = "lambda.min", type = "response"))
       pred[A == 1] <- A1
-    }
-
-  } else if (is.list(method)) {
-    lrnr_stack <- Stack$new(method)
-    lrnr_theta <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
-                               Lrnr_cv_selector$new(loss_squared_error))
-
-    if (controls_only) {
-      task_theta <- sl3_Task$new(data = data.table(W, Y = Y)[A == 0, ],
-                                 covariates = colnames(W),
-                                 outcome = "Y", outcome_type = "continuous")
-      fit_theta <- lrnr_theta$train(task_theta)
-      pred[A == 0] <- fit_theta$predict(task_theta)
-
-    } else {
-      task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
-                                 covariates = c(colnames(W), "A"),
-                                 outcome = "Y", outcome_type = "continuous")
-      fit_theta <- lrnr_theta$train(task_theta)
-      pred <- fit_theta$predict(task_theta)
     }
   }
 

@@ -39,16 +39,7 @@ learn_theta_tilde <- function(W, Y,
 
   pred <- numeric(length(Y))
 
-  if (method == "glm") {
-    fit <- glm(Y ~., data = data.frame(W), family = family)
-    pred <- as.numeric(predict(fit, newdata = data.frame(W), type = "response"))
-
-  } else if (method == "glmnet") {
-    fit <- cv.glmnet(x = as.matrix(W), y = Y,
-                     keep = TRUE, alpha = 1, nfolds = v_folds, family = family)
-    pred <- as.numeric(predict(fit, newx = as.matrix(W), s = "lambda.min", type = "response"))
-
-  } else if (is.list(method)) {
+  if (is.list(method)) {
     lrnr_stack <- Stack$new(method)
     lrnr_theta_tilde <- NULL
     task_theta_tilde <- NULL
@@ -68,6 +59,14 @@ learn_theta_tilde <- function(W, Y,
 
     fit_theta_tilde <- lrnr_theta_tilde$train(task_theta_tilde)
     pred <- fit_theta_tilde$predict(task_theta_tilde)
+  } else if (method == "glm") {
+    fit <- glm(Y ~., data = data.frame(W), family = family)
+    pred <- as.numeric(predict(fit, newdata = data.frame(W), type = "response"))
+
+  } else if (method == "glmnet") {
+    fit <- cv.glmnet(x = as.matrix(W), y = Y,
+                     keep = TRUE, alpha = 1, nfolds = v_folds, family = family)
+    pred <- as.numeric(predict(fit, newx = as.matrix(W), s = "lambda.min", type = "response"))
   }
 
   return(pred)

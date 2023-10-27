@@ -4,21 +4,32 @@ nonparametric <- function(data,
                           W_node,
                           A_node,
                           Y_node,
+                          controls_only,
+                          family = "gaussian",
+                          atmle_pooled = TRUE,
+                          theta_method = "glm",
+                          Pi_method = "glm",
+                          g_method = "glm",
+                          theta_tilde_method = "glm",
+                          Q_method = "glm",
+                          bias_working_model = "glmnet",
+                          pooled_working_model = "glmnet",
                           g_rct,
-                          nuisance_method="glm",
-                          working_model="glmnet",
-                          verbose=TRUE) {
+                          var_method = "ic",
+                          max_iter = 1,
+                          v_folds = 5,
+                          verbose = TRUE) {
 
-  # define nodes
-  S <- data[, S_node]
-  W <- data[, W_node]
-  A <- data[, A_node]
-  Y <- data[, Y_node]
-  n <- nrow(data)
+  # define nodes ---------------------------------------------------------------
+  S <- data[, S_node] # study indicator
+  W <- data[, W_node] # covariates
+  A <- data[, A_node] # treatment
+  Y <- data[, Y_node] # outcome
+  n <- nrow(data) # sample size
 
   # estimate nuisance parts
   if (verbose) print("learning E(Y|S,W,A)")
-  Q <- learn_Q_S1(S, W, A, Y, method = nuisance_method)
+  Q <- learn_Q_S1(S, W, A, Y, method = "glm")
 
   if (verbose) print("learning P(A=1|S,W)")
   g <- rep(g_rct, n)

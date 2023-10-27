@@ -18,8 +18,8 @@ sim_four_covs <- function(ate, n, rct_prop, g_rct, bias, controls_only) {
   if (controls_only) {
     A[S == 0] <- rep(0, n - sum(S))
   } else {
-    #A[S == 0] <- rbinom(n - sum(S), 1, plogis(0.9*W1+0.4*W2))
-    A[S == 0] <- rbinom(n - sum(S), 1, 0.5)
+    A[S == 0] <- rbinom(n - sum(S), 1, plogis(0.9*W1+0.4*W2))
+    #A[S == 0] <- rbinom(n - sum(S), 1, 0.5)
   }
 
   # bias term for RWD data
@@ -38,7 +38,8 @@ sim_four_covs <- function(ate, n, rct_prop, g_rct, bias, controls_only) {
   }
 
   # outcome
-  Y <- -5.2+3.1*W1+1.1*W2+0.9*W3+1.3*W4+ate*A+UY+(1-S)*(b)+(1-S)*U_bias
+  # Y <- -5.2+3.1*W1+1.1*W2+0.9*W3+1.3*W4+ate*A+UY+(1-S)*(b)+(1-S)*U_bias
+  Y <- rbinom(n, 1, plogis(0.5*W1+0.2*W2-0.9*W3+0.5*W4+ate*A+UY+(1-S)*(b)))
 
   # data frames combining RCT and RWD
   data <- data.frame(S = S,

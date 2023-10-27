@@ -6,13 +6,13 @@ cover <- numeric(length = B)
 
 for (i in 1:B) {
   print(i)
-  data <- sim_four_covs(1.5, 2000, 0.2, 0.67, "param_complex", TRUE)
+  data <- sim_four_covs(1.5, 2000, 0.2, 0.67, 0, FALSE)
 
   S_node <- 1
   W_node <- c(2, 3, 4, 5)
   A_node <- 6
   Y_node <- 7
-  controls_only <- TRUE
+  controls_only <- FALSE
   var_method <- "ic"
   theta_method <- "glm"
   Pi_method <- "glm"

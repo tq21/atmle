@@ -1,7 +1,8 @@
 source("utils.R")
 source("sim_data.R")
+options(sl3.verbose = TRUE)
 
-data <- sim_four_covs(1.5, 2000, 0.2, 0.67, "param_complex", TRUE)
+data <- sim_four_covs(1.5, 2000, 0.2, 0.67, 0.9, TRUE)
 
 S_node <- 1
 W_node <- c(2, 3, 4, 5)
@@ -9,11 +10,11 @@ A_node <- 6
 Y_node <- 7
 controls_only <- TRUE
 var_method <- "ic"
-theta_method <- "glm"
-Pi_method <- "glm"
-g_method <- "glm"
-theta_tilde_method <- "glm"
-Q_method <- "glm"
+theta_method <- "sl3"
+Pi_method <- "sl3"
+g_method <- "sl3"
+theta_tilde_method <- "sl3"
+Q_method <- "sl3"
 bias_working_model <- "glmnet"
 pooled_working_model <- "glmnet"
 g_rct <- 0.67
