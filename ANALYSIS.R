@@ -15,7 +15,8 @@ atmle_fit <- atmle(data = cohort_comb,
                    bias_working_model = "glmnet",
                    pooled_working_model = "glmnet",
                    g_rct = 0.5,
-                   verbose = TRUE)
+                   verbose = FALSE)
+print(atmle_fit)
 
 Q.SL.library <- c("SL.speedglm", "SL.mean")
 g.SL.library <- c("SL.speedglm", "SL.gam", "SL.earth")

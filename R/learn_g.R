@@ -235,5 +235,8 @@ learn_g <- function(S,
          list of sl3 learners.")
   }
 
+  print("low g: " %+% min(pred))
+  print("high g: " %+% max(pred))
+
   return(.bound(pred, g_bounds))
 }

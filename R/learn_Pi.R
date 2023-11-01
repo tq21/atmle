@@ -217,6 +217,9 @@ learn_Pi <- function(S,
          list of sl3 learners.")
   }
 
+  print("low Pi: " %+% min(pred))
+  print("high Pi: " %+% max(pred))
+
   return(list(pred = .bound(pred, Pi_bounds),
               A1 = .bound(A1, Pi_bounds),
               A0 = .bound(A0, Pi_bounds)))

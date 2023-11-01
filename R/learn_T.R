@@ -1,10 +1,9 @@
-#' @title Learn working model for the conditional effect of treatment on the
-#' outcome
+#' Learn working model for the conditional effect of treatment on the outcome
 #'
 #' @description Function to learn the conditional effect of treatment on the
 #' outcome, \eqn{T(W)=\mathbb{E}(Y\mid W,A=1)-\mathbb{E}(Y\mid W,A=0)}.
 #'
-#' @keywords working model
+#' @export
 #'
 #' @importFrom glmnet cv.glmnet
 #' @importFrom data.table data.table
@@ -27,72 +26,49 @@
 #' \item{pred}{A numeric vector of the estimated conditional effects;}
 #' \item{x_basis}{A numeric matrix of the working model bases;}
 #' \item{coefs}{A numeric vector of the working model coefficients.}
-learn_T <- function(W,
-                    A,
-                    Y,
-                    g,
-                    delta,
-                    theta_tilde,
+learn_T <- function(W, A, Y,
+                    g, theta_tilde,
                     method,
-                    min_working_model,
-                    v_folds,
-                    weights) {
-
+                    v_folds) {
   # R-transformations
-  pseudo_outcome <- ifelse(abs(A-g)<1e-10, 0, (Y-theta_tilde)/(A-g))
+  weights <- 1 # TODO: currently not used
+  pseudo_outcome <- ifelse(abs(A-g) < 1e-5, 0, (Y-theta_tilde)/(A-g))
   pseudo_weights <- (A-g)^2*weights
 
+  # initialize
   pred <- NULL
   x_basis <- NULL
   coefs <- NULL
-  non_zero <- NULL
 
   if (method == "glmnet") {
-    fit <- cv.glmnet(x = as.matrix(W[delta == 1,]), y = pseudo_outcome[delta == 1],
-                     family = "gaussian", weights = pseudo_weights[delta == 1],
+    fit <- cv.glmnet(x = as.matrix(W), y = pseudo_outcome,
+                     family = "gaussian", weights = pseudo_weights,
                      keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE)
-    non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
-    coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
-    x_basis <- as.matrix(cbind(1, W)[, non_zero, drop = FALSE])
-    pred <- as.numeric(x_basis %*% matrix(coefs))
+    coefs <- coef(fit, s = "lambda.min", gamma = 0)
+    pred <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coefs))
 
+    # design matrix
+    x_basis <- as.matrix(cbind(1, W))
   } else if (method == "HAL") {
-
+    # TODO: not fully working right now
     X <- as.matrix(W)
 
-    if (min_working_model) {
-      X_unpenalized <- cbind(1, W)
-    } else {
-      X_unpenalized <- NULL
-    }
-
-    ###########################################
-    # EXPERIMENTAL FEATURE, NOT USED RIGHT NOW!
-    X_weak_penalized <- NULL
-    X_weak_penalized_level <- 0
-    ###########################################
-
     # fit HAL
-    fit <- fit_relaxed_hal(X = X[delta == 1,], Y = pseudo_outcome[delta == 1],
-                           X_unpenalized = X_unpenalized,
-                           X_weak_penalized = X_weak_penalized,
-                           X_weak_penalized_level = X_weak_penalized_level,
+    fit <- fit_relaxed_hal(X = X, Y = pseudo_outcome,
                            family = "gaussian",
-                           weights = pseudo_weights[delta == 1],
-                           relaxed = TRUE)
+                           weights = pseudo_weights)
 
     # design matrices
     x_basis <- fit$x_basis
 
     # predictions
     pred <- as.numeric(x_basis %*% matrix(fit$beta))
+
     coefs <- fit$beta
+    #print("bases selected: " %+% length(coefs))
   }
 
   return(list(pred = pred,
               x_basis = x_basis,
-              coefs = coefs,
-              non_zero = non_zero,
-              pseudo_outcome = pseudo_outcome,
-              pseudo_weights = pseudo_weights))
+              coefs = coefs))
 }

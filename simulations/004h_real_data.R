@@ -1,3 +1,5 @@
+library(ggpubr)
+
 options(sl3.verbose = TRUE)
 source("utils.R")
 
@@ -34,27 +36,22 @@ res_atmle_glmnet <- atmle(data = dat,
                           A_node = 1,
                           Y_node = 3,
                           controls_only = FALSE,
-                          nuisance_method="glm",
-                          working_model="glmnet",
-                          g_rct=0.5,
-                          verbose=TRUE)
+                          family = "gaussian",
+                          atmle_pooled = TRUE,
+                          theta_method = "glm",
+                          Pi_method = "glm",
+                          g_method = "glm",
+                          theta_tilde_method = "glm",
+                          Q_method = "glm",
+                          bias_working_model = "glmnet",
+                          pooled_working_model = "glmnet",
+                          g_rct = 0.5,
+                          verbose = TRUE)
 
-# 3. atmle (with HAL working model)
-res_atmle_HAL <- atmle(data = dat,
-                       S_node = 2,
-                       W_node = c(4, 5, 6, 7),
-                       A_node = 1,
-                       Y_node = 3,
-                       controls_only = FALSE,
-                       nuisance_method="glm",
-                       working_model="HAL",
-                       g_rct=0.5,
-                       verbose=TRUE)
-
-res_df_unbiased <- data.frame(estimator = c("ES-CVTMLE", "A-TMLE glmnet", "A-TMLE HAL"),
-                              est = c(res_escvtmle$ATE$b2v, res_atmle_glmnet$est, res_atmle_HAL$est),
-                              lower = c(as.numeric(res_escvtmle$CI$b2v[1]), res_atmle_glmnet$lower, res_atmle_HAL$lower),
-                              upper = c(as.numeric(res_escvtmle$CI$b2v[2]), res_atmle_glmnet$upper, res_atmle_HAL$upper))
+res_df_unbiased <- data.frame(estimator = c("ES-CVTMLE", "A-TMLE"),
+                              est = c(res_escvtmle$ATE$b2v, res_atmle_glmnet$est),
+                              lower = c(as.numeric(res_escvtmle$CI$b2v[1]), res_atmle_glmnet$lower),
+                              upper = c(as.numeric(res_escvtmle$CI$b2v[2]), res_atmle_glmnet$upper))
 
 # biased external
 data(wash)
@@ -83,30 +80,24 @@ res_atmle_glmnet <- atmle(data = dat,
                           A_node = 1,
                           Y_node = 3,
                           controls_only = FALSE,
-                          nuisance_method="glm",
-                          working_model="glmnet",
-                          g_rct=0.5,
-                          verbose=TRUE)
+                          family = "gaussian",
+                          atmle_pooled = TRUE,
+                          theta_method = "glm",
+                          Pi_method = "glm",
+                          g_method = "glm",
+                          theta_tilde_method = "glm",
+                          Q_method = "glm",
+                          bias_working_model = "glmnet",
+                          pooled_working_model = "glmnet",
+                          g_rct = 0.5,
+                          verbose = TRUE)
 
-# 3. atmle (with HAL working model)
-res_atmle_HAL <- atmle(data = dat,
-                       S_node = 2,
-                       W_node = c(4, 5, 6, 7),
-                       A_node = 1,
-                       Y_node = 3,
-                       controls_only = FALSE,
-                       nuisance_method="glm",
-                       working_model="HAL",
-                       g_rct=0.5,
-                       verbose=TRUE)
+res_df_biased <- data.frame(estimator = c("ES-CVTMLE", "A-TMLE"),
+                            est = c(res_escvtmle$ATE$b2v, res_atmle_glmnet$est),
+                            lower = c(as.numeric(res_escvtmle$CI$b2v[1]), res_atmle_glmnet$lower),
+                            upper = c(as.numeric(res_escvtmle$CI$b2v[2]), res_atmle_glmnet$upper))
 
-res_df_biased <- data.frame(estimator = c("ES-CVTMLE", "A-TMLE glmnet", "A-TMLE HAL"),
-                            est = c(res_escvtmle$ATE$b2v, res_atmle_glmnet$est, res_atmle_HAL$est),
-                            #est = c(-0.008, res_atmle_glmnet$est, res_atmle_HAL$est),
-                            lower = c(as.numeric(res_escvtmle$CI$b2v[1]), res_atmle_glmnet$lower, res_atmle_HAL$lower),
-                            upper = c(as.numeric(res_escvtmle$CI$b2v[2]), res_atmle_glmnet$upper, res_atmle_HAL$upper))
-
-#save(list = c("res_df_unbiased", "res_df_biased"), file = "out/wash.RData")
+save(list = c("res_df_unbiased", "res_df_biased"), file = "out/wash.RData")
 
 res_df_unbiased$bias <- "unbiased external"
 res_df_biased$bias <- "biased external"
@@ -123,10 +114,10 @@ p_unbiased <- ggplot(res_df_unbiased, aes(x = estimator, y = est)) +
   labs(title = "Unbiased external", x = "", y = "Estimate", color = "") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
-        axis.title.x = element_text(size = 14, face = "bold"),
-        axis.title.y = element_text(size = 14, face = "bold"),
-        axis.text = element_text(size = 12),
-        legend.text = element_text(size = 14))
+        axis.title.x = element_text(size = 16, face = "bold"),
+        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.text = element_text(size = 16),
+        legend.text = element_text(size = 16))
 
 # plot (biased external)
 p_biased <- ggplot(res_df_biased, aes(x = estimator, y = est)) +
@@ -139,11 +130,11 @@ p_biased <- ggplot(res_df_biased, aes(x = estimator, y = est)) +
   labs(title = "Biased external", x = "", y = "Estimate", color = "") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
-        axis.title.x = element_text(size = 14, face = "bold"),
-        axis.title.y = element_text(size = 14, face = "bold"),
-        axis.text = element_text(size = 12),
-        legend.text = element_text(size = 14))
+        axis.title.x = element_text(size = 16, face = "bold"),
+        axis.title.y = element_text(size = 16, face = "bold"),
+        axis.text = element_text(size = 16),
+        legend.text = element_text(size = 16))
 
 wash_plt <- ggarrange(p_unbiased, p_biased, nrow = 1, ncol = 2)
-# ggsave(filename = "wash.pdf", plot = wash_plt, device = "pdf",
-#        path = "plot", width = 10, height = 8, dpi = 300)
+ggsave(filename = "wash.pdf", plot = wash_plt, device = "pdf",
+       path = "plot", width = 10, height = 8, dpi = 300)

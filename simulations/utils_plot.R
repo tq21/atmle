@@ -23,7 +23,7 @@ get_res <- function(res, bA, estimator_name) {
   cover <- get_cover(res)
 
   return(data.frame(n = seq(n_min, n_max, n_step),
-                    estimator = estimator_name,
+                    Estimator = estimator_name,
                     bias = bias,
                     se = se,
                     mse = mse,
@@ -116,19 +116,74 @@ get_relative_mse_plot <- function(title, estimator_names, comparisons, ...) {
     # if (i == 2) {
     #   dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$estimator == reference] / dt_res$mse[dt_res$estimator == comparator] / 1.3
     # } else {
-    dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$estimator == reference] / dt_res$mse[dt_res$estimator == comparator]
+    dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$Estimator == reference] / dt_res$mse[dt_res$Estimator == comparator]
     #}
   }
 
   relative_mse_plot <- ggplot(dt_relative, aes(x = n, y = ratio, color = names)) +
     geom_point(size = 1.5) +
-    geom_line(linewidth = 1) +
+    geom_line(linewidth = 1.5) +
     geom_hline(yintercept = 1, color = "red", linetype = "dashed", linewidth = 1) +
-    scale_y_continuous(breaks = seq(0, 7, 1), limits = c(0, 7)) +
+    scale_y_continuous(breaks = seq(0.5, 3, 0.5), limits = c(0.5, 3)) +
     labs(title = title,
          x = "n",
-         y = "relative mse") +
+         y = "Times more efficient than RCT only",
+         color = "Estimator") +
     theme_minimal() +
-    theme(text = element_text(size = 16),
-          plot.title = element_text(face = "bold", size = 16, hjust = 0.5))
+    theme(text = element_text(size = 20),
+          plot.title = element_text(face = "bold", size = 20, hjust = 0.5))
 }
+
+
+plot_for_slides <- function(type, title, ...) {
+  res_list <- list(...)
+  dt_res <- map_dfr(1:length(res_list), function(i) {
+    return(get_res(res_list[[i]], bA, names[i]))
+  })
+  dt_res <- dt_res[order(dt_res$n), ]
+
+  browser()
+
+  p_bias <- ggplot(dt_res, aes(x = n, y = abs(bias), color = estimator)) +
+    geom_point() +
+    geom_line() +
+    labs(title = "",
+         x = "n",
+         y = "bias") +
+    theme_minimal() +
+    theme(text = element_text(size = 16))
+
+  p_se <- ggplot(dt_res, aes(x = n, y = se, color = estimator)) +
+    geom_point() +
+    geom_line() +
+    labs(title = "",
+         x = "n",
+         y = "standard error") +
+    theme_minimal() +
+    theme(text = element_text(size = 16))
+
+  p_mse <- ggplot(dt_res, aes(x = n, y = mse, color = estimator)) +
+    geom_point() +
+    geom_line() +
+    labs(title = "",
+         x = "n",
+         y = "mse") +
+    theme_minimal() +
+    theme(text = element_text(size = 16))
+
+  p_cover <- ggplot(dt_res, aes(x = n, y = cover, color = estimator)) +
+    geom_point() +
+    geom_line() +
+    geom_hline(yintercept = 0.95, color = "red", linetype = "dashed", linewidth = 1) +
+    scale_y_continuous(breaks = seq(0.8, 1.0, 0.05), limits = c(0.8, 1.0)) +
+    labs(title = "",
+         x = "n",
+         y = "coverage") +
+    theme_minimal() +
+    theme(text = element_text(size = 16))
+
+  plt <- ggarrange(p_bias, p_se, p_mse, p_cover,
+                   nrow = 2, ncol = 2, common.legend = TRUE)
+  plt <- annotate_figure(plt, top = text_grob(title, face = "bold", size = 16))
+}
+

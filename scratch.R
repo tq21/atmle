@@ -1,16 +1,14 @@
 options(sl3.verbose = TRUE)
 source("utils.R")
 source("sim_data.R")
-set.seed(29857)
+set.seed(32525)
 
-data <- sim_four_covs(1.5, 20000, 0.2, 0.67, 2, FALSE, "gaussian")
-
-#data <- sim_four_covs(1.5, 50000, 0.5, g_rct = 0.67, bias = 0, FALSE, "gaussian")
+data <- sim_four_covs(1.5, 20000, 0.5, 0.67, 2, FALSE, "gaussian")
 S_node = 1
 W_node = c(2, 3, 4, 5)
 A_node = 6
 Y_node = 7
-nuisance_method="glm"
+nuisance_method="glmnet"
 working_model="glmnet"
 g_rct=0.67
 verbose=TRUE
@@ -20,15 +18,15 @@ controls_only = FALSE
 #source("utils_positivity.R")
 
 B <- 200
-n <- 2000
+n <- 1000
 ate <- 1.5
-bias <- 0
+bias <- "HAL_3"
 nuisance_method <- "glm"
-working_model <- "glmnet"
-g_rct <- 0.67
+working_model <- "HAL"
+g_rct <- 0.5
 verbose <- TRUE
 controls_only <- FALSE
-num_covs <- 4
+num_covs <- 2
 
 tmp_1 <- run_sim(B = B,
                  n = n,
@@ -42,29 +40,10 @@ tmp_1 <- run_sim(B = B,
                  num_covs = num_covs,
                  verbose = verbose,
                  family = "gaussian",
-                 method = "atmle",
-                 type = "NULL")
+                 method = "atmle")
 mean(tmp_1$psi_coverage)
-var(tmp_1$psi_est)+(mean(tmp_1$psi_est)-1.5)^2
-
-tmp <- run_sim(B = B,
-               n = n,
-               ate = ate,
-               bias = bias,
-               nuisance_method = nuisance_method,
-               working_model = working_model,
-               g_rct = g_rct,
-               controls_only = controls_only,
-               var_method = "ic",
-               num_covs = num_covs,
-               verbose = verbose,
-               method = "atmle")
-mean(tmp$psi_coverage)
-var(tmp$psi_est)
-hist(tmp$psi_est)
-mean(tmp$psi_est)-1.5
-var(tmp$psi_est)+(mean(tmp$psi_est)-ate)^2
-tmp$psi_ci_upper-tmp$psi_ci_lower
+hist(tmp_1$psi_est)
+var(tmp_1$psi_est)+(mean(tmp_1$psi_est)-ate)^2
 
 tmp_2 <- run_sim(B = B,
                  n = n,
@@ -78,8 +57,28 @@ tmp_2 <- run_sim(B = B,
                  num_covs = num_covs,
                  verbose = verbose,
                  family = "gaussian",
-                 method = "escvtmle",
-                 type = "NULL")
+                 method = "escvtmle")
+mean(tmp_2$psi_coverage)
+var(tmp_2$psi_est)
+hist(tmp_2$psi_est)
+mean(tmp_2$psi_est)-1.5
+var(tmp_2$psi_est)+(mean(tmp_2$psi_est)-ate)^2
+tmp$psi_ci_upper-tmp$psi_ci_lower
+
+
+
+
+tmp_2 <- run_sim(B = B,
+                 n = n,
+                 ate = ate,
+                 bias = bias,
+                 nuisance_method = nuisance_method,
+                 working_model = working_model,
+                 g_rct = g_rct,
+                 controls_only = controls_only,
+                 num_covs = num_covs,
+                 verbose = verbose,
+                 method = "escvtmle")
 mean(tmp_2$escvtmle_prop_selected)
 mean(tmp_2$psi_coverage)
 var(tmp_2$psi_est)

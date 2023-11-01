@@ -3,7 +3,7 @@ library(purrr)
 source("utils_plot.R")
 
 # simulation parameters --------------------------------------------------------
-B <- 500 # number of runs for each sample size n
+B <- 1000 # number of runs for each sample size n
 n_min <- 1000 # smallest sample size
 n_max <- 3000 # largest sample size
 n_step <- 500 # sample size increment
@@ -11,9 +11,9 @@ bA <- 1.5
 
 # a. no bias -------------------------------------------------------------------
 # oracle comparisons
-atmle_both_res <- readRDS("out/atmle_both_0_bias_glm_glmnet_1016.RDS")
-#oracle_atmle_both_res <- readRDS("out/oracle_atmle_both_0_bias_glm_glmnet_1016.RDS")
-atmle_tmle_res <- readRDS("out/atmle_tmle_0_bias_glm_glmnet_1016.RDS")
+atmle_both_res <- readRDS("out/atmle_both_0_bias_glm_glmnet_1028.RDS")
+#oracle_atmle_both_res <- readRDS("out/oracle_atmle_both_0_bias_glm_glmnet_")
+#atmle_tmle_res <- readRDS("out/atmle_tmle_0_bias_glm_glmnet_")
 #oracle_atmle_tmle_res <- readRDS("out/oracle_atmle_tmle_0_bias_glm_glmnet_1016.RDS")
 # plt_no_bias_oracle <- get_plot(
 #   "No bias",
@@ -32,15 +32,15 @@ atmle_tmle_res <- readRDS("out/atmle_tmle_0_bias_glm_glmnet_1016.RDS")
 #        path = "plot", width = 10, height = 8, dpi = 300)
 
 # all comparisons
-escvtmle_res <- readRDS("out/escvtmle_0_bias_glm_glmnet_1016.RDS")
-tmle_res <- readRDS("out/tmle_0_bias_glm_glmnet_1016.RDS")
-rct_only_res <- readRDS("out/rct_only_0_bias_glm_glmnet_1016.RDS")
-plt_no_bias <- get_plot(
-  "No bias",
-  c("A-TMLE", "A-TMLE*", "ESCVTMLE", "TMLE", "RCT ONLY"),
-  atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res, rct_only_res)
-ggsave(filename = "no_bias.pdf", plot = plt_no_bias, device = "pdf",
-       path = "plot", width = 10, height = 8, dpi = 300)
+escvtmle_res <- readRDS("out/escvtmle_0_bias_glm_glmnet_1028.RDS")
+tmle_res <- readRDS("out/tmle_0_bias_glm_glmnet_1028.RDS")
+rct_only_res <- readRDS("out/rct_only_0_bias_glm_glmnet_1028.RDS")
+# plt_no_bias <- get_plot(
+#   "No bias",
+#   c("A-TMLE", "ES-CVTMLE", "TMLE", "RCT ONLY"),
+#   atmle_both_res, escvtmle_res, tmle_res, rct_only_res)
+# ggsave(filename = "no_bias.pdf", plot = plt_no_bias, device = "pdf",
+#        path = "plot", width = 10, height = 8, dpi = 300)
 
 # all comparisons relative MSE
 plt_relative_mse_no_bias <- get_relative_mse_plot(
@@ -57,7 +57,7 @@ ggsave(filename = "no_bias_prop.pdf", plot = plt_no_bias_prop, device = "pdf",
 
 # c. simple parametric bias -------------------------------------------------------------
 # oracle comparison
-atmle_both_res <- readRDS("out/atmle_both_param_simple_glm_glmnet_1016.RDS")
+atmle_both_res <- readRDS("out/atmle_both_param_simple_glm_glmnet_1028.RDS")
 #oracle_atmle_both_res <- readRDS("out/oracle_atmle_both_param_simple_glm_glmnet_1016.RDS")
 atmle_tmle_res <- readRDS("out/atmle_tmle_param_simple_glm_glmnet_1016.RDS")
 #oracle_atmle_tmle_res <- readRDS("out/oracle_atmle_tmle_param_simple_glm_glmnet_1016.RDS")
@@ -78,13 +78,13 @@ atmle_tmle_res <- readRDS("out/atmle_tmle_param_simple_glm_glmnet_1016.RDS")
 #        path = "plot", width = 10, height = 8, dpi = 300)
 
 # all comparisons
-escvtmle_res <- readRDS("out/escvtmle_param_simple_glm_glmnet_1016.RDS")
-tmle_res <- readRDS("out/tmle_param_simple_glm_glmnet_1016.RDS")
-rct_only_res <- readRDS("out/rct_only_param_simple_glm_glmnet_1016.RDS")
+escvtmle_res <- readRDS("out/escvtmle_param_simple_glm_glmnet_1028.RDS")
+tmle_res <- readRDS("out/tmle_param_simple_glm_glmnet_1028.RDS")
+rct_only_res <- readRDS("out/rct_only_param_simple_glm_glmnet_1028.RDS")
 plt_param_simple_bias <- get_plot(
   "Small bias",
-  c("A-TMLE", "A-TMLE*", "ESCVTMLE", "TMLE", "RCT ONLY"),
-  atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res, rct_only_res)
+  c("A-TMLE", "ES-CVTMLE", "TMLE", "RCT ONLY"),
+  atmle_both_res, escvtmle_res, tmle_res, rct_only_res)
 ggsave(filename = "param_simple_bias.pdf", plot = plt_param_simple_bias, device = "pdf",
        path = "plot", width = 10, height = 8, dpi = 300)
 
@@ -103,7 +103,7 @@ ggsave(filename = "param_simple_bias_prop.pdf", plot = plt_param_simple_bias_pro
 
 # d. complex parametric bias -------------------------------------------------------------
 # oracle comparison
-atmle_both_res <- readRDS("out/atmle_both_param_complex_glm_glmnet_1016.RDS")
+atmle_both_res <- readRDS("out/atmle_both_param_complex_glm_glmnet_1028.RDS")
 #oracle_atmle_both_res <- readRDS("out/oracle_atmle_both_param_complex_glm_glmnet_1016.RDS")
 atmle_tmle_res <- readRDS("out/atmle_tmle_param_complex_glm_glmnet_1016.RDS")
 #oracle_atmle_tmle_res <- readRDS("out/oracle_atmle_tmle_param_complex_glm_glmnet_1016.RDS")
@@ -124,13 +124,13 @@ atmle_tmle_res <- readRDS("out/atmle_tmle_param_complex_glm_glmnet_1016.RDS")
 #        path = "plot", width = 10, height = 8, dpi = 300)
 
 # all comparisons
-escvtmle_res <- readRDS("out/escvtmle_param_complex_glm_glmnet_1016.RDS")
-tmle_res <- readRDS("out/tmle_param_complex_glm_glmnet_1016.RDS")
-rct_only_res <- readRDS("out/rct_only_param_complex_glm_glmnet_1016.RDS")
+escvtmle_res <- readRDS("out/escvtmle_param_complex_glm_glmnet_1028.RDS")
+tmle_res <- readRDS("out/tmle_param_complex_glm_glmnet_1028.RDS")
+rct_only_res <- readRDS("out/rct_only_param_complex_glm_glmnet_1028.RDS")
 plt_param_complex_bias <- get_plot(
   "Large bias",
-  c("A-TMLE", "A-TMLE*", "ESCVTMLE", "TMLE", "RCT ONLY"),
-  atmle_both_res, atmle_tmle_res, escvtmle_res, tmle_res, rct_only_res)
+  c("A-TMLE", "ESCVTMLE", "TMLE", "RCT ONLY"),
+  atmle_both_res, escvtmle_res, tmle_res, rct_only_res)
 ggsave(filename = "param_complex_bias.pdf", plot = plt_param_complex_bias, device = "pdf",
        path = "plot", width = 10, height = 8, dpi = 300)
 
