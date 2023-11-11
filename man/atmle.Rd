@@ -11,8 +11,9 @@ atmle(
   A_node,
   Y_node,
   controls_only,
-  family = "gaussian",
+  family,
   atmle_pooled = TRUE,
+  r_loss = TRUE,
   theta_method = "glm",
   Pi_method = "glm",
   g_method = "glm",
@@ -24,6 +25,9 @@ atmle(
   var_method = "ic",
   max_iter = 1,
   v_folds = 5,
+  g_bound = c(0.025, 0.975),
+  Pi_bound = c(0.025, 0.975),
+  theta_bound = NULL,
   verbose = TRUE
 )
 }

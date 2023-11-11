@@ -57,8 +57,8 @@ Q_tmle <- function(g, Q, A, Y_bound) {
               A0 = Q_A0_star))
 }
 
-.bound <- function(x, lower, upper) {
-  return(pmin(pmax(x, lower), upper))
+.bound <- function(x, bounds) {
+  return(pmin(pmax(x, bounds[1]), bounds[2]))
 }
 
 learn_g_S1 <- function(S, W, A, g_rct, method = "glmnet") {

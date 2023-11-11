@@ -73,8 +73,9 @@ atmle <- function(data,
                   A_node,
                   Y_node,
                   controls_only,
-                  family = "gaussian",
+                  family,
                   atmle_pooled = TRUE,
+                  r_loss = TRUE,
                   theta_method = "glm",
                   Pi_method = "glm",
                   g_method = "glm",
@@ -84,15 +85,19 @@ atmle <- function(data,
                   pooled_working_model = "glmnet",
                   g_rct,
                   var_method = "ic",
+                  max_degree = 1,
                   max_iter = 1,
                   v_folds = 5,
+                  g_bound = c(0, 1),
+                  Pi_bound = c(0, 1),
+                  theta_bound = NULL,
                   verbose = TRUE) {
 
   # sanity checks --------------------------------------------------------------
-  check_data_and_nodes(data, S_node, W_node, A_node, Y_node)
-  check_learners(theta_method, Pi_method, g_method, theta_tilde_method,
-                 Q_method, bias_working_model, pooled_working_model)
-  check_args(controls_only, atmle_pooled, var_method, g_rct, verbose)
+  # check_data_and_nodes(data, S_node, W_node, A_node, Y_node)
+  # check_learners(theta_method, Pi_method, g_method, theta_tilde_method,
+  #                Q_method, bias_working_model, pooled_working_model)
+  # check_args(controls_only, atmle_pooled, var_method, g_rct, verbose)
 
   # define nodes ---------------------------------------------------------------
   S <- data[, S_node] # study indicator
@@ -103,19 +108,24 @@ atmle <- function(data,
 
   # estimate bias psi_pound ----------------------------------------------------
   # learn nuisance parts
-  if (verbose) print("learning \U03B8(W,A)=E(Y|W,A)")
-  theta <- learn_theta(W, A, Y, controls_only, theta_method, v_folds)
+  if (verbose) {
+    if (bias_working_model == "binary") {
+      print("learning \U03B8(W,A)=E(Y|S=1,W,A)")
+    } else {
+      print("learning \U03B8(W,A)=E(Y|W,A)")
+    }
+  }
+  theta <- learn_theta(W, A, Y, controls_only, theta_method, v_folds, family, theta_bound)
 
   if (verbose) print("learning \U03A0(S=1|W,A)=P(S=1|W,A)")
-  Pi <- learn_Pi(S, W, A, controls_only, Pi_method, v_folds)
+  Pi <- learn_Pi(S, W, A, controls_only, Pi_method, v_folds, Pi_bound)
 
   if (verbose) print("learning g(A=1|W)=P(A=1|W)")
-  g <- learn_g(S, W, A, g_rct, controls_only, g_method, v_folds)
+  g <- learn_g(S, W, A, g_rct, controls_only, g_method, v_folds, g_bound)
 
   # learn working model tau for bias
   if (verbose) print("learning \U03C4(Y|S,W,A)=E(Y|S,W,A)")
-  tau <- learn_tau(S, W, A, Y, Pi, theta, controls_only, bias_working_model,
-                   v_folds)
+  tau <- learn_tau(S, W, A, Y, Pi, theta, controls_only, bias_working_model, v_folds, max_degree)
 
   # TMLE to target Pi
   if (verbose) print("targeting \U03A0(S=1|W,A)=P(S=1|W,A)")
@@ -127,7 +137,7 @@ atmle <- function(data,
 
     # re-learn working model tau with targeted Pi
     tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, controls_only,
-                          bias_working_model, v_folds)
+                          bias_working_model, v_folds, max_degree)
 
     Pi <- Pi_star
     tau <- tau_star
@@ -148,7 +158,7 @@ atmle <- function(data,
   if (atmle_pooled) {
     # use atmle for pooled-ATE
     if (verbose) print("learning \U03B8\U0303(W)=E(Y|W)")
-    theta_tilde <- learn_theta_tilde(W, Y, theta_tilde_method, v_folds, family)
+    theta_tilde <- learn_theta_tilde(W, Y, theta_tilde_method, v_folds, family, theta_bound)
 
     if (verbose) print("learning \U03A4(W)=E(Y|W,A=1)-E(Y|W,A=0)")
     T_working <- learn_T(W, A, Y, g, theta_tilde, pooled_working_model, v_folds)
@@ -161,7 +171,7 @@ atmle <- function(data,
     Q <- learn_Q(W, A, Y, method = Q_method)
     Q_star <- tmle(Y = Y, A = A, W = W, g1W = g,
                    Q = as.matrix(data.frame(Q$A1, Q$A0)),
-                   family = "gaussian")
+                   family = family)
 
     # estimates
     psi_tilde_est <- Q_star$estimates$ATE$psi

@@ -4,7 +4,7 @@
 \alias{Pi_tmle}
 \title{TMLE update of the trial enrollment probabilities}
 \usage{
-Pi_tmle(S, W, A, g, tau, Pi, controls_only)
+Pi_tmle(S, W, A, g, tau, Pi, controls_only, target_gwt = FALSE, weights = 1)
 }
 \arguments{
 \item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}

@@ -4,7 +4,7 @@
 \alias{get_default_sl3_learners}
 \title{Get default \code{sl3} learners}
 \usage{
-get_default_sl3_learners(family)
+get_default_sl3_learners()
 }
 \arguments{
 \item{family}{A character string specifying the family of the outcome.}

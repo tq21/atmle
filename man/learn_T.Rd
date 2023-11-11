@@ -2,7 +2,8 @@
 % Please edit documentation in R/learn_T.R
 \name{learn_T}
 \alias{learn_T}
-\title{Learn working model for the conditional effect of treatment on the outcome}
+\title{Learn working model for the conditional effect of treatment on the
+outcome}
 \usage{
 learn_T(W, A, Y, g, theta_tilde, method, v_folds)
 }
@@ -37,3 +38,5 @@ A \code{list} containing the following elements:
 Function to learn the conditional effect of treatment on the
 outcome, \eqn{T(W)=\mathbb{E}(Y\mid W,A=1)-\mathbb{E}(Y\mid W,A=0)}.
 }
+\keyword{model}
+\keyword{working}

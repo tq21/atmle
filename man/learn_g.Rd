@@ -4,7 +4,7 @@
 \alias{learn_g}
 \title{Learn nuisance function: treatment mechanism}
 \usage{
-learn_g(S, W, A, g_rct, controls_only, method, v_folds)
+learn_g(S, W, A, g_rct, controls_only, method, v_folds, g_bounds)
 }
 \arguments{
 \item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
@@ -16,9 +16,8 @@ learn_g(S, W, A, g_rct, controls_only, method, v_folds)
 
 \item{g_rct}{A numeric of treatment probability in RCT.}
 
-\item{controls_only}{A logical indicating whether to learn only among
-controls. This applies when the external data only has control-arm
-observations.}
+\item{controls_only}{A logical indicating whether the external data has only
+control-arm observations.}
 
 \item{method}{Learning method. \code{"glm"} for main-term linear model,
 \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
@@ -26,6 +25,10 @@ super learner-based estimation.}
 
 \item{v_folds}{A numeric of number of folds for cross-validation
 (when necessary).}
+
+\item{g_bounds}{A numeric vector of lower and upper bounds for the
+treatment mechanism. The first element is the lower bound, and the second
+element is the upper bound.}
 }
 \value{
 A numeric vector of estimated treatment probabilities.
@@ -34,3 +37,14 @@ A numeric vector of estimated treatment probabilities.
 Function to learn the treatment mechanism
 \eqn{g(A\mid W)=\mathbb{P}(A=1\mid W)}.
 }
+\details{
+We provide some details on estimating the treatment mechanism
+\eqn{g(A\mid W)=\mathbb{P}(A=1\mid W)}. Note that, we can rewrite the
+treatment mechanism into the following form:
+\deqn{g(A\mid W)=\mathbb{P}(A=1\mid S=1,W)\mathbb{P}(S=1\mid W)+
+\mathbb{P}(A=1\mid S=0,W)\mathbb{P}(S=0\mid W).}
+This form allows us to use the RCT randomization probability
+(typically known) for the term \eqn{\mathbb{P}(A=1\mid S=1,W)}.
+The rest of the terms are estimated using methods specified in \code{method}.
+}
+\keyword{nuisance}

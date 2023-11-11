@@ -4,7 +4,7 @@
 \alias{learn_Pi}
 \title{Learn nuisance function: trial enrollment mechanism}
 \usage{
-learn_Pi(S, W, A, controls_only, method, v_folds)
+learn_Pi(S, W, A, controls_only, method, v_folds, Pi_bounds)
 }
 \arguments{
 \item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
@@ -14,9 +14,8 @@ learn_Pi(S, W, A, controls_only, method, v_folds)
 \item{A}{A vector of treatment indicators, \eqn{A=1} for treatment-arm,
 \eqn{A=0} for control-arm.}
 
-\item{controls_only}{A logical indicating whether to learn only among
-controls. This applies when the external data only has control-arm
-observations.}
+\item{controls_only}{A logical indicating whether the external data has only
+control-arm observations.}
 
 \item{method}{Learning method. \code{"glm"} for main-term linear model,
 \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
@@ -24,6 +23,10 @@ super learner-based estimation.}
 
 \item{v_folds}{A numeric of number of folds for cross-validation
 (when necessary).}
+
+\item{Pi_bounds}{A numeric vector of lower and upper bounds for the
+trial enrollment probabilities. The first element is the lower bound,
+and the second element is the upper bound.}
 }
 \value{
 A \code{list} containing the following elements:
@@ -35,3 +38,4 @@ A \code{list} containing the following elements:
 Function to learn the trial enrollment mechanism
 \eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}.
 }
+\keyword{nuisance}

@@ -22,12 +22,12 @@ controls_only = FALSE
 B <- 200
 n <- 2000
 ate <- 1.5
-bias <- -0.9
-nuisance_method = "glm"
-working_model = "glmnet"
-g_rct = 0.67
-verbose = TRUE
-controls_only = FALSE
+bias <- 1.8
+nuisance_method <- "glm"
+working_model <- "glmnet"
+g_rct <- 0.67
+verbose <- TRUE
+controls_only <- FALSE
 num_covs <- 4
 
 tmp_1 <- run_sim(B = B,
@@ -41,7 +41,9 @@ tmp_1 <- run_sim(B = B,
                  var_method = "ic",
                  num_covs = num_covs,
                  verbose = verbose,
-                 method = "oracle_atmle")
+                 family = "gaussian",
+                 method = "atmle",
+                 type = "NULL")
 mean(tmp_1$psi_coverage)
 var(tmp_1$psi_est)+(mean(tmp_1$psi_est)-1.5)^2
 

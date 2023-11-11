@@ -2,8 +2,8 @@
 % Please edit documentation in R/learn_tau.R
 \name{learn_tau}
 \alias{learn_tau}
-\title{Learn working model for the conditional effect of the study indicator on the
-outcome}
+\title{Learn working model for the conditional effect of the study indicator \
+on the outcome}
 \usage{
 learn_tau(S, W, A, Y, Pi, theta, controls_only, method, v_folds)
 }
@@ -23,9 +23,8 @@ learn_tau(S, W, A, Y, Pi, theta, controls_only, method, v_folds)
 \item{theta}{A vector of estimated conditional mean of outcome given
 baseline covariates and treatment, \eqn{\theta(W,A)=\mathbb{E}(Y\mid W,A)}.}
 
-\item{controls_only}{A logical indicating whether to learn only among
-controls. This applies when the external data only has control-arm
-observations.}
+\item{controls_only}{A logical indicating whether the external data has only
+control-arm observations.}
 
 \item{method}{Working model type. Either \code{"glmnet"} for lasso-based
 working model or \code{"HAL"} for highly adaptive lasso-based working model.
@@ -53,3 +52,5 @@ Function to learn the conditional effect of the study indicator
 on the outcome,
 \eqn{\tau(W,A)=\mathbb{E}(Y\mid S=1,W,A)-\mathbb{E}(Y\mid S=0,W,A)}.
 }
+\keyword{model}
+\keyword{working}

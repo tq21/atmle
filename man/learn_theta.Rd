@@ -5,7 +5,7 @@
 \title{Learn nuisance function: conditional mean of outcome given baseline
 covariates and treatment}
 \usage{
-learn_theta(W, A, Y, controls_only, method, v_folds)
+learn_theta(W, A, Y, controls_only, method, v_folds, family, theta_bound)
 }
 \arguments{
 \item{W}{A matrix of baseline covariates.}
@@ -14,12 +14,25 @@ learn_theta(W, A, Y, controls_only, method, v_folds)
 
 \item{Y}{A vector of outcomes.}
 
+\item{controls_only}{A logical indicating whether the external data has only
+control-arm observations.}
+
 \item{method}{Learning method. \code{"glm"} for main-term linear model,
 \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
 super learner-based estimation.}
 
 \item{v_folds}{A numeric of number of folds for cross-validation
 (when necessary).}
+
+\item{family}{A character string specifying the family of the outcome
+\eqn{Y}. Either \code{"gaussian"} or \code{"binomial"}.}
+
+\item{theta_bound}{A numeric vector of lower and upper bounds for the
+conditional mean of outcome given baseline covariates and treatment.
+The first element is the lower bound, and the second element is the upper
+bound. If \code{NULL}, the lower and upper bounds are set to the minimum and
+maximum of the outcome \eqn{Y} for \code{family = "gaussian"}, and 0.01 and
+0.99 for \code{family = "binomial"}.}
 }
 \value{
 A numeric vector of the estimated values.
@@ -29,3 +42,4 @@ Function to learn the conditional mean of outcome given
 baseline covariates and treatment,
 \eqn{\theta(W,A)=\mathbb{E}(Y\mid W,A)}.
 }
+\keyword{nuisance}

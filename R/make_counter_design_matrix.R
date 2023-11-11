@@ -10,7 +10,7 @@
 #' evaluated at the desired counterfactual.
 #' @param X_unpenalized A \code{matrix} containing baseline covariates or
 #' bases that are not penalized by HAL. Default is \code{NULL}.
-make_counter_design_matrix <- function(basis_list, X_counterfactual, X_unpenalized = NULL) {
+make_counter_design_matrix <- function(basis_list, X_counterfactual, X_unpenalized) {
   if (!is.null(X_unpenalized)) {
     if (is_empty(basis_list)) {
       # intercept + main terms

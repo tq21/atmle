@@ -6,53 +6,6 @@ load_all()
 
 `%+%` <- function(a, b) paste0(a, b)
 
-generate_two_covs <- function(ate, n, rct_prop, g_rct, bias, controls_only) {
-  # error
-  UY <- round(rnorm(n, 0, 1.8), 3)
-  U_bias <- round(rnorm(n, 0, 0.01), 3)
-
-  # baseline covariates
-  W1 <- round(runif(n), 1)
-  W2 <- round(runif(n), 1)
-
-  # study indicator, S=1 for RCT, S=0 for RWD
-  S <- rbinom(n, 1, rct_prop)
-
-  # treatments
-  A <- numeric(length = n)
-  A[S == 1] <- rbinom(sum(S), 1, g_rct)
-  if (controls_only) {
-    A[S == 0] <- rep(0, n - sum(S))
-  } else {
-    A[S == 0] <- rbinom(n - sum(S), 1, plogis(0.3*W1-0.2*W2))
-    #A[S == 0] <- rbinom(n - sum(S), 1, g_rct)
-  }
-
-  # bias term for RWD data
-  b <- NULL
-  if (is.numeric(bias)) {
-    b <- bias
-  } else if (bias == "param_simple") {
-    b <- 0.8*W1+U_bias
-  } else if (bias == "param_complex") {
-    b <- 1.9*W1+2.1*W2+U_bias
-  } else if (bias == "HAL") {
-    b <- 0.7*W1+1.1*W2+1.8*W2^2
-  }
-
-  # outcome
-  Y <- round(1.8+1.9*W1+2.1*W2+ate*A+UY+(1-S)*(1-A)*b, 3)
-
-  # data frames combining RCT and RWD
-  data <- data.frame(S = S,
-                     W1 = W1,
-                     W2 = W2,
-                     A = A,
-                     Y = Y)
-
-  return(data)
-}
-
 sim_binary_outcome <- function(ate, n, rct_prop, g_rct, bias, controls_only) {
   # baseline covariates
   W1 <- rnorm(n, 0, 1)
@@ -119,8 +72,10 @@ run_sim <- function(B,
                     controls_only,
                     num_covs,
                     var_method,
-                    verbose=TRUE,
-                    method="atmle") {
+                    family,
+                    method,
+                    type,
+                    verbose = TRUE) {
   # results
   psi_coverage <- rep(NA, B)
   psi_est <- rep(NA, B)
@@ -134,15 +89,23 @@ run_sim <- function(B,
     # simulate data
     data <- NULL
     S_node <- 1
-    W_nodes <- NULL
-    if (num_covs == 2) {
-      data <- generate_two_covs(ate, n, 0.2, g_rct, bias, controls_only)
+    W_node <- NULL
+    A_node <- NULL
+    Y_node <- NULL
+
+    if (type == "rare") {
+      # rare binary outcomes
+      data <- sim_rare_outcomes(ate, n, 0.2, g_rct, bias, controls_only)
+      W_node <- 2:5
+      A_node <- 6
+      Y_node <- 7
+    } else if (num_covs == 2) {
+      data <- sim_two_covs(ate, n, 0.2, g_rct, bias, controls_only)
       W_node <- 2:3
       A_node <- 4
       Y_node <- 5
     } else if (num_covs == 4) {
-      #data <- sim_four_covs(ate, n, 0.5, g_rct, bias, controls_only, "gaussian")
-      data <- sim_four_covs(ate, n, 0.1, g_rct, bias, controls_only, "gaussian")
+      data <- sim_four_covs(ate, n, 0.2, g_rct, bias, controls_only)
       W_node <- 2:5
       A_node <- 6
       Y_node <- 7
@@ -179,50 +142,43 @@ run_sim <- function(B,
                           g_rct = g_rct,
                           verbose = FALSE)
     } else if (method == "atmle") {
-      res <- atmle(data,
+      res <- atmle(data = data,
                    S_node = S_node,
                    W_node = W_node,
                    A_node = A_node,
                    Y_node = Y_node,
                    controls_only = controls_only,
+                   family = family,
                    atmle_pooled = TRUE,
                    var_method = var_method,
-                   nuisance_method = nuisance_method,
-                   working_model = working_model,
+                   theta_method = nuisance_method,
+                   Pi_method = nuisance_method,
+                   g_method = nuisance_method,
+                   theta_tilde_method = nuisance_method,
+                   Q_method = nuisance_method,
+                   bias_working_model = working_model,
+                   pooled_working_model = working_model,
                    g_rct = g_rct,
                    verbose = FALSE)
     } else if (method == "atmle_tmle") {
-      res <- atmle(data,
+      res <- atmle(data = data,
                    S_node = S_node,
                    W_node = W_node,
                    A_node = A_node,
                    Y_node = Y_node,
                    controls_only = controls_only,
+                   family = family,
                    atmle_pooled = FALSE,
-                   nuisance_method = nuisance_method,
-                   working_model = working_model,
+                   var_method = var_method,
+                   theta_method = nuisance_method,
+                   Pi_method = nuisance_method,
+                   g_method = nuisance_method,
+                   theta_tilde_method = nuisance_method,
+                   Q_method = nuisance_method,
+                   bias_working_model = working_model,
+                   pooled_working_model = working_model,
                    g_rct = g_rct,
                    verbose = FALSE)
-    } else if (method == "atmle psi_tilde") {
-      res <- psi_tilde_only_atmle(data,
-                                  S_node = S_node,
-                                  W_node = W_node,
-                                  A_node = A_node,
-                                  Y_node = Y_node,
-                                  nuisance_method = nuisance_method,
-                                  working_model = working_model,
-                                  g_rct = g_rct,
-                                  verbose = FALSE)
-    } else if (method == "tmle psi_tilde") {
-      res <- psi_tilde_only_tmle(data,
-                                 S_node = S_node,
-                                 W_node = W_node,
-                                 A_node = A_node,
-                                 Y_node = Y_node,
-                                 nuisance_method = nuisance_method,
-                                 working_model = working_model,
-                                 g_rct = g_rct,
-                                 verbose = FALSE)
     } else if (method == "escvtmle") {
       covariates <- NULL
       if (num_covs == 2) {
@@ -238,7 +194,7 @@ run_sim <- function(B,
                        treatment = 1,
                        outcome = "Y",
                        pRCT = g_rct,
-                       family = "gaussian",
+                       family = family,
                        Q.SL.library = c("SL.glm"),
                        g.SL.library = c("SL.glm"),
                        Q.discreteSL = TRUE,
@@ -258,13 +214,22 @@ run_sim <- function(B,
                       g_rct = g_rct,
                       verbose = FALSE)
     } else if (method == "tmle") {
-      res <- nonparametric(data,
+      res <- nonparametric(data = data,
                            S_node = S_node,
                            W_node = W_node,
                            A_node = A_node,
                            Y_node = Y_node,
-                           nuisance_method = nuisance_method,
-                           working_model = working_model,
+                           controls_only = controls_only,
+                           family = family,
+                           atmle_pooled = TRUE,
+                           var_method = var_method,
+                           theta_method = nuisance_method,
+                           Pi_method = nuisance_method,
+                           g_method = nuisance_method,
+                           theta_tilde_method = nuisance_method,
+                           Q_method = nuisance_method,
+                           bias_working_model = working_model,
+                           pooled_working_model = working_model,
                            g_rct = g_rct,
                            verbose = FALSE)
     }
@@ -308,8 +273,10 @@ run_sim_n_increase <- function(B,
                                g_rct,
                                num_covs,
                                var_method,
-                               verbose=TRUE,
-                               method="atmle") {
+                               family,
+                               method,
+                               type,
+                               verbose = TRUE) {
 
   n_seq <- seq(n_min, n_max, n_step)
 
@@ -335,13 +302,19 @@ run_sim_n_increase <- function(B,
       data <- NULL
       S_node <- 1
       W_nodes <- NULL
-      if (num_covs == 2) {
-        data <- generate_two_covs(bA, n, 0.2, g_rct, bias, controls_only)
+      if (type == "rare") {
+        # rare binary outcomes
+        data <- sim_rare_outcomes(2.1, n, 0.2, g_rct, bias, controls_only)
+        W_node <- 2:5
+        A_node <- 6
+        Y_node <- 7
+      } else if (num_covs == 2) {
+        data <- sim_two_covs(bA, n, 0.2, g_rct, bias, controls_only)
         W_node <- 2:3
         A_node <- 4
         Y_node <- 5
       } else if (num_covs == 4) {
-        data <- sim_four_covs(bA, n, 0.2, g_rct, bias, controls_only, "gaussian")
+        data <- sim_four_covs(bA, n, 0.2, g_rct, bias, controls_only)
         W_node <- 2:5
         A_node <- 6
         Y_node <- 7
@@ -378,50 +351,43 @@ run_sim_n_increase <- function(B,
                             g_rct = g_rct,
                             verbose = FALSE)
       } else if (method == "atmle") {
-        res <- atmle(data,
+        res <- atmle(data = data,
                      S_node = S_node,
                      W_node = W_node,
                      A_node = A_node,
                      Y_node = Y_node,
+                     controls_only = controls_only,
+                     family = family,
                      atmle_pooled = TRUE,
                      var_method = var_method,
-                     controls_only = controls_only,
-                     nuisance_method=nuisance_method,
-                     working_model=working_model,
+                     theta_method = nuisance_method,
+                     Pi_method = nuisance_method,
+                     g_method = nuisance_method,
+                     theta_tilde_method = nuisance_method,
+                     Q_method = nuisance_method,
+                     bias_working_model = working_model,
+                     pooled_working_model = working_model,
                      g_rct = g_rct,
                      verbose = FALSE)
       } else if (method == "atmle_tmle") {
-        res <- atmle(data,
+        res <- atmle(data = data,
                      S_node = S_node,
                      W_node = W_node,
                      A_node = A_node,
                      Y_node = Y_node,
-                     atmle_pooled = FALSE,
                      controls_only = controls_only,
-                     nuisance_method=nuisance_method,
-                     working_model=working_model,
+                     family = family,
+                     atmle_pooled = FALSE,
+                     var_method = var_method,
+                     theta_method = nuisance_method,
+                     Pi_method = nuisance_method,
+                     g_method = nuisance_method,
+                     theta_tilde_method = nuisance_method,
+                     Q_method = nuisance_method,
+                     bias_working_model = working_model,
+                     pooled_working_model = working_model,
                      g_rct = g_rct,
                      verbose = FALSE)
-      } else if (method == "atmle psi_tilde") {
-        res <- psi_tilde_only_atmle(data,
-                                    S_node = S_node,
-                                    W_node = W_node,
-                                    A_node = A_node,
-                                    Y_node = Y_node,
-                                    nuisance_method=nuisance_method,
-                                    working_model=working_model,
-                                    g_rct = g_rct,
-                                    verbose = FALSE)
-      } else if (method == "tmle psi_tilde") {
-        res <- psi_tilde_only_tmle(data,
-                                   S_node = S_node,
-                                   W_node = W_node,
-                                   A_node = A_node,
-                                   Y_node = Y_node,
-                                   nuisance_method=nuisance_method,
-                                   working_model=working_model,
-                                   g_rct = g_rct,
-                                   verbose = FALSE)
       } else if (method == "escvtmle") {
         covariates <- NULL
         if (num_covs == 2) {
@@ -448,13 +414,22 @@ run_sim_n_increase <- function(B,
                     upper = as.numeric(tmp$CI$b2v[2]))
         escvtmle_prop_selected[j] <- tmp$proportionselected$b2v
       } else if (method == "tmle") {
-        res <- nonparametric(data,
+        res <- nonparametric(data = data,
                              S_node = S_node,
                              W_node = W_node,
                              A_node = A_node,
                              Y_node = Y_node,
-                             nuisance_method = nuisance_method,
-                             working_model = working_model,
+                             controls_only = controls_only,
+                             family = family,
+                             atmle_pooled = TRUE,
+                             var_method = var_method,
+                             theta_method = nuisance_method,
+                             Pi_method = nuisance_method,
+                             g_method = nuisance_method,
+                             theta_tilde_method = nuisance_method,
+                             Q_method = nuisance_method,
+                             bias_working_model = working_model,
+                             pooled_working_model = working_model,
                              g_rct = g_rct,
                              verbose = FALSE)
       } else if (method == "rct_only") {
