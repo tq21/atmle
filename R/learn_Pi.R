@@ -42,12 +42,12 @@ learn_Pi <- function(S,
                      v_folds,
                      Pi_bounds) {
 
-  if (method == "sl3") {
+  if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners("binomial")
   }
 
   pred <- numeric(length(A))
-  A1 <- numeric(length(A))
+  A1 <- rep(1, length(A))
   A0 <- numeric(length(A))
 
   if (is.list(method)) {
@@ -61,7 +61,7 @@ learn_Pi <- function(S,
     task_Pi_A0 <- sl3_Task$new(data = data.table(W, A = 0, S = S),
                                covariates = c(colnames(W), "A"),
                                outcome = "S", outcome_type = "binomial")
-    A0 <- fit_Pi$predict(task_Pi_A0)
+    A0 <- .bound(fit_Pi$predict(task_Pi_A0), Pi_bounds)
     pred[A == 0] <- A0[A == 0]
 
     if (controls_only) {
@@ -70,15 +70,15 @@ learn_Pi <- function(S,
       task_Pi_A1 <- sl3_Task$new(data = data.table(W, A = 1, S = S),
                                  covariates = c(colnames(W), "A"),
                                  outcome = "S", outcome_type = "binomial")
-      A1 <- fit_Pi$predict(task_Pi_A1)
+      A1 <- .bound(fit_Pi$predict(task_Pi_A1), Pi_bounds)
       pred[A == 1] <- A1[A == 1]
     }
   } else if (method == "glm") {
     # A = 0
     fit_A0 <- glm(S[A == 0] ~., data = data.frame(W[A == 0,]),
                   family = "binomial")
-    A0 <- as.numeric(predict(fit_A0, newdata = data.frame(W),
-                             type = "response"))
+    A0 <- .bound(as.numeric(predict(fit_A0, newdata = data.frame(W),
+                                    type = "response")), Pi_bounds)
     pred[A == 0] <- A0[A == 0]
 
     if (controls_only) {
@@ -87,8 +87,8 @@ learn_Pi <- function(S,
       # A = 1
       fit_A1 <- glm(S[A == 1] ~., data = data.frame(W[A == 1,]),
                     family = "binomial")
-      A1 <- as.numeric(predict(fit_A1, newdata = data.frame(W),
-                               type = "response"))
+      A1 <- .bound(as.numeric(predict(fit_A1, newdata = data.frame(W),
+                                      type = "response")), Pi_bounds)
       pred[A == 1] <- A1[A == 1]
     }
 
@@ -97,8 +97,9 @@ learn_Pi <- function(S,
     fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0, ]), y = S[A == 0],
                         keep = TRUE, alpha = 1, nfolds = v_folds,
                         family = "binomial")
-    A0 <- as.numeric(predict(fit_A0, newx = as.matrix(W), s = "lambda.min",
-                             type = "response"))
+    A0 <- .bound(as.numeric(predict(fit_A0, newx = as.matrix(W),
+                                    s = "lambda.min",
+                                    type = "response")), Pi_bounds)
     pred[A == 0] <- A0[A == 0]
 
     if (controls_only) {
@@ -108,14 +109,15 @@ learn_Pi <- function(S,
       fit_A1 <- cv.glmnet(x = as.matrix(W[A == 1, ]), y = S[A == 1],
                           keep = TRUE, alpha = 1, nfolds = v_folds,
                           family = "binomial")
-      A1 <- as.numeric(predict(fit_A1, newx = as.matrix(W), s = "lambda.min",
-                               type = "response"))
+      A1 <- .bound(as.numeric(predict(fit_A1, newx = as.matrix(W),
+                                      s = "lambda.min",
+                                      type = "response")), Pi_bounds)
       pred[A == 1] <- A1[A == 1]
     }
 
   } else if (method == "empirical") {
     # estimate Pi using its empirical distribution, not recommended
-    # only use if S independent of W
+    # for testing purposes only, only use if S independent of W
     # A == 0
     A0 <- rep(mean(S[A == 0]), length(A))
     pred[A == 0] <- A0[A == 0]
@@ -131,7 +133,7 @@ learn_Pi <- function(S,
          list of sl3 learners.")
   }
 
-  return(list(pred = .bound(pred, Pi_bounds),
-              A1 = .bound(A1, Pi_bounds),
-              A0 = .bound(A0, Pi_bounds)))
+  return(list(pred = pred,
+              A1 = A1,
+              A0 = A0))
 }

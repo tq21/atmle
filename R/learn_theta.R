@@ -29,14 +29,27 @@
 #' (when necessary).
 #' @param family A character string specifying the family of the outcome
 #' \eqn{Y}. Either \code{"gaussian"} or \code{"binomial"}.
-#' @param theta_bound A numeric vector of lower and upper bounds for the
+#' @param theta_bounds A numeric vector of lower and upper bounds for the
 #' conditional mean of outcome given baseline covariates and treatment.
 #' The first element is the lower bound, and the second element is the upper
-#' bound. If \code{NULL}, the lower and upper bounds are set to the minimum and
-#' maximum of the outcome \eqn{Y} for \code{family = "gaussian"}, and 0.01 and
-#' 0.99 for \code{family = "binomial"}.
+#' bound.
 #'
 #' @returns A numeric vector of the estimated values.
+#'
+#' @examples
+#' # simulate data
+#' set.seed(123)
+#' n <- 500
+#' S <- rbinom(n, 1, 0.5)
+#' W1 <- rnorm(n); W2 <- rnorm(n); W <- cbind(W1, W2)
+#' A <- numeric(n)
+#' A[S == 1] <- rbinom(sum(S), 1, 0.67)
+#' A[S == 0] <- rbinom(n-sum(S), 1, plogis(1.2*W1-0.9*W2))
+#' UY <- rnorm(n, 0, 1)
+#' U_bias <- rnorm(n, 0, 0.5)
+#' Y <- -0.5-0.8*W1-1.1*W2+1.5*A+UY+(1-S)*(0.9+2.6*W1)+(1-S)*U_bias
+#'
+#' theta <- learn_theta(W, A, Y, FALSE, "glm", 5, "gaussian", c(-4, 4))
 learn_theta <- function(W,
                         A,
                         Y,
@@ -44,17 +57,17 @@ learn_theta <- function(W,
                         method,
                         v_folds,
                         family,
-                        theta_bound) {
+                        theta_bounds) {
 
-  if (method == "sl3") {
-    method <- get_default_sl3_learners()
+  if (is.character(method) && method == "sl3") {
+    method <- get_default_sl3_learners(family)
   }
 
-  if (is.null(theta_bound)) {
+  if (is.null(theta_bounds)) {
     if (family == "gaussian") {
-      theta_bound <- c(-Inf, Inf)
+      theta_bounds <- c(-Inf, Inf)
     } else if (family == "binomial") {
-      theta_bound <- c(0.01, 0.99)
+      theta_bounds <- c(0.01, 0.99)
     }
   }
 
@@ -70,28 +83,28 @@ learn_theta <- function(W,
                                  covariates = colnames(W),
                                  outcome = "Y", outcome_type = "continuous")
       fit_theta <- lrnr_theta$train(task_theta)
-      pred[A == 0] <- fit_theta$predict(task_theta)
+      pred[A == 0] <- .bound(fit_theta$predict(task_theta), theta_bounds)
 
     } else {
       task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
                                  covariates = c(colnames(W), "A"),
                                  outcome = "Y", outcome_type = "continuous")
       fit_theta <- lrnr_theta$train(task_theta)
-      pred <- fit_theta$predict(task_theta)
+      pred <- .bound(fit_theta$predict(task_theta), theta_bounds)
     }
   } else if (method == "glm") {
     # A = 0
     fit_A0 <- glm(Y[A == 0] ~., data = data.frame(W[A == 0, ]), family = family)
-    A0 <- as.numeric(predict(fit_A0, newdata = data.frame(W[A == 0, ]),
-                             type = "response"))
+    A0 <- .bound(as.numeric(predict(fit_A0, newdata = data.frame(W[A == 0, ]),
+                                    type = "response")), theta_bounds)
     pred[A == 0] <- A0
 
     if (!controls_only) {
       # A = 1
       fit_A1 <- glm(Y[A == 1] ~., data = data.frame(W[A == 1, ]),
                     family = family)
-      A1 <- as.numeric(predict(fit_A1, newdata = data.frame(W[A == 1, ]),
-                               type = "response"))
+      A1 <- .bound(as.numeric(predict(fit_A1, newdata = data.frame(W[A == 1, ]),
+                                      type = "response")), theta_bounds)
       pred[A == 1] <- A1
     }
 
@@ -100,8 +113,9 @@ learn_theta <- function(W,
     fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0, ]), y = Y[A == 0],
                         keep = TRUE, alpha = 1, nfolds = v_folds,
                         family = family)
-    A0 <- as.numeric(predict(fit_A0, newx = as.matrix(W[A == 0, ]),
-                             s = "lambda.min", type = "response"))
+    A0 <- .bound(as.numeric(predict(fit_A0, newx = as.matrix(W[A == 0, ]),
+                                    s = "lambda.min", type = "response")),
+                 theta_bounds)
     pred[A == 0] <- A0
 
     if (!controls_only) {
@@ -109,12 +123,15 @@ learn_theta <- function(W,
       fit_A1 <- cv.glmnet(x = as.matrix(W[A == 1, ]), y = Y[A == 1],
                           keep = TRUE, alpha = 1, nfolds = v_folds,
                           family = family)
-      A1 <- as.numeric(predict(fit_A1, newx = as.matrix(W[A == 1, ]),
-                               s = "lambda.min", type = "response"))
+      A1 <- .bound(as.numeric(predict(fit_A1, newx = as.matrix(W[A == 1, ]),
+                                      s = "lambda.min", type = "response")),
+                   theta_bounds)
       pred[A == 1] <- A1
     }
+  } else {
+    stop("Invalid method. Must be one of 'glm', 'glmnet', or 'sl3', or a
+         list of sl3 learners.")
   }
 
-  #return(.bound(pred, theta_bound))
   return(pred)
 }

@@ -23,10 +23,11 @@ atmle(
   pooled_working_model = "glmnet",
   g_rct,
   var_method = "ic",
+  max_degree = 1,
   max_iter = 1,
   v_folds = 5,
-  g_bound = c(0.025, 0.975),
-  Pi_bound = c(0.025, 0.975),
+  g_bound = c(0, 1),
+  Pi_bound = c(0, 1),
   theta_bound = NULL,
   verbose = TRUE
 )

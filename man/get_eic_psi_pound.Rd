@@ -4,19 +4,7 @@
 \alias{get_eic_psi_pound}
 \title{Efficient influence function for the bias parameter}
 \usage{
-get_eic_psi_pound(
-  Pi,
-  tau,
-  g,
-  theta,
-  psi_pound_est,
-  S,
-  A,
-  Y,
-  n,
-  controls_only,
-  verbose
-)
+get_eic_psi_pound(Pi, tau, g, theta, psi_pound_est, S, A, Y, n, controls_only)
 }
 \arguments{
 \item{Pi}{Returns from \code{\link{learn_Pi}}.}

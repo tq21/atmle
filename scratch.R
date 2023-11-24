@@ -22,7 +22,7 @@ controls_only = FALSE
 B <- 200
 n <- 2000
 ate <- 1.5
-bias <- 1.8
+bias <- "param_simple"
 nuisance_method <- "glm"
 working_model <- "glmnet"
 g_rct <- 0.67
@@ -74,9 +74,12 @@ tmp_2 <- run_sim(B = B,
                  working_model = working_model,
                  g_rct = g_rct,
                  controls_only = controls_only,
+                 var_method = "ic",
                  num_covs = num_covs,
                  verbose = verbose,
-                 method = "escvtmle")
+                 family = "gaussian",
+                 method = "escvtmle",
+                 type = "NULL")
 mean(tmp_2$escvtmle_prop_selected)
 mean(tmp_2$psi_coverage)
 var(tmp_2$psi_est)

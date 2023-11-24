@@ -4,11 +4,17 @@
 \alias{get_default_sl3_learners}
 \title{Get default \code{sl3} learners}
 \usage{
-get_default_sl3_learners()
+get_default_sl3_learners(family)
 }
 \arguments{
-\item{family}{A character string specifying the family of the outcome.}
+\item{family}{A character string specifying the family of the outcome.
+Either \code{"gaussian"} or \code{"binomial"}.}
 }
 \description{
-Get default \code{sl3} learners
+Function to get a default super learner library for a given
+family of the outcome.
 }
+\examples{
+lrnrs <- get_default_sl3_learners("gaussian")
+}
+\keyword{internal}

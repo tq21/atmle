@@ -4,14 +4,7 @@
 \alias{fit_relaxed_hal}
 \title{Fit relaxed HAL}
 \usage{
-fit_relaxed_hal(
-  X,
-  Y,
-  family,
-  weights = NULL,
-  X_no_basis = NULL,
-  X_unpenalized = NULL
-)
+fit_relaxed_hal(X, Y, family, weights, v_folds, screen_unpenalize, hal_args)
 }
 \arguments{
 \item{X}{A numeric matrix of covariates.}

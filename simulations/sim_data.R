@@ -4,10 +4,10 @@ sim_four_covs <- function(ate, n, rct_prop, g_rct, bias, controls_only) {
   U_bias <- rnorm(n, 0, 0.02)
 
   # baseline covariates
-  W1 <- rnorm(n, 1, 1)# runif(n, 0, 1) #
-  W2 <- rnorm(n, 1, 1)# runif(n, 0, 1) #
-  W3 <- rnorm(n, 1, 1)# runif(n, 0, 1) #
-  W4 <- rnorm(n, 1, 1)# runif(n, 0, 1) #
+  W1 <- rnorm(n, 0, 1)# runif(n, 0, 1) #
+  W2 <- rnorm(n, 0, 1)# runif(n, 0, 1) #
+  W3 <- rnorm(n, 0, 1)# runif(n, 0, 1) #
+  W4 <- rnorm(n, 0, 1)# runif(n, 0, 1) #
 
   # study indicator, S=1 for RCT, S=0 for RWD
   S <- rbinom(n, 1, rct_prop)

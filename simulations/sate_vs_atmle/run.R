@@ -6,15 +6,23 @@ devtools::load_all()
 ate <- 1.5
 B <- 100
 n <- 1000
-g_rct_seq <- 0.67
+g_rct_seq <- 0.8
 bias <- "param_simple"
+controls_only <- FALSE
+
+# dataset
+data_rwd <- sim_rwd(ate, 100000, 0, g_rct_seq, bias, controls_only)
+S0A1_idx <- which(data_rwd$S == 0 & data_rwd$A == 1)
+S0A0_idx <- which(data_rwd$S == 0 & data_rwd$A == 0)
 
 res <- data.frame(g_rct = g_rct_seq,
                   rct_prop = g_rct_seq,
-                  sate_mse = numeric(length = length(g_rct_seq)),
+                  sate_bias = numeric(length = length(g_rct_seq)),
                   sate_cover = numeric(length = length(g_rct_seq)),
-                  atmle_mse = numeric(length = length(g_rct_seq)),
-                  atmle_cover = numeric(length = length(g_rct_seq)))
+                  atmle_bias = numeric(length = length(g_rct_seq)),
+                  atmle_cover = numeric(length = length(g_rct_seq)),
+                  escvtmle_bias = numeric(length = length(g_rct_seq)),
+                  escvtmle_cover = numeric(length = length(g_rct_seq)))
 
 for (i in 1:length(g_rct_seq)) {
   sate_est <- numeric(length = B)
@@ -27,7 +35,12 @@ for (i in 1:length(g_rct_seq)) {
 
   for (j in 1:B) {
     print("B = " %+% j %+% " of " %+% B %+% " for g_rct = " %+% g_rct_seq[i])
-    data <- sim_four_covs(ate, n, 0.2, g_rct_seq[i], bias, FALSE)
+
+    # combine data
+    data_rct <- sim_rct(ate, 1000, 1, g_rct_seq, bias, controls_only)
+    samp_S0A0 <- sample(S0A0_idx, 200)
+    samp_S0A1 <- sample(S0A1_idx, 200)
+    data <- rbind(data_rct, data_rwd[samp_S0A0, ], data_rwd[samp_S0A1, ])
 
     # sample average treatment effect
     sate_res <- sate(data = data,
@@ -44,7 +57,7 @@ for (i in 1:length(g_rct_seq)) {
                        W_node = c(2, 3, 4, 5),
                        A_node = 6,
                        Y_node = 7,
-                       controls_only = FALSE,
+                       controls_only = controls_only,
                        family = "gaussian",
                        atmle_pooled = TRUE,
                        r_loss = TRUE,
@@ -59,7 +72,7 @@ for (i in 1:length(g_rct_seq)) {
                        verbose = FALSE)
 
     # es-cvtmle
-    escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
+    escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
                               data = data,
                               study = "S",
                               covariates = c("W1", "W2", "W3", "W4"),
@@ -84,11 +97,11 @@ for (i in 1:length(g_rct_seq)) {
     escvtmle_cover[j] <- ifelse(ate >= escvtmle_res$CI$b2v[1] & ate <= escvtmle_res$CI$b2v[2], 1, 0)
   }
 
-  res$sate_mse[i] <- mean((sate_est - ate)^2)
+  res$sate_bias[i] <- mean(abs(sate_est - ate))
   res$sate_cover[i] <- mean(sate_cover)
-  res$atmle_mse[i] <- mean((atmle_est - ate)^2)
+  res$atmle_bias[i] <- mean(abs(atmle_est - ate))
   res$atmle_cover[i] <- mean(atmle_cover)
-  res$escvtmle_mse[i] <- mean((escvtmle_est - ate)^2)
+  res$escvtmle_bias[i] <- mean(abs(escvtmle_est - ate))
   res$escvtmle_cover[i] <- mean(escvtmle_cover)
 }
 

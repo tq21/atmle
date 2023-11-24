@@ -4,7 +4,7 @@
 \alias{make_counter_design_matrix}
 \title{Make counterfactual design matrix}
 \usage{
-make_counter_design_matrix(basis_list, X_counterfactual, X_unpenalized = NULL)
+make_counter_design_matrix(basis_list, X_counterfactual, X_unpenalized)
 }
 \arguments{
 \item{basis_list}{A \code{list} of HAL bases.}

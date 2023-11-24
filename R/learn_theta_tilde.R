@@ -26,12 +26,10 @@
 #' (when necessary).
 #' @param family A character string specifying the family of the outcome
 #' \eqn{Y}. Either \code{"gaussian"} or \code{"binomial"}.
-#' @param theta_bound A numeric vector of lower and upper bounds for the
+#' @param theta_bounds A numeric vector of lower and upper bounds for the
 #' conditional mean of outcome given baseline covariates.
 #' The first element is the lower bound, and the second element is the upper
-#' bound. If \code{NULL}, the lower and upper bounds are set to the minimum and
-#' maximum of the outcome \eqn{Y} for \code{family = "gaussian"}, and 0.01 and
-#' 0.99 for \code{family = "binomial"}.
+#' bound.
 #'
 #' @returns A numeric vector of the estimated values.
 learn_theta_tilde <- function(W,
@@ -39,17 +37,17 @@ learn_theta_tilde <- function(W,
                               method,
                               v_folds,
                               family,
-                              theta_bound) {
+                              theta_bounds) {
 
-  if (method == "sl3") {
-    method <- get_default_sl3_learners()
+  if (is.character(method) && method == "sl3") {
+    method <- get_default_sl3_learners(family)
   }
 
-  if (is.null(theta_bound)) {
+  if (is.null(theta_bounds)) {
     if (family == "gaussian") {
-      theta_bound <- c(-Inf, Inf)
+      theta_bounds <- c(-Inf, Inf)
     } else if (family == "binomial") {
-      theta_bound <- c(0.01, 0.99)
+      theta_bounds <- c(0.01, 0.99)
     }
   }
 
@@ -85,8 +83,10 @@ learn_theta_tilde <- function(W,
                      keep = TRUE, alpha = 1, nfolds = v_folds, family = family)
     pred <- as.numeric(predict(fit, newx = as.matrix(W), s = "lambda.min",
                                type = "response"))
+  } else {
+    stop("Invalid method. Must be one of 'glm', 'glmnet', or 'sl3', or a
+         list of sl3 learners.")
   }
 
-  #return(.bound(pred, theta_bound))
-  return(pred)
+  return(.bound(pred, theta_bounds))
 }

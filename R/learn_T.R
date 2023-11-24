@@ -37,7 +37,7 @@ learn_T <- function(W,
 
   # R-transformations
   weights <- 1 # TODO: currently not used
-  pseudo_outcome <- (Y-theta_tilde)/(A-g)
+  pseudo_outcome <- ifelse(abs(A-g)<1e-10, 0, (Y-theta_tilde)/(A-g))
   pseudo_weights <- (A-g)^2*weights
 
   pred <- NULL
@@ -48,13 +48,14 @@ learn_T <- function(W,
     fit <- cv.glmnet(x = as.matrix(W), y = pseudo_outcome,
                      family = "gaussian", weights = pseudo_weights,
                      keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE)
-    coefs <- coef(fit, s = "lambda.min", gamma = 0)
-    pred <- as.numeric(as.matrix(cbind(1, W)) %*% matrix(coefs))
-
-    # design matrix
-    x_basis <- as.matrix(cbind(1, W))
+    non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
+    coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
+    x_basis <- as.matrix(cbind(1, W)[, non_zero, drop = FALSE])
+    pred <- as.numeric(x_basis %*% matrix(coefs))
 
   } else if (method == "HAL") {
+
+    # TODO: not fully functional right now.
 
     X <- as.matrix(W)
 

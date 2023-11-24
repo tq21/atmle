@@ -29,13 +29,13 @@ nonparametric <- function(data,
 
   # estimate nuisance parts
   if (verbose) print("learning E(Y|S,W,A)")
-  Q <- learn_Q_S1(S, W, A, Y, method = "glm")
+  Q <- learn_Q_S1(S, W, A, Y, Q_method)
 
   if (verbose) print("learning P(A=1|S,W)")
   g <- rep(g_rct, n)
 
   if (verbose) print("learning P(S=1|W)")
-  Pi <- learn_S_W(S, W, method = nuisance_method)
+  Pi <- learn_S_W(S, W, Pi_method)
 
   # target Q
   Q_star <- target_Q(S, W, A, Y, Pi, g, Q)
