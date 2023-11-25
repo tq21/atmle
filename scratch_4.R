@@ -11,11 +11,11 @@ A_node <- 6
 Y_node <- 7
 controls_only <- FALSE
 var_method <- "ic"
-theta_method <- "sl3"
-Pi_method <- "sl3"
-g_method <- "sl3"
-theta_tilde_method <- "sl3"
-Q_method <- "sl3"
+theta_method <- "glm"
+Pi_method <- "glm"
+g_method <- "glm"
+theta_tilde_method <- "glm"
+Q_method <- "glm"
 bias_working_model <- "glmnet"
 pooled_working_model <- "glmnet"
 g_rct <- 0.67

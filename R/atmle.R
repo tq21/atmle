@@ -238,6 +238,9 @@ atmle <- function(data,
                    Q = as.matrix(data.frame(Q$A1, Q$A0)),
                    family = family)
 
+    ## LOG
+    tmp_log$Q_epsilon <- Q_star$epsilon
+
     # estimates
     psi_tilde_est <- Q_star$estimates$ATE$psi
     psi_tilde_eic <- Q_star$estimates$IC$IC.ATE
@@ -295,13 +298,15 @@ atmle <- function(data,
     upper <- est+qnorm(0.975)*se
   }
 
-  return(list(est = est,
-              lower = lower,
-              upper = upper,
-              psi_pound_est = psi_pound_est,
-              psi_pound_lower = psi_pound_lower,
-              psi_pound_upper = psi_pound_upper,
-              psi_tilde_est = psi_tilde_est,
-              psi_tilde_lower = psi_tilde_lower,
-              psi_tilde_upper = psi_tilde_upper))
+  results <- list(est = est,
+                  lower = lower,
+                  upper = upper,
+                  psi_pound_est = psi_pound_est,
+                  psi_pound_lower = psi_pound_lower,
+                  psi_pound_upper = psi_pound_upper,
+                  psi_tilde_est = psi_tilde_est,
+                  psi_tilde_lower = psi_tilde_lower,
+                  psi_tilde_upper = psi_tilde_upper)
+
+  return(c(results, tmp_log))
 }
