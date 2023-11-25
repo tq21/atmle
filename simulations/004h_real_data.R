@@ -38,15 +38,8 @@ res_atmle_glmnet <- atmle(data = dat,
                           controls_only = FALSE,
                           family = "gaussian",
                           atmle_pooled = TRUE,
-                          theta_method = "glm",
-                          Pi_method = "glm",
-                          g_method = "glm",
-                          theta_tilde_method = "glm",
-                          Q_method = "glm",
-                          bias_working_model = "glmnet",
-                          pooled_working_model = "glmnet",
                           g_rct = 0.5,
-                          verbose = TRUE)
+                          verbose = FALSE)
 
 res_df_unbiased <- data.frame(estimator = c("ES-CVTMLE", "A-TMLE"),
                               est = c(res_escvtmle$ATE$b2v, res_atmle_glmnet$est),
