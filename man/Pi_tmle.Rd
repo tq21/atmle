@@ -4,7 +4,7 @@
 \alias{Pi_tmle}
 \title{TMLE update of the trial enrollment probabilities}
 \usage{
-Pi_tmle(S, W, A, g, tau, Pi, controls_only, target_gwt = FALSE, weights = 1)
+Pi_tmle(S, W, A, g, tau, Pi, controls_only, target_gwt, Pi_bounds, weights = 1)
 }
 \arguments{
 \item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
@@ -23,6 +23,14 @@ Pi_tmle(S, W, A, g, tau, Pi, controls_only, target_gwt = FALSE, weights = 1)
 
 \item{controls_only}{A logical indicating whether the external data has only
 control-arm observations.}
+
+\item{target_gwt}{If \code{TRUE}, the treatment mechanism is moved from the
+denominator of the clever covariate to the weight when fitting the TMLE
+submodel.}
+
+\item{Pi_bounds}{A numeric vector of lower and upper bounds for the
+trial enrollment probabilities. The first element is the lower bound,
+and the second element is the upper bound.}
 }
 \value{
 A \code{list} containing the following elements:

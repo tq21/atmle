@@ -5,7 +5,7 @@
 \title{Learn nuisance function: conditional mean of outcome given baseline
 covariates}
 \usage{
-learn_theta_tilde(W, Y, method, v_folds, family, theta_bound)
+learn_theta_tilde(W, Y, method, v_folds, family, theta_bounds)
 }
 \arguments{
 \item{W}{A matrix of baseline covariates.}
@@ -22,12 +22,10 @@ super learner-based estimation.}
 \item{family}{A character string specifying the family of the outcome
 \eqn{Y}. Either \code{"gaussian"} or \code{"binomial"}.}
 
-\item{theta_bound}{A numeric vector of lower and upper bounds for the
+\item{theta_bounds}{A numeric vector of lower and upper bounds for the
 conditional mean of outcome given baseline covariates.
 The first element is the lower bound, and the second element is the upper
-bound. If \code{NULL}, the lower and upper bounds are set to the minimum and
-maximum of the outcome \eqn{Y} for \code{family = "gaussian"}, and 0.01 and
-0.99 for \code{family = "binomial"}.}
+bound.}
 }
 \value{
 A numeric vector of the estimated values.

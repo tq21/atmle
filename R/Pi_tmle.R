@@ -15,6 +15,12 @@
 #' @param Pi Returns from the \code{\link{learn_Pi}} function.
 #' @param controls_only A logical indicating whether the external data has only
 #' control-arm observations.
+#' @param target_gwt If \code{TRUE}, the treatment mechanism is moved from the
+#' denominator of the clever covariate to the weight when fitting the TMLE
+#' submodel.
+#' @param Pi_bounds A numeric vector of lower and upper bounds for the
+#' trial enrollment probabilities. The first element is the lower bound,
+#' and the second element is the upper bound.
 #'
 #' @returns A \code{list} containing the following elements:
 #' \item{pred}{Targeted estimates of trial enrollment probabilities;}
@@ -27,7 +33,8 @@ Pi_tmle <- function(S,
                     tau,
                     Pi,
                     controls_only,
-                    target_gwt = FALSE,
+                    target_gwt,
+                    Pi_bounds,
                     weights = 1) {
 
   Pi_star <- Pi
@@ -50,11 +57,11 @@ Pi_tmle <- function(S,
 
     # TMLE update
     if (target_gwt) {
-      Pi_star$pred[A == 0] <- plogis(qlogis(Pi$pred[A == 0])+epsilon[1])
-      Pi_star$A0[A == 0] <- plogis(qlogis(Pi$A0[A == 0])+epsilon[1])
+      Pi_star$pred[A == 0] <- .bound(plogis(qlogis(Pi$pred[A == 0])+epsilon[1]), Pi_bounds)
+      Pi_star$A0[A == 0] <- .bound(plogis(qlogis(Pi$A0[A == 0])+epsilon[1]), Pi_bounds)
     } else {
-      Pi_star$pred[A == 0] <- plogis(qlogis(Pi$pred[A == 0])+epsilon[1]*H0_n)
-      Pi_star$A0[A == 0] <- plogis(qlogis(Pi$A0[A == 0])+epsilon[1]*H0_n)
+      Pi_star$pred[A == 0] <- .bound(plogis(qlogis(Pi$pred[A == 0])+epsilon[1]*H0_n), Pi_bounds)
+      Pi_star$A0[A == 0] <- .bound(plogis(qlogis(Pi$A0[A == 0])+epsilon[1]*H0_n), Pi_bounds)
     }
 
   } else {
@@ -79,13 +86,13 @@ Pi_tmle <- function(S,
 
     # TMLE updates
     if (target_gwt) {
-      Pi_star$pred <- plogis(qlogis(Pi$pred)+epsilon[1]+epsilon[2])
-      Pi_star$A0 <- plogis(qlogis(Pi$A0)+epsilon[1])
-      Pi_star$A1 <- plogis(qlogis(Pi$A1)+epsilon[2])
+      Pi_star$pred <- .bound(plogis(qlogis(Pi$pred)+epsilon[1]+epsilon[2]), Pi_bounds)
+      Pi_star$A0 <- .bound(plogis(qlogis(Pi$A0)+epsilon[1]), Pi_bounds)
+      Pi_star$A1 <- .bound(plogis(qlogis(Pi$A1)+epsilon[2]), Pi_bounds)
     } else {
-      Pi_star$pred <- plogis(qlogis(Pi$pred)+epsilon[1]*H0_n+epsilon[2]*H1_n)
-      Pi_star$A0 <- plogis(qlogis(Pi$A0)+epsilon[1]*H0_n)
-      Pi_star$A1 <- plogis(qlogis(Pi$A1)+epsilon[2]*H1_n)
+      Pi_star$pred <- .bound(plogis(qlogis(Pi$pred)+epsilon[1]*H0_n+epsilon[2]*H1_n), Pi_bounds)
+      Pi_star$A0 <- .bound(plogis(qlogis(Pi$A0)+epsilon[1]*H0_n), Pi_bounds)
+      Pi_star$A1 <- .bound(plogis(qlogis(Pi$A1)+epsilon[2]*H1_n), Pi_bounds)
     }
   }
 

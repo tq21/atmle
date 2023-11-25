@@ -13,9 +13,9 @@ v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org
 > estimate the average treatment effect from combined randomized trial
 > and real-world data.
 
-**Authors:** [Sky Qiu](https://github.com/tq21), [Mark van der
-Laan](https://vanderlaan-lab.org/), [Lars van der
-Laan](https://larsvanderlaan.github.io/)
+**Authors:** [Sky Qiu](https://github.com/tq21), [Lars van der
+Laan](https://larsvanderlaan.github.io/) [Mark van der
+Laan](https://vanderlaan-lab.org/),
 
 ------------------------------------------------------------------------
 
@@ -31,66 +31,38 @@ If you encounter any bugs or have any specific feature requests, please
 ``` r
 library(atmle)
 library(EScvtmle)
-library(sl3)
-library(data.table)
-library(glmnet)
 options(sl3.verbose = TRUE)
 `%+%` <- function(a, b) paste0(a, b)
 set.seed(82379)
 
-n_rct <- 200 # RCT sample size
-n_rwd <- 1000 # RWD sample size
-n <- n_rct + n_rwd
-g_rct <- 0.67 # RCT treatment probability
-true_ate <- 1.5 # true ATE
-
-# error
-UY <- rnorm(n, 0, 0.5)
-U_bias <- rnorm(n, 0, 0.1)
-
-# baseline covariates
-W1 <- rnorm(n, 0, 1)
-W2 <- rnorm(n, 0, 1)
-W3 <- rnorm(n, 0, 1)
-W4 <- rnorm(n, 0, 1)
-
-# study indicator, S=1 for RCT, S=0 for RWD
-S <- c(rep(1, n_rct), rep(0, n_rwd))
-
-# treatments (external data has both treated and controls)
-A_rct <- rbinom(n_rct, 1, g_rct)
-A_rwd <- rbinom(n_rwd, 1, plogis(0.5*W1-0.9*W2))
-A <- c(A_rct, A_rwd)
-
-# outcome
-Y <- 2.1+0.8*W1+2.5*W2-3.1*W3+0.9*W4+true_ate*A+UY+
-  (1-S)*(A*(2.9*W1+2.3*W2+U_bias))
-
-# data frames combining RCT and RWD
-data <- data.frame(S = S,
-                   W1 = W1,
-                   W2 = W2,
-                   W3 = W3,
-                   W4 = W4,
-                   A = A,
-                   Y = Y)
+# simulate data
+n <- 2000
+S <- rbinom(n, 1, 0.2)
+W1 <- rnorm(n); W2 <- rnorm(n); W <- cbind(W1, W2)
+A <- numeric(n)
+g_rct <- 0.67
+A[S == 1] <- rbinom(sum(S), 1, g_rct)
+A[S == 0] <- rbinom(n-sum(S), 1, plogis(1.2*W1-0.9*W2))
+UY <- rnorm(n, 0, 1)
+U_bias <- rnorm(n, 0, 0.5)
+Y <- -0.5-0.8*W1-1.1*W2+1.5*A+UY+(1-S)*(0.9+2.6*W1)+(1-S)*U_bias
+data <- data.frame(S, W1, W2, A, Y)
+true_ate <- 1.5
 
 # run A-TMLE
-res <- atmle(data = data,
-             S_node = 1,
-             W_node = c(2, 3, 4, 5),
-             A_node = 6,
-             Y_node = 7,
+res <- atmle(data,
+             S_node = c(1),
+             W_node = c(2, 3),
+             A_node = 4,
+             Y_node = 5,
              controls_only = FALSE,
+             family = "gaussian",
              atmle_pooled = TRUE,
-             var_method = "ic",
-             nuisance_method = "sl3",
-             working_model = "glmnet",
-             g_rct = g_rct,
+             g_rct = 0.67,
              verbose = FALSE)
 print("A-TMLE ATE estimate: " %+% round(res$est, 2) %+% 
         " (" %+% round(res$lower, 2) %+% ", " %+% round(res$upper, 2) %+% ")")
-#> [1] "A-TMLE ATE estimate: 1.55 (1.47, 1.64)"
+#> [1] "A-TMLE ATE estimate: 1.53 (1.43, 1.62)"
 print("True ATE: " %+% true_ate)
 #> [1] "True ATE: 1.5"
 
@@ -98,7 +70,7 @@ print("True ATE: " %+% true_ate)
 escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
                           data = data,
                           study = "S",
-                          covariates = c("W1", "W2", "W3", "W4"),
+                          covariates = c("W1", "W2"),
                           treatment_var = "A",
                           treatment = 1,
                           outcome = "Y",
@@ -112,7 +84,7 @@ escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
 print("ES-CVTMLE ATE estimate: " %+% round(escvtmle_res$ATE$b2v, 2) %+% 
         " (" %+% round(escvtmle_res$CI$b2v[1], 2) %+% 
         ", " %+% round(escvtmle_res$CI$b2v[2], 2) %+% ")")
-#> [1] "ES-CVTMLE ATE estimate: 1.57 (1.41, 1.72)"
+#> [1] "ES-CVTMLE ATE estimate: 1.53 (1.33, 1.73)"
 print("True ATE: " %+% true_ate)
 #> [1] "True ATE: 1.5"
 ```
@@ -121,9 +93,9 @@ print("True ATE: " %+% true_ate)
 
 ## License
 
-© 2023 [Sky Qiu](https://github.com/tq21), [Mark van der
-Laan](https://vanderlaan-lab.org/), [Lars van der
-Laan](https://larsvanderlaan.github.io/)
+© 2023 [Sky Qiu](https://github.com/tq21), [Lars van der
+Laan](https://larsvanderlaan.github.io/) [Mark van der
+Laan](https://vanderlaan-lab.org/),
 
 The contents of this repository are distributed under the GPL-3 license.
 See file `LICENSE` for details.

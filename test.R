@@ -56,6 +56,54 @@ escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
                           g.discreteSL = TRUE,
                           V = 5)
 
+# B <- 500
+# n <- 2000
+# ate <- 1.5
+# bias <- "param_simple"
+# nuisance_method <- "glmnet"
+# working_model <- "glmnet"
+# g_rct <- 0.67
+# verbose <- TRUE
+# controls_only <- FALSE
+# num_covs <- 4
+#
+# tmp_1 <- run_sim(B = B,
+#                  n = n,
+#                  ate = ate,
+#                  bias = bias,
+#                  nuisance_method = nuisance_method,
+#                  working_model = working_model,
+#                  g_rct = g_rct,
+#                  controls_only = controls_only,
+#                  var_method = "ic",
+#                  num_covs = num_covs,
+#                  verbose = verbose,
+#                  family = "gaussian",
+#                  method = "atmle",
+#                  type = "NULL")
+# mean(tmp_1$psi_coverage)
+# hist(tmp_1$psi_est)
+# var(tmp_1$psi_est)+(mean(tmp_1$psi_est)-ate)^2
+#
+# tmp_2 <- run_sim(B = B,
+#                  n = n,
+#                  ate = ate,
+#                  bias = bias,
+#                  nuisance_method = nuisance_method,
+#                  working_model = working_model,
+#                  g_rct = g_rct,
+#                  controls_only = controls_only,
+#                  var_method = "ic",
+#                  num_covs = num_covs,
+#                  verbose = verbose,
+#                  family = "gaussian",
+#                  method = "escvtmle",
+#                  type = "NULL")
+# mean(tmp_2$psi_coverage)
+# hist(tmp_2$psi_est)
+# var(tmp_2$psi_est)+(mean(tmp_2$psi_est)-ate)^2
+
+
 atmle_res$upper-atmle_res$lower
 #atmle_res_bounded$upper-atmle_res_bounded$lower
 as.numeric(escvtmle_res$CI$b2v[2]-escvtmle_res$CI$b2v[1])
@@ -63,50 +111,3 @@ as.numeric(escvtmle_res$CI$b2v[2]-escvtmle_res$CI$b2v[1])
 # rct_only_res$upper-rct_only_res$lower
 escvtmle_res$proportionselected
 #rct_only_res$upper-rct_only_res$lower
-
-B <- 500
-n <- 2000
-ate <- 1.5
-bias <- "param_simple"
-nuisance_method <- "glmnet"
-working_model <- "glmnet"
-g_rct <- 0.67
-verbose <- TRUE
-controls_only <- FALSE
-num_covs <- 4
-
-tmp_1 <- run_sim(B = B,
-                 n = n,
-                 ate = ate,
-                 bias = bias,
-                 nuisance_method = nuisance_method,
-                 working_model = working_model,
-                 g_rct = g_rct,
-                 controls_only = controls_only,
-                 var_method = "ic",
-                 num_covs = num_covs,
-                 verbose = verbose,
-                 family = "gaussian",
-                 method = "atmle",
-                 type = "NULL")
-mean(tmp_1$psi_coverage)
-hist(tmp_1$psi_est)
-var(tmp_1$psi_est)+(mean(tmp_1$psi_est)-ate)^2
-
-tmp_2 <- run_sim(B = B,
-                 n = n,
-                 ate = ate,
-                 bias = bias,
-                 nuisance_method = nuisance_method,
-                 working_model = working_model,
-                 g_rct = g_rct,
-                 controls_only = controls_only,
-                 var_method = "ic",
-                 num_covs = num_covs,
-                 verbose = verbose,
-                 family = "gaussian",
-                 method = "escvtmle",
-                 type = "NULL")
-mean(tmp_2$psi_coverage)
-hist(tmp_2$psi_est)
-var(tmp_2$psi_est)+(mean(tmp_2$psi_est)-ate)^2

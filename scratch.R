@@ -22,7 +22,7 @@ controls_only = FALSE
 B <- 200
 n <- 2000
 ate <- 1.5
-bias <- "param_simple"
+bias <- 0
 nuisance_method <- "glm"
 working_model <- "glmnet"
 g_rct <- 0.67

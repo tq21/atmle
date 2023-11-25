@@ -13,12 +13,11 @@ atmle(
   controls_only,
   family,
   atmle_pooled = TRUE,
-  r_loss = TRUE,
-  theta_method = "glm",
-  Pi_method = "glm",
-  g_method = "glm",
-  theta_tilde_method = "glm",
-  Q_method = "glm",
+  theta_method = "glmnet",
+  Pi_method = "glmnet",
+  g_method = "glmnet",
+  theta_tilde_method = "glmnet",
+  Q_method = "glmnet",
   bias_working_model = "glmnet",
   pooled_working_model = "glmnet",
   g_rct,
@@ -26,9 +25,10 @@ atmle(
   max_degree = 1,
   max_iter = 1,
   v_folds = 5,
-  g_bound = c(0, 1),
-  Pi_bound = c(0, 1),
-  theta_bound = NULL,
+  g_bounds = c(0.01, 0.99),
+  Pi_bounds = c(0.01, 0.99),
+  theta_bounds = c(-Inf, Inf),
+  target_gwt = TRUE,
   verbose = TRUE
 )
 }
@@ -60,49 +60,74 @@ Default is \code{TRUE}.}
 \item{theta_method}{The method to estimate the nuisance function
 \eqn{\theta(W,A)=\mathbb{E}(Y\mid W,A)}.
 \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-or a \code{list} of \code{sl3} learners for super learner-based estimation.
-Default is \code{"glmnet"}.}
+\code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+learners. Default is \code{"glmnet"}.}
 
 \item{Pi_method}{The method to estimate the nuisance function
 \eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}.
 \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-or a \code{list} of \code{sl3} learners for super learner-based estimation.}
+\code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+learners. Default is \code{"glmnet"}.}
 
 \item{g_method}{The method to estimate the nuisance function
 \eqn{g(A\mid W)=\mathbb{P}(A=1\mid W)}.
 \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-or a \code{list} of \code{sl3} learners for super learner-based estimation.}
+\code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+learners. Default is \code{"glmnet"}.}
 
 \item{theta_tilde_method}{The method to estimate the nuisance function
 \eqn{\tilde{\theta}(W,A)=\mathbb{E}(Y\mid W,A,S=1)}.
 \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-or a \code{list} of \code{sl3} learners for super learner-based estimation.}
+\code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+learners. Default is \code{"glmnet"}.}
 
 \item{Q_method}{The method to estimate the nuisance function
 \eqn{Q(A,W)=\mathbb{E}(Y\mid W,A)}.
 \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-or a list of \code{sl3} learners for super learner-based estimation.}
+\code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+learners. Default is \code{"glmnet"}.}
 
 \item{bias_working_model}{The working model for the bias estimand.
 Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for highly adaptive
-lasso-based working model. Default is \code{"glmnet"}.}
+lasso-based working model
+(PLEASE USE "glmnet" FOR NOW). Default is \code{"glmnet"}.}
 
 \item{pooled_working_model}{The working model for the pooled-ATE estimand.
 Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for highly adaptive
-lasso-based working model. Default is \code{"glmnet"}.}
+lasso-based working model.
+(PLEASE USE "glmnet" FOR NOW). Default is \code{"glmnet"}.}
 
 \item{g_rct}{The probability of receiving the active treatment in the
 randomized controlled trial.}
 
 \item{var_method}{The method to estimate the variance of the A-TMLE
 estimator. Either \code{"ic"} for influence curve-based variance estimator or
-\code{"bootstrap"} for bootstrap-based variance estimator. Default is \code{"ic"}.}
+\code{"bootstrap"} for bootstrap-based variance estimator
+(PLEASE USE INFLUENCE CURVE-BASED FOR NOW). Default is \code{"ic"}.}
 
 \item{max_iter}{The maximum number of iterations for TMLE targeting of
-\eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}. Default is \code{1}.}
+\eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}
+(PLEASE SET TO 1 FOR NOW). Default is \code{1}.}
 
 \item{v_folds}{The number of folds for cross-validation (whenever necessary).
 Default is \code{5}.}
+
+\item{g_bounds}{A numeric vector of lower and upper bounds for the
+treatment mechanism. The first element is the lower bound, and the second
+element is the upper bound. Default is \code{c(0.01, 0.99)}.}
+
+\item{Pi_bounds}{A numeric vector of lower and upper bounds for the
+trial enrollment probabilities. The first element is the lower bound,
+and the second element is the upper bound. Default is \code{c(0.01, 0.99)}.}
+
+\item{theta_bounds}{A numeric vector of lower and upper bounds for the
+conditional mean of outcome given baseline covariates and treatment.
+The first element is the lower bound, and the second element is the upper
+bound. Default is \code{c(-Inf, Inf)}.}
+
+\item{target_gwt}{If \code{TRUE}, the treatment mechanism is moved from the
+denominator of the clever covariate to the weight when fitting the TMLE
+submodel.}
 
 \item{verbose}{A logical indicating whether to print out the progress.
 Default is \code{TRUE}.}
@@ -110,12 +135,38 @@ Default is \code{TRUE}.}
 \value{
 A \code{list} containing the following elements:
 \item{ate}{The estimated average treatment effect;}
-\item{ate_se}{The estimated standard error of the average treatment effect;}
-\item{ate_ci}{The estimated \eqn{95\%} confidence interval for the average treatment
-effect.}
+\item{lower}{The lower bound of the \eqn{95\%} confidence interval for the
+average treatment effect;}
+\item{upper}{The upper bound of the \eqn{95\%} confidence interval for the
+average treatment effect;}
 }
 \description{
 Adaptive-TMLE (A-TMLE) for estimating the average treatment
 effect based on combined randomized controlled trial data and real-world
 data.
+}
+\examples{
+# simulate data
+set.seed(123)
+n <- 2000
+S <- rbinom(n, 1, 0.5)
+W1 <- rnorm(n); W2 <- rnorm(n); W <- cbind(W1, W2)
+A <- numeric(n)
+A[S == 1] <- rbinom(sum(S), 1, 0.67)
+A[S == 0] <- rbinom(n-sum(S), 1, plogis(1.2*W1-0.9*W2))
+UY <- rnorm(n, 0, 1)
+U_bias <- rnorm(n, 0, 0.5)
+Y <- -0.5-0.8*W1-1.1*W2+1.5*A+UY+(1-S)*(0.9+2.6*W1)+(1-S)*U_bias
+data <- data.frame(S, W1, W2, A, Y)
+
+atmle_res <- atmle(data,
+                   S_node = c(1),
+                   W_node = c(2, 3),
+                   A_node = 4,
+                   Y_node = 5,
+                   controls_only = FALSE,
+                   family = "gaussian",
+                   atmle_pooled = TRUE,
+                   g_rct = 0.67,
+                   verbose = FALSE)
 }
