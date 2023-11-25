@@ -2,32 +2,20 @@
 % Please edit documentation in R/eic.R
 \name{get_eic_psi_pound}
 \alias{get_eic_psi_pound}
-\title{Efficient influence function for the bias projection parameter}
+\title{Efficient influence function for the bias parameter}
 \usage{
-get_eic_psi_pound(
-  Pi,
-  tau,
-  g,
-  theta,
-  psi_pound_est,
-  S,
-  A,
-  Y,
-  n,
-  controls_only,
-  weights
-)
+get_eic_psi_pound(Pi, tau, g, theta, psi_pound_est, S, A, Y, n, controls_only)
 }
 \arguments{
-\item{Pi}{Results from \code{\link{learn_Pi}}.}
+\item{Pi}{Returns from \code{\link{learn_Pi}}.}
 
-\item{tau}{Results from \code{\link{learn_tau}}.}
+\item{tau}{Returns from \code{\link{learn_tau}}.}
 
-\item{g}{Results from \code{\link{learn_g}}.}
+\item{g}{Returns from \code{\link{learn_g}}.}
 
-\item{theta}{Results from \code{\link{learn_theta}}.}
+\item{theta}{Returns from \code{\link{learn_theta}}.}
 
-\item{psi_pound_est}{Estimate for the bias estimand.}
+\item{psi_pound_est}{Estimate of the bias estimand.}
 
 \item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
 
@@ -40,14 +28,12 @@ get_eic_psi_pound(
 
 \item{controls_only}{A logical indicating whether external data has only
 control-arm observations.}
-
-\item{weights}{A vector of (e.g. inverse-censoring) weights.}
 }
 \value{
 A vector of efficient influence function values.
 }
 \description{
-Computes the efficient influence function for the bias
-projection parameter.
+Computes the efficient influence function for the bias parameter
+under the working model.
 }
 \keyword{internal}

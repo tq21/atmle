@@ -5,29 +5,7 @@
 \title{Learn working model for the conditional effect of the study indicator \
 on the outcome}
 \usage{
-learn_tau(
-  S,
-  W,
-  A,
-  Y,
-  Pi,
-  theta,
-  g,
-  delta,
-  controls_only,
-  method,
-  v_folds,
-  max_degree,
-  min_working_model,
-  min_working_model_screen,
-  undersmooth,
-  target_gwt,
-  Pi_bounds,
-  enumerate_basis_args = list(),
-  fit_hal_args = list(),
-  weak_penalize = FALSE,
-  weights
-)
+learn_tau(S, W, A, Y, Pi, theta, controls_only, method, v_folds, max_degree)
 }
 \arguments{
 \item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}

@@ -14,24 +14,61 @@
 #' \item{pred}{A numeric vector of predictions.}
 #' \item{hal_basis_list}{A list of HAL basis.}
 #' \item{x_basis}{A numeric matrix of basis.}
-fit_relaxed_hal <- function(X, Y,
+fit_relaxed_hal <- function(X,
+                            Y,
                             family,
-                            weights = NULL,
-                            X_no_basis = NULL,
-                            X_unpenalized = NULL) {
+                            weights,
+                            v_folds,
+                            screen_unpenalize,
+                            hal_args) {
+
   x_basis <- NULL
   hal_basis_list <- NULL
+  X_unpenalized <- NULL
 
-  hal_fit <- fit_hal(X = X,
-                     Y = Y,
-                     family = family,
-                     weights = weights,
-                     max_degree = 2,
-                     X_no_basis = X_no_basis,
-                     X_unpenalized = X_unpenalized,
-                     smoothness_orders = 1,
-                     return_x_basis = TRUE,
-                     fit_control = list(use_min = FALSE))
+  # use lasso to screen main terms and interactions
+  # then unpenalize them in HAL fit
+  if (screen_unpenalize) {
+    # make design matrix for main terms and interactions
+    max_degree <- ifelse(ncol(X) >= 20, 2, 3)
+    X_unpenalized <- model.matrix(as.formula(paste0("Y ~ -1 + (.)^", max_degree)),
+                                  data = data.frame(X))
+    screen_fit <- cv.glmnet(x = X_unpenalized, y = Y, family = family,
+                            weights = weights, alpha = 1, nfolds = v_folds)
+
+    # get indices of selected terms, excluding intercept
+    non_zero <- which(as.numeric(coef(screen_fit, s = "lambda.1se")) != 0)[-1] - 1
+
+    if (length(non_zero) == 0) {
+      X_unpenalized <- NULL
+    } else {
+      X_unpenalized <- X_unpenalized[, non_zero, drop = FALSE]
+    }
+  }
+
+  # default set of arguments for HAL
+  hal_args_default <- list(X = X,
+                           Y = Y,
+                           formula = NULL,
+                           X_unpenalized = X_unpenalized,
+                           max_degree = ifelse(ncol(X) >= 20, 2, 3),
+                           smoothness_orders = 0,
+                           num_knots = hal9001:::num_knots_generator(
+                             max_degree = ifelse(ncol(X) >= 20, 2, 3),
+                             smoothness_orders = 0,
+                             base_num_knots_0 = 200,
+                             base_num_knots_1 = 50),
+                           reduce_basis = NULL,
+                           family = family,
+                           weights = weights,
+                           fit_control = list(use_min = FALSE),
+                           return_x_basis = TRUE)
+
+  # merge arguments
+  hal_args <- modifyList(hal_args_default, hal_args)
+
+  # fit HAL
+  hal_fit <- do.call(fit_hal, hal_args)
   hal_basis_list <- list()
 
   if (!is.null(X_unpenalized)) {
@@ -41,20 +78,8 @@ fit_relaxed_hal <- function(X, Y,
     hal_basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
   }
 
-  # if (!is.null(X_no_basis)) {
-  #   hal_bases_idx <- 1:(length(hal_fit$coefs)-ncol(X_no_basis)-1)
-  #   hal_basis_list <- hal_fit$basis_list[hal_fit$coefs[hal_bases_coefs] != 0]
-  # } else {
-  #   hal_basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
-  # }
-
   selected_idx <- which(hal_fit$coefs != 0)
   x_basis <- cbind(1, hal_fit$x_basis)[, selected_idx, drop = FALSE]
-
-  # basis list empty, intercept only
-  # if (length(hal_basis_list) == 0) {
-  #   x_basis <- matrix(rep(1, length(Y)))
-  # }
 
   # relaxed HAL fit
   beta <- NULL
@@ -75,5 +100,6 @@ fit_relaxed_hal <- function(X, Y,
   return(list(beta = beta,
               hal_basis_list = hal_basis_list,
               pred = pred,
-              x_basis = as.matrix(x_basis)))
+              x_basis = as.matrix(x_basis),
+              X_unpenalized = X_unpenalized))
 }

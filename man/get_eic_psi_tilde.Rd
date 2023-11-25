@@ -2,14 +2,17 @@
 % Please edit documentation in R/eic.R
 \name{get_eic_psi_tilde}
 \alias{get_eic_psi_tilde}
-\title{Efficient influence function for the pooled-ATE projection parameter}
+\title{Efficient influence function for the pooled-ATE parameter under the
+working model.}
 \usage{
-get_eic_psi_tilde(psi_tilde, g, theta, Y, A, n, weights)
+get_eic_psi_tilde(psi_tilde, g_pred, theta, Y, A, n)
 }
 \arguments{
-\item{psi_tilde}{Results from \code{\link{learn_psi_tilde}}.}
+\item{psi_tilde}{Returns from \code{\link{learn_psi_tilde}}.}
 
-\item{theta}{Results from \code{\link{learn_theta}}.}
+\item{g_pred}{Returns from \code{\link{learn_g}}.}
+
+\item{theta}{Returns from \code{\link{learn_theta}}.}
 
 \item{Y}{A vector of outcomes.}
 
@@ -17,16 +20,12 @@ get_eic_psi_tilde(psi_tilde, g, theta, Y, A, n, weights)
 \eqn{A=0} for control-arm.}
 
 \item{n}{The number of observations.}
-
-\item{weights}{A vector of (e.g. inverse-censoring) weights.}
-
-\item{g_pred}{Results from \code{\link{learn_g}}.}
 }
 \value{
 A vector of efficient influence function values.
 }
 \description{
 Computes the efficient influence function for the pooled-ATE
-projection parameter.
+parameter under the working model.
 }
 \keyword{internal}

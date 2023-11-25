@@ -1,4 +1,4 @@
-learn_Q_S1 <- function(S, W, A, Y, method) {
+learn_Q_S1 <- function(S, W, A, Y, method = "glm") {
   pred <- numeric(length = length(A))
   S1A1 <- numeric(length = length(A))
   S1A0 <- numeric(length = length(A))
@@ -32,9 +32,9 @@ to_prob <- function(pred) {
   return(1 / (1 + exp(-pred)))
 }
 
-.bound <- function(X, bounds) {
-  X[X < bounds[1]] <- bounds[1]
-  X[X > bounds[2]] <- bounds[2]
+bound <- function(X) {
+  X_max <- max(X, na.rm = TRUE)
+  X_min <- min(X, na.rm = TRUE)
 
-  return(X)
+  return((X-X_min)/(X_max-X_min))
 }

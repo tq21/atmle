@@ -27,46 +27,93 @@
 #' @param theta_method The method to estimate the nuisance function
 #' \eqn{\theta(W,A)=\mathbb{E}(Y\mid W,A)}.
 #' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-#' or a \code{list} of \code{sl3} learners for super learner-based estimation.
-#' Default is \code{"glmnet"}.
+#' \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+#' learners. Default is \code{"glmnet"}.
 #' @param Pi_method The method to estimate the nuisance function
 #' \eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}.
 #' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-#' or a \code{list} of \code{sl3} learners for super learner-based estimation.
+#' \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+#' learners. Default is \code{"glmnet"}.
 #' @param g_method The method to estimate the nuisance function
 #' \eqn{g(A\mid W)=\mathbb{P}(A=1\mid W)}.
 #' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-#' or a \code{list} of \code{sl3} learners for super learner-based estimation.
+#' \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+#' learners. Default is \code{"glmnet"}.
 #' @param theta_tilde_method The method to estimate the nuisance function
 #' \eqn{\tilde{\theta}(W,A)=\mathbb{E}(Y\mid W,A,S=1)}.
 #' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-#' or a \code{list} of \code{sl3} learners for super learner-based estimation.
+#' \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+#' learners. Default is \code{"glmnet"}.
 #' @param Q_method The method to estimate the nuisance function
 #' \eqn{Q(A,W)=\mathbb{E}(Y\mid W,A)}.
 #' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-#' or a list of \code{sl3} learners for super learner-based estimation.
+#' \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+#' learners. Default is \code{"glmnet"}.
 #' @param bias_working_model The working model for the bias estimand.
 #' Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for highly adaptive
-#' lasso-based working model. Default is \code{"glmnet"}.
+#' lasso-based working model
+#' (PLEASE USE "glmnet" FOR NOW). Default is \code{"glmnet"}.
 #' @param pooled_working_model The working model for the pooled-ATE estimand.
 #' Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for highly adaptive
-#' lasso-based working model. Default is \code{"glmnet"}.
+#' lasso-based working model.
+#' (PLEASE USE "glmnet" FOR NOW). Default is \code{"glmnet"}.
 #' @param g_rct The probability of receiving the active treatment in the
 #' randomized controlled trial.
 #' @param var_method The method to estimate the variance of the A-TMLE
 #' estimator. Either \code{"ic"} for influence curve-based variance estimator or
-#' \code{"bootstrap"} for bootstrap-based variance estimator. Default is \code{"ic"}.
+#' \code{"bootstrap"} for bootstrap-based variance estimator
+#' (PLEASE USE INFLUENCE CURVE-BASED FOR NOW). Default is \code{"ic"}.
 #' @param max_iter The maximum number of iterations for TMLE targeting of
-#' \eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}. Default is \code{1}.
+#' \eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}
+#' (PLEASE SET TO 1 FOR NOW). Default is \code{1}.
 #' @param v_folds The number of folds for cross-validation (whenever necessary).
 #' Default is \code{5}.
+#' @param g_bounds A numeric vector of lower and upper bounds for the
+#' treatment mechanism. The first element is the lower bound, and the second
+#' element is the upper bound. Default is \code{c(0.01, 0.99)}.
+#' @param Pi_bounds A numeric vector of lower and upper bounds for the
+#' trial enrollment probabilities. The first element is the lower bound,
+#' and the second element is the upper bound. Default is \code{c(0.01, 0.99)}.
+#' @param theta_bounds A numeric vector of lower and upper bounds for the
+#' conditional mean of outcome given baseline covariates and treatment.
+#' The first element is the lower bound, and the second element is the upper
+#' bound. Default is \code{c(-Inf, Inf)}.
+#' @param target_gwt If \code{TRUE}, the treatment mechanism is moved from the
+#' denominator of the clever covariate to the weight when fitting the TMLE
+#' submodel.
 #' @param verbose A logical indicating whether to print out the progress.
 #' Default is \code{TRUE}.
 #' @returns A \code{list} containing the following elements:
 #' \item{ate}{The estimated average treatment effect;}
-#' \item{ate_se}{The estimated standard error of the average treatment effect;}
-#' \item{ate_ci}{The estimated \eqn{95\%} confidence interval for the average treatment
-#' effect.}
+#' \item{lower}{The lower bound of the \eqn{95\%} confidence interval for the
+#' average treatment effect;}
+#' \item{upper}{The upper bound of the \eqn{95\%} confidence interval for the
+#' average treatment effect;}
+#'
+#' @examples
+#' # simulate data
+#' set.seed(123)
+#' n <- 2000
+#' S <- rbinom(n, 1, 0.5)
+#' W1 <- rnorm(n); W2 <- rnorm(n); W <- cbind(W1, W2)
+#' A <- numeric(n)
+#' A[S == 1] <- rbinom(sum(S), 1, 0.67)
+#' A[S == 0] <- rbinom(n-sum(S), 1, plogis(1.2*W1-0.9*W2))
+#' UY <- rnorm(n, 0, 1)
+#' U_bias <- rnorm(n, 0, 0.5)
+#' Y <- -0.5-0.8*W1-1.1*W2+1.5*A+UY+(1-S)*(0.9+2.6*W1)+(1-S)*U_bias
+#' data <- data.frame(S, W1, W2, A, Y)
+#'
+#' atmle_res <- atmle(data,
+#'                    S_node = c(1),
+#'                    W_node = c(2, 3),
+#'                    A_node = 4,
+#'                    Y_node = 5,
+#'                    controls_only = FALSE,
+#'                    family = "gaussian",
+#'                    atmle_pooled = TRUE,
+#'                    g_rct = 0.67,
+#'                    verbose = FALSE)
 atmle <- function(data,
                   S_node,
                   W_node,
@@ -75,27 +122,29 @@ atmle <- function(data,
                   controls_only,
                   family,
                   atmle_pooled = TRUE,
-                  theta_method = "glm",
-                  Pi_method = "glm",
-                  g_method = "glm",
-                  theta_tilde_method = "glm",
-                  Q_method = "glm",
+                  theta_method = "glmnet",
+                  Pi_method = "glmnet",
+                  g_method = "glmnet",
+                  theta_tilde_method = "glmnet",
+                  Q_method = "glmnet",
                   bias_working_model = "glmnet",
                   pooled_working_model = "glmnet",
                   g_rct,
                   var_method = "ic",
+                  max_degree = 1,
                   max_iter = 1,
                   v_folds = 5,
-                  g_bound = c(0.025, 0.975),
-                  Pi_bound = c(0.025, 0.975),
-                  theta_bound = c(0, 1),
+                  g_bounds = c(0.01, 0.99),
+                  Pi_bounds = c(0.01, 0.99),
+                  theta_bounds = c(-Inf, Inf),
+                  target_gwt = FALSE,
                   verbose = TRUE) {
 
   # sanity checks --------------------------------------------------------------
-  check_data_and_nodes(data, S_node, W_node, A_node, Y_node)
-  check_learners(theta_method, Pi_method, g_method, theta_tilde_method,
-                 Q_method, bias_working_model, pooled_working_model)
-  check_args(controls_only, atmle_pooled, var_method, g_rct, verbose)
+  # check_data_and_nodes(data, S_node, W_node, A_node, Y_node)
+  # check_learners(theta_method, Pi_method, g_method, theta_tilde_method,
+  #                Q_method, bias_working_model, pooled_working_model)
+  # check_args(controls_only, atmle_pooled, var_method, g_rct, verbose)
 
   # define nodes ---------------------------------------------------------------
   S <- data[, S_node] # study indicator
@@ -106,19 +155,24 @@ atmle <- function(data,
 
   # estimate bias psi_pound ----------------------------------------------------
   # learn nuisance parts
-  if (verbose) print("learning \U03B8(W,A)=E(Y|W,A)")
-  theta <- learn_theta(W, A, Y, controls_only, theta_method, v_folds, family, theta_bound)
+  if (verbose) {
+    if (bias_working_model == "binary") {
+      print("learning \U03B8(W,A)=E(Y|S=1,W,A)")
+    } else {
+      print("learning \U03B8(W,A)=E(Y|W,A)")
+    }
+  }
+  theta <- learn_theta(W, A, Y, controls_only, theta_method, v_folds, family, theta_bounds)
 
   if (verbose) print("learning \U03A0(S=1|W,A)=P(S=1|W,A)")
-  Pi <- learn_Pi(S, W, A, controls_only, Pi_method, v_folds, Pi_bound)
+  Pi <- learn_Pi(S, W, A, controls_only, Pi_method, v_folds, Pi_bounds)
 
   if (verbose) print("learning g(A=1|W)=P(A=1|W)")
-  g <- learn_g(S, W, A, g_rct, controls_only, g_method, v_folds, g_bound)
+  g <- learn_g(S, W, A, g_rct, controls_only, g_method, v_folds, g_bounds)
 
   # learn working model tau for bias
   if (verbose) print("learning \U03C4(Y|S,W,A)=E(Y|S,W,A)")
-  tau <- learn_tau(S, W, A, Y, Pi, theta, controls_only, bias_working_model,
-                   v_folds)
+  tau <- learn_tau(S, W, A, Y, Pi, theta, controls_only, bias_working_model, v_folds, max_degree)
 
   # TMLE to target Pi
   if (verbose) print("targeting \U03A0(S=1|W,A)=P(S=1|W,A)")
@@ -126,11 +180,11 @@ atmle <- function(data,
   while (iter < max_iter) {
     # TODO: check empirical mean of IC, iterate until convergence
     # targeted Pi
-    Pi_star <- Pi_tmle(S, W, A, g, tau, Pi, controls_only)
+    Pi_star <- Pi_tmle(S, W, A, g, tau, Pi, controls_only, target_gwt, Pi_bounds)
 
     # re-learn working model tau with targeted Pi
     tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, controls_only,
-                          bias_working_model, v_folds)
+                          bias_working_model, v_folds, max_degree)
 
     Pi <- Pi_star
     tau <- tau_star
@@ -151,7 +205,7 @@ atmle <- function(data,
   if (atmle_pooled) {
     # use atmle for pooled-ATE
     if (verbose) print("learning \U03B8\U0303(W)=E(Y|W)")
-    theta_tilde <- learn_theta_tilde(W, Y, theta_tilde_method, v_folds, family, theta_bound)
+    theta_tilde <- learn_theta_tilde(W, Y, theta_tilde_method, v_folds, family, theta_bounds)
 
     if (verbose) print("learning \U03A4(W)=E(Y|W,A=1)-E(Y|W,A=0)")
     T_working <- learn_T(W, A, Y, g, theta_tilde, pooled_working_model, v_folds)

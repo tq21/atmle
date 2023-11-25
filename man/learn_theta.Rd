@@ -5,18 +5,7 @@
 \title{Learn nuisance function: conditional mean of outcome given baseline
 covariates and treatment}
 \usage{
-learn_theta(
-  W,
-  A,
-  Y,
-  delta,
-  controls_only,
-  method,
-  folds,
-  family,
-  theta_bounds,
-  cross_fit_nuisance = TRUE
-)
+learn_theta(W, A, Y, controls_only, method, v_folds, family, theta_bounds)
 }
 \arguments{
 \item{W}{A matrix of baseline covariates.}
@@ -32,6 +21,9 @@ control-arm observations.}
 \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
 super learner-based estimation.}
 
+\item{v_folds}{A numeric of number of folds for cross-validation
+(when necessary).}
+
 \item{family}{A character string specifying the family of the outcome
 \eqn{Y}. Either \code{"gaussian"} or \code{"binomial"}.}
 
@@ -39,9 +31,6 @@ super learner-based estimation.}
 conditional mean of outcome given baseline covariates and treatment.
 The first element is the lower bound, and the second element is the upper
 bound.}
-
-\item{v_folds}{A numeric of number of folds for cross-validation
-(when necessary).}
 }
 \value{
 A numeric vector of the estimated values.

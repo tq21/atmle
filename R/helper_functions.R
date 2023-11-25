@@ -46,7 +46,7 @@ learn_g_S1 <- function(S, W, A, g_rct, method = "glmnet") {
   return(list(pred = pred))
 }
 
-learn_S_W <- function(S, W, method) {
+learn_S_W <- function(S, W, method = "glmnet") {
   pred <- numeric(length = length(S))
   X <- data.frame(W)
 

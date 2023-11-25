@@ -16,52 +16,45 @@ atmle(
   theta_method = "glmnet",
   Pi_method = "glmnet",
   g_method = "glmnet",
-  g_delta_method = "glmnet",
   theta_tilde_method = "glmnet",
   Q_method = "glmnet",
   bias_working_model = "glmnet",
   pooled_working_model = "glmnet",
-  min_working_model = FALSE,
-  undersmooth = FALSE,
   g_rct,
   var_method = "ic",
   max_degree = 1,
+  max_iter = 1,
   v_folds = 5,
   g_bounds = c(0.01, 0.99),
   Pi_bounds = c(0.01, 0.99),
   theta_bounds = c(-Inf, Inf),
   target_gwt = TRUE,
-  verbose = TRUE,
-  enumerate_basis_args = list(),
-  fit_hal_args = list()
+  verbose = TRUE
 )
 }
 \arguments{
-\item{data}{A \code{data.frame} containing baseline covariates \eqn{W},
-binary treatment indicator \eqn{A} (\eqn{A=1} for active treatment),
-outcome \eqn{Y}, and binary study indicator of whether the observation is
-from the randomized controlled trial \eqn{S=1} or from the external data
-\eqn{S=0}. If both studies are observational, then \eqn{S=1} should be the
-reference study.}
+\item{data}{A \code{data.frame} containing baseline covariates \eqn{W}, binary
+treatment indicator \eqn{A} (\eqn{A=1} for active treatment),
+outcome \eqn{Y}, and binary indicator of whether the observation is from the
+randomized controlled trial \eqn{S=1} or from the external data \eqn{S=0}.}
 
-\item{S_node}{The column index of the \eqn{S} node in \code{data}.}
+\item{S_node}{The column indices of the \eqn{S} node in \code{data}.}
 
 \item{W_node}{The column indices of the \eqn{W} node in \code{data}.}
 
-\item{A_node}{The column index of the \eqn{A} node in \code{data}.}
+\item{A_node}{The column indices of the \eqn{A} node in \code{data}.}
 
-\item{Y_node}{The column index of the \eqn{Y} node in \code{data}.}
+\item{Y_node}{The column indices of the \eqn{Y} node in \code{data}.}
 
 \item{controls_only}{A logical indicating whether the external data has
 only control-arm or both control-arm and treatment-arm.}
 
 \item{family}{A character string specifying the family of the outcome
-\eqn{Y}. Currently only \code{"gaussian"} and \code{"binomial"} are
-supported.}
+\eqn{Y}.
+Currently only \code{"gaussian"} and \code{"binomial"} is supported.}
 
-\item{atmle_pooled}{A logical indicating whether to also use A-TMLE for the
-pooled-ATE estimand If set to \code{FALSE}, use a regular TMLE for the
-pooled-ATE, but A-TMLE for the bias-estimand.
+\item{atmle_pooled}{A logical indicating whether to use A-TMLE for the
+pooled-ATE parameter also. If set to \code{FALSE}, use a regular TMLE.
 Default is \code{TRUE}.}
 
 \item{theta_method}{The method to estimate the nuisance function
@@ -82,13 +75,6 @@ learners. Default is \code{"glmnet"}.}
 \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
 learners. Default is \code{"glmnet"}.}
 
-\item{g_delta_method}{The method to estimate the nuisance function
-\eqn{\delta(W,A)=\mathbb{P}(\Delta=1\mid W,A)}. \code{"glm"} for main-term
-linear model, \code{"glmnet"} for lasso, \code{"sl3"} for default super
-learner, or a \code{list} of \code{sl3} learners. Default is \code{"glmnet"}.
-\eqn{\Delta} is the indicator of missing outcome. \code{1} - observed,
-\code{0} - missing. Only applicable when there are missing outcomes.}
-
 \item{theta_tilde_method}{The method to estimate the nuisance function
 \eqn{\tilde{\theta}(W,A)=\mathbb{E}(Y\mid W,A,S=1)}.
 \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
@@ -102,15 +88,26 @@ learners. Default is \code{"glmnet"}.}
 learners. Default is \code{"glmnet"}.}
 
 \item{bias_working_model}{The working model for the bias estimand.
-Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
-highly adaptive lasso-based working model}
+Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for highly adaptive
+lasso-based working model
+(PLEASE USE "glmnet" FOR NOW). Default is \code{"glmnet"}.}
 
 \item{pooled_working_model}{The working model for the pooled-ATE estimand.
-Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
-highly adaptive lasso-based working model.}
+Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for highly adaptive
+lasso-based working model.
+(PLEASE USE "glmnet" FOR NOW). Default is \code{"glmnet"}.}
 
 \item{g_rct}{The probability of receiving the active treatment in the
 randomized controlled trial.}
+
+\item{var_method}{The method to estimate the variance of the A-TMLE
+estimator. Either \code{"ic"} for influence curve-based variance estimator or
+\code{"bootstrap"} for bootstrap-based variance estimator
+(PLEASE USE INFLUENCE CURVE-BASED FOR NOW). Default is \code{"ic"}.}
+
+\item{max_iter}{The maximum number of iterations for TMLE targeting of
+\eqn{\Pi(S\mid W,A)=\mathbb{P}(S=1\mid W,A)}
+(PLEASE SET TO 1 FOR NOW). Default is \code{1}.}
 
 \item{v_folds}{The number of folds for cross-validation (whenever necessary).
 Default is \code{5}.}
@@ -149,28 +146,27 @@ effect based on combined randomized controlled trial data and real-world
 data.
 }
 \examples{
+# simulate data
 set.seed(123)
-
 n <- 2000
-S <- rbinom(n, 1, 0.2)
-W1 <- rnorm(n); W2 <- rnorm(n); W3 <- rnorm(n)
+S <- rbinom(n, 1, 0.5)
+W1 <- rnorm(n); W2 <- rnorm(n); W <- cbind(W1, W2)
 A <- numeric(n)
-g_rct <- 0.67
-A[S == 1] <- rbinom(sum(S), 1, g_rct)
-A[S == 0] <- rbinom(n-sum(S), 1, plogis(0.5*W1[S == 0]))
+A[S == 1] <- rbinom(sum(S), 1, 0.67)
+A[S == 0] <- rbinom(n-sum(S), 1, plogis(1.2*W1-0.9*W2))
 UY <- rnorm(n, 0, 1)
-Y <- 2.5+0.9*W1+1.1*W2+2.7*W3+1.5*A+UY+(1-S)*(0.2+0.1*W1*(1-A))
+U_bias <- rnorm(n, 0, 0.5)
+Y <- -0.5-0.8*W1-1.1*W2+1.5*A+UY+(1-S)*(0.9+2.6*W1)+(1-S)*U_bias
 data <- data.frame(S, W1, W2, A, Y)
-true_ate <- 1.5
 
-res <- atmle(data,
-             S_node = c(1),
-             W_node = c(2, 3),
-             A_node = 4,
-             Y_node = 5,
-             controls_only = FALSE,
-             family = "gaussian",
-             atmle_pooled = TRUE,
-             g_rct = g_rct,
-             verbose = FALSE)
+atmle_res <- atmle(data,
+                   S_node = c(1),
+                   W_node = c(2, 3),
+                   A_node = 4,
+                   Y_node = 5,
+                   controls_only = FALSE,
+                   family = "gaussian",
+                   atmle_pooled = TRUE,
+                   g_rct = 0.67,
+                   verbose = FALSE)
 }

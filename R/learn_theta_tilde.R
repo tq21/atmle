@@ -1,10 +1,10 @@
-#' Learn nuisance function: conditional mean of outcome given baseline
+#' @title Learn nuisance function: conditional mean of outcome given baseline
 #' covariates
 #'
 #' @description Function to learn the conditional mean of outcome given
 #' baseline covariates, \eqn{\tilde{\theta}(W)=\mathbb{E}(Y\mid W)}.
 #'
-#' @export
+#' @keywords nuisance
 #'
 #' @importFrom glmnet cv.glmnet
 #' @importFrom data.table data.table
@@ -25,24 +25,29 @@
 #' @param v_folds A numeric of number of folds for cross-validation
 #' (when necessary).
 #' @param family A character string specifying the family of the outcome
-#' \eqn{Y}.
+#' \eqn{Y}. Either \code{"gaussian"} or \code{"binomial"}.
+#' @param theta_bounds A numeric vector of lower and upper bounds for the
+#' conditional mean of outcome given baseline covariates.
+#' The first element is the lower bound, and the second element is the upper
+#' bound.
 #'
 #' @returns A numeric vector of the estimated values.
-learn_theta_tilde <- function(W, Y,
+learn_theta_tilde <- function(W,
+                              Y,
                               method,
                               v_folds,
                               family,
-                              theta_bound) {
+                              theta_bounds) {
 
-  if (method == "sl3") {
-    method <- get_default_sl3_learners()
+  if (is.character(method) && method == "sl3") {
+    method <- get_default_sl3_learners(family)
   }
 
-  if (is.null(theta_bound)) {
+  if (is.null(theta_bounds)) {
     if (family == "gaussian") {
-      theta_bound <- c(min(Y), max(Y))
+      theta_bounds <- c(-Inf, Inf)
     } else if (family == "binomial") {
-      theta_bound <- c(0.01, 0.99)
+      theta_bounds <- c(0.01, 0.99)
     }
   }
 
@@ -57,7 +62,8 @@ learn_theta_tilde <- function(W, Y,
                                        Lrnr_cv_selector$new(loss_squared_error))
       task_theta_tilde <- sl3_Task$new(data = data.table(W, Y = Y),
                                        covariates = colnames(W),
-                                       outcome = "Y", outcome_type = "continuous")
+                                       outcome = "Y",
+                                       outcome_type = "continuous")
     } else if (family == "binomial") {
       lrnr_theta_tilde <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
                                        Lrnr_cv_selector$new(loss_loglik_binomial))
@@ -75,11 +81,12 @@ learn_theta_tilde <- function(W, Y,
   } else if (method == "glmnet") {
     fit <- cv.glmnet(x = as.matrix(W), y = Y,
                      keep = TRUE, alpha = 1, nfolds = v_folds, family = family)
-    pred <- as.numeric(predict(fit, newx = as.matrix(W), s = "lambda.min", type = "response"))
+    pred <- as.numeric(predict(fit, newx = as.matrix(W), s = "lambda.min",
+                               type = "response"))
+  } else {
+    stop("Invalid method. Must be one of 'glm', 'glmnet', or 'sl3', or a
+         list of sl3 learners.")
   }
 
-  print("low theta_tilde: " %+% min(pred))
-  print("high theta_tilde: " %+% max(pred))
-
-  return(.bound(pred, theta_bound))
+  return(.bound(pred, theta_bounds))
 }
