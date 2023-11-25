@@ -43,6 +43,7 @@ learn_T <- function(W,
   pred <- NULL
   x_basis <- NULL
   coefs <- NULL
+  non_zero <- NULL
 
   if (method == "glmnet") {
     fit <- cv.glmnet(x = as.matrix(W), y = pseudo_outcome,
@@ -77,5 +78,6 @@ learn_T <- function(W,
 
   return(list(pred = pred,
               x_basis = x_basis,
-              coefs = coefs))
+              coefs = coefs,
+              non_zero = non_zero))
 }

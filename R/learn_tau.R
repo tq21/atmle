@@ -59,6 +59,7 @@ learn_tau <- function(S,
   x_basis_A1 <- NULL
   x_basis_A0 <- NULL
   coefs <- NULL
+  non_zero <- NULL
 
   weights <- 1 # TODO: not used yet
   pseudo_outcome <- NULL
@@ -213,5 +214,6 @@ learn_tau <- function(S,
               x_basis_A1 = x_basis_A1,
               x_basis_A0 = x_basis_A0,
               pred = pred,
-              coefs = coefs))
+              coefs = coefs,
+              non_zero = non_zero))
 }

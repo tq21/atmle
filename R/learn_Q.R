@@ -34,7 +34,6 @@
 learn_Q <- function(W,
                     A,
                     Y,
-                    delta,
                     method,
                     v_folds,
                     family,
@@ -64,7 +63,7 @@ learn_Q <- function(W,
       lrnr_stack <- Stack$new(method)
       lrnr_Q <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
                              Lrnr_cv_selector$new(loss_squared_error))
-      task_Q <- sl3_Task$new(data = data.table(W, Y = Y, A = A)[delta == 1],
+      task_Q <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
                              covariates = c(colnames(W), "A"),
                              outcome = "Y", outcome_type = "continuous")
       fit_Q <- lrnr_Q$train(task_Q)
@@ -84,7 +83,7 @@ learn_Q <- function(W,
       lrnr_stack <- Stack$new(method)
       lrnr_Q <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
                              Lrnr_cv_selector$new(loss_loglik_binomial))
-      task_Q <- sl3_Task$new(data = data.table(W, Y = Y, A = A)[delta == 1],
+      task_Q <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
                              covariates = c(colnames(W), "A"),
                              outcome = "Y", outcome_type = "binomial")
       fit_Q <- lrnr_Q$train(task_Q)
@@ -104,7 +103,7 @@ learn_Q <- function(W,
       stop("Invalid family. Must be either 'gaussian' or 'binomial'.")
     }
   } else if (method == "glm") {
-    fit <- glm(Y[delta == 1] ~., data = X[delta == 1,,drop=FALSE], family = family)
+    fit <- glm(Y ~., data = X, family = family)
     A0 <- .bound(as.numeric(predict(fit, newdata = X_A0, type = "response")),
                  theta_bounds)
     pred[A == 0] <- A0[A == 0]
@@ -113,7 +112,7 @@ learn_Q <- function(W,
     pred[A == 1] <- A1[A == 1]
 
   } else if (method == "glmnet") {
-    fit <- cv.glmnet(x = as.matrix(X[delta==1,,drop=FALSE]), y = Y[delta == 1],
+    fit <- cv.glmnet(x = as.matrix(X), y = Y,
                      keep = TRUE, alpha = 1, nfolds = v_folds,
                      family = family)
     A0 <- .bound(as.numeric(predict(fit, newx = as.matrix(X_A0),

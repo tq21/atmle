@@ -137,7 +137,7 @@ atmle <- function(data,
                   g_bounds = c(0.01, 0.99),
                   Pi_bounds = c(0.01, 0.99),
                   theta_bounds = c(-Inf, Inf),
-                  target_gwt = FALSE,
+                  target_gwt = TRUE,
                   verbose = TRUE) {
 
   # sanity checks --------------------------------------------------------------
@@ -145,6 +145,9 @@ atmle <- function(data,
   # check_learners(theta_method, Pi_method, g_method, theta_tilde_method,
   #                Q_method, bias_working_model, pooled_working_model)
   # check_args(controls_only, atmle_pooled, var_method, g_rct, verbose)
+
+  ## DIAGNOSIS LOG
+  tmp_log <- list()
 
   # define nodes ---------------------------------------------------------------
   S <- data[, S_node] # study indicator
@@ -174,6 +177,10 @@ atmle <- function(data,
   if (verbose) print("learning \U03C4(Y|S,W,A)=E(Y|S,W,A)")
   tau <- learn_tau(S, W, A, Y, Pi, theta, controls_only, bias_working_model, v_folds, max_degree)
 
+  ## LOG
+  tmp_log$tau_non_zero <- tau$non_zero
+  tmp_log$tau_coefs <- tau$coefs
+
   # TMLE to target Pi
   if (verbose) print("targeting \U03A0(S=1|W,A)=P(S=1|W,A)")
   iter <- 0
@@ -182,9 +189,16 @@ atmle <- function(data,
     # targeted Pi
     Pi_star <- Pi_tmle(S, W, A, g, tau, Pi, controls_only, target_gwt, Pi_bounds)
 
+    ## LOG
+    tmp_log$epsilon <- Pi_star$epsilon
+
     # re-learn working model tau with targeted Pi
     tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, controls_only,
                           bias_working_model, v_folds, max_degree)
+
+    ## LOG
+    tmp_log$tau_star_non_zero <- tau_star$non_zero
+    tmp_log$tau_star_coefs <- tau_star$coefs
 
     Pi <- Pi_star
     tau <- tau_star
@@ -210,12 +224,16 @@ atmle <- function(data,
     if (verbose) print("learning \U03A4(W)=E(Y|W,A=1)-E(Y|W,A=0)")
     T_working <- learn_T(W, A, Y, g, theta_tilde, pooled_working_model, v_folds)
 
+    ## LOG
+    tmp_log$T_non_zero <- T_working$non_zero
+    tmp_log$T_coefs <- T_working$coefs
+
     # estimates
     psi_tilde_est <- mean(T_working$pred)
     psi_tilde_eic <- get_eic_psi_tilde(T_working, g, theta_tilde, Y, A, n)
   } else {
     # use regular TMLE for pooled-ATE
-    Q <- learn_Q(W, A, Y, method = Q_method)
+    Q <- learn_Q(W, A, Y, Q_method, v_folds, family, theta_bounds)
     Q_star <- tmle(Y = Y, A = A, W = W, g1W = g,
                    Q = as.matrix(data.frame(Q$A1, Q$A0)),
                    family = family)

@@ -74,24 +74,48 @@ learn_theta <- function(W,
   pred <- numeric(length = length(A))
 
   if (is.list(method)) {
-    lrnr_stack <- Stack$new(method)
-    lrnr_theta <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
-                               Lrnr_cv_selector$new(loss_squared_error))
+    if (family == "gaussian") {
+      lrnr_stack <- Stack$new(method)
+      lrnr_theta <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
+                                 Lrnr_cv_selector$new(loss_squared_error))
 
-    if (controls_only) {
-      task_theta <- sl3_Task$new(data = data.table(W, Y = Y)[A == 0, ],
-                                 covariates = colnames(W),
-                                 outcome = "Y", outcome_type = "continuous")
-      fit_theta <- lrnr_theta$train(task_theta)
-      pred[A == 0] <- .bound(fit_theta$predict(task_theta), theta_bounds)
+      if (controls_only) {
+        task_theta <- sl3_Task$new(data = data.table(W, Y = Y)[A == 0, ],
+                                   covariates = colnames(W),
+                                   outcome = "Y", outcome_type = "continuous")
+        fit_theta <- lrnr_theta$train(task_theta)
+        pred[A == 0] <- .bound(fit_theta$predict(task_theta), theta_bounds)
 
+      } else {
+        task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
+                                   covariates = c(colnames(W), "A"),
+                                   outcome = "Y", outcome_type = "continuous")
+        fit_theta <- lrnr_theta$train(task_theta)
+        pred <- .bound(fit_theta$predict(task_theta), theta_bounds)
+      }
+    } else if (family == "binomial") {
+      lrnr_stack <- Stack$new(method)
+      lrnr_theta <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
+                                 Lrnr_cv_selector$new(loss_loglik_binomial))
+
+      if (controls_only) {
+        task_theta <- sl3_Task$new(data = data.table(W, Y = Y)[A == 0, ],
+                                   covariates = colnames(W),
+                                   outcome = "Y", outcome_type = "binomial")
+        fit_theta <- lrnr_theta$train(task_theta)
+        pred[A == 0] <- .bound(fit_theta$predict(task_theta), theta_bounds)
+
+      } else {
+        task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
+                                   covariates = c(colnames(W), "A"),
+                                   outcome = "Y", outcome_type = "binomial")
+        fit_theta <- lrnr_theta$train(task_theta)
+        pred <- .bound(fit_theta$predict(task_theta), theta_bounds)
+      }
     } else {
-      task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
-                                 covariates = c(colnames(W), "A"),
-                                 outcome = "Y", outcome_type = "continuous")
-      fit_theta <- lrnr_theta$train(task_theta)
-      pred <- .bound(fit_theta$predict(task_theta), theta_bounds)
+      stop("Invalid family. Must be either 'gaussian' or 'binomial'.")
     }
+
   } else if (method == "glm") {
     # A = 0
     fit_A0 <- glm(Y[A == 0] ~., data = data.frame(W[A == 0, ]), family = family)
