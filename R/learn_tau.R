@@ -106,8 +106,8 @@ learn_tau <- function(S,
     }
 
     # counterfactual design matrices
-    X_A1_counter <- cbind(1, X, 1, X)
-    X_A0_counter <- cbind(1, X, 0, X*0)
+    X_A1_counter <- cbind(1, W, 1, W)
+    X_A0_counter <- cbind(1, W, 0, W*0)
   }
 
   if (method == "binomial loss") {
