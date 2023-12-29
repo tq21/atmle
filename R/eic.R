@@ -92,11 +92,10 @@ get_eic_psi_tilde <- function(psi_tilde,
                               n) {
   # IM <- solve(t(psi_tilde$x_basis)%*%diag((g_pred*(1-g_pred)))%*%psi_tilde$x_basis/n)%*%colMeans(psi_tilde$x_basis)
   # D_beta <- psi_tilde$x_basis%*%IM*(A-g_pred)*(Y-theta-(A-g_pred)*psi_tilde$pred)
-  #browser()
 
   IM <- t(psi_tilde$x_basis)%*%diag(g_pred*(1-g_pred))%*%psi_tilde$x_basis/n
-  D_beta <- psi_tilde$x_basis%*%solve(IM)*(A-g_pred)*(Y-theta-(A-g_pred)*psi_tilde$pred)
-  return(psi_tilde$pred-mean(psi_tilde$pred)+rowSums(D_beta*psi_tilde$x_basis))
+  D_beta <- as.vector(psi_tilde$x_basis%*%solve(IM)%*%colMeans(psi_tilde$x_basis)*(A-g_pred)*(Y-theta-(A-g_pred)*psi_tilde$pred))
+  return(psi_tilde$pred-mean(psi_tilde$pred)+D_beta)
 
   #return(as.vector(psi_tilde$pred-mean(psi_tilde$pred)+D_beta))
 }
