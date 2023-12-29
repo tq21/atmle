@@ -41,15 +41,22 @@ get_eic_psi_pound <- function(Pi,
     beta_comp <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$A0)
 
   } else {
+    # W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound_est
+    # Pi_comp <- ((A/g*tau$A1-(1-A)/(1-g)*tau$A0))*(S-Pi$pred)
+    # IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
+    # IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
+    # IM_A1 <- IM%*%colMeans(tau$x_basis_A1*(1-Pi$A1))
+    # D_beta_A0 <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
+    # D_beta_A1 <- as.numeric(tau$x_basis%*%IM_A1)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
+    # beta_comp <- D_beta_A0-D_beta_A1
+
+    #browser()
+
     W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound_est
     Pi_comp <- ((A/g*tau$A1-(1-A)/(1-g)*tau$A0))*(S-Pi$pred)
-    IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
-    IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
-    IM_A1 <- IM%*%colMeans(tau$x_basis_A1*(1-Pi$A1))
-    D_beta_A0 <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
-    D_beta_A1 <- as.numeric(tau$x_basis%*%IM_A1)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
-    beta_comp <- D_beta_A0-D_beta_A1
-
+    IM <- t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n
+    D <- tau$x_basis%*%solve(IM)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
+    beta_comp <- rowSums(D*Pi$A0*tau$x_basis_A0)-rowSums(D*Pi$A1*tau$x_basis_A1)
   }
 
   # if (verbose) {
@@ -83,9 +90,15 @@ get_eic_psi_tilde <- function(psi_tilde,
                               Y,
                               A,
                               n) {
-  IM <- solve(t(psi_tilde$x_basis)%*%diag((g_pred*(1-g_pred)))%*%psi_tilde$x_basis/n)%*%colMeans(psi_tilde$x_basis)
-  D_beta <- psi_tilde$x_basis%*%IM*(A-g_pred)*(Y-theta-(A-g_pred)*psi_tilde$pred)
-  return(as.vector(psi_tilde$pred-mean(psi_tilde$pred)+D_beta))
+  # IM <- solve(t(psi_tilde$x_basis)%*%diag((g_pred*(1-g_pred)))%*%psi_tilde$x_basis/n)%*%colMeans(psi_tilde$x_basis)
+  # D_beta <- psi_tilde$x_basis%*%IM*(A-g_pred)*(Y-theta-(A-g_pred)*psi_tilde$pred)
+  #browser()
+
+  IM <- t(psi_tilde$x_basis)%*%diag(g_pred*(1-g_pred))%*%psi_tilde$x_basis/n
+  D_beta <- psi_tilde$x_basis%*%solve(IM)*(A-g_pred)*(Y-theta-(A-g_pred)*psi_tilde$pred)
+  return(psi_tilde$pred-mean(psi_tilde$pred)+rowSums(D_beta*psi_tilde$x_basis))
+
+  #return(as.vector(psi_tilde$pred-mean(psi_tilde$pred)+D_beta))
 }
 
 get_eic_Pi <- function(g, tau, Pi, S, A) {

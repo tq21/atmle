@@ -103,11 +103,14 @@ learn_tau <- function(S,
       X <- cbind(W_aug, A, W_aug*A)
     } else {
       X <- cbind(W, A, W*A)
+      #X <- cbind(W*A, A, W*(1-A))
     }
 
     # counterfactual design matrices
     X_A1_counter <- cbind(1, W, 1, W)
     X_A0_counter <- cbind(1, W, 0, W*0)
+    # X_A1_counter <- cbind(1, W*1, 1, W*0)
+    # X_A0_counter <- cbind(1, W*0, 0, W*1)
   }
 
   if (method == "binomial loss") {
@@ -175,7 +178,7 @@ learn_tau <- function(S,
                            family = "gaussian",
                            weights = pseudo_weights,
                            v_folds = v_folds,
-                           screen_unpenalize = TRUE,
+                           screen_unpenalize = FALSE,
                            hal_args = list())
 
     if (controls_only) {
@@ -206,6 +209,7 @@ learn_tau <- function(S,
 
     coefs <- fit$beta
     #print(head(fit$x_basis))
+    #print(length(coefs))
   }
 
   return(list(A1 = A1,
