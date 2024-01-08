@@ -36,9 +36,18 @@ get_eic_psi_pound <- function(Pi,
   if (controls_only) {
     W_comp <- (1-Pi$A0)*tau$A0-psi_pound_est
     Pi_comp <- -1/(1-g)*tau$A0*(S-Pi$pred)
-    IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
-    IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
-    beta_comp <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$A0)
+    #IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
+    #IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
+    #beta_comp <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$A0)
+
+    IM <- t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n
+    D <- tau$x_basis%*%solve(IM)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
+    beta_comp <- NULL
+    if (ncol(D) > 1) {
+      beta_comp <- rowSums(D%*%diag(colMeans((1-Pi$A0)*tau$x_basis_A0)))
+    } else {
+      beta_comp <- rowSums(D*colMeans((1-Pi$A0)*tau$x_basis_A0))
+    }
 
   } else {
     # W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound_est
@@ -50,13 +59,17 @@ get_eic_psi_pound <- function(Pi,
     # D_beta_A1 <- as.numeric(tau$x_basis%*%IM_A1)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
     # beta_comp <- D_beta_A0-D_beta_A1
 
-    #browser()
-
     W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound_est
     Pi_comp <- ((A/g*tau$A1-(1-A)/(1-g)*tau$A0))*(S-Pi$pred)
     IM <- t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n
     D <- tau$x_basis%*%solve(IM)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
-    beta_comp <- rowSums(D*Pi$A0*tau$x_basis_A0)-rowSums(D*Pi$A1*tau$x_basis_A1)
+    beta_comp <- NULL
+    if (ncol(D) > 1) {
+      beta_comp <- rowSums(D%*%diag(colMeans((1-Pi$A0)*tau$x_basis_A0)))-rowSums(D%*%diag(colMeans((1-Pi$A1)*tau$x_basis_A1)))
+    } else {
+      beta_comp <- rowSums(D*colMeans((1-Pi$A0)*tau$x_basis_A0))-rowSums(D*colMeans((1-Pi$A1)*tau$x_basis_A1))
+    }
+
   }
 
   # if (verbose) {
