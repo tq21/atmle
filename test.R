@@ -1,23 +1,23 @@
-source("utils.R")
-source("sim_data.R")
+# source("utils.R")
+# source("sim_data.R")
 options(sl3.verbose = TRUE)
 
 g_rct <- 0.67
-bias <- "param_simple"
-data <- sim_four_covs(1.5, 2000, 0.2, g_rct, bias, FALSE)
+bias <- "HAL_3"
+data <- sim_two_covs(1.5, 1000, 0.2, g_rct, bias, FALSE)
 
 S_node <- 1
-W_node <- c(2, 3, 4, 5)
-A_node <- 6
-Y_node <- 7
+W_node <- 2:3
+A_node <- 4
+Y_node <- 5
 controls_only <- FALSE
 var_method <- "ic"
-theta_method <- "glmnet"
-Pi_method <- "glmnet"
-g_method <- "glmnet"
-theta_tilde_method <- "glmnet"
-Q_method <- "glm"
-bias_working_model <- "glmnet"
+theta_method <- "glm"
+Pi_method <- "glm"
+g_method <- "glm"
+theta_tilde_method <- "glm"
+Q_method <- "glmnet"
+bias_working_model <- "HAL"
 pooled_working_model <- "glmnet"
 verbose <- TRUE
 family <- "gaussian"
@@ -39,12 +39,13 @@ atmle_res <- atmle(data = data,
                    g_rct = g_rct,
                    family = family,
                    verbose = FALSE,
+                   min_working_model = TRUE,
                    max_iter = 1)
 
 escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,
                           study = "S",
-                          covariates = c("W1", "W2", "W3", "W4"),
+                          covariates = c("W1", "W2", "W3"),
                           treatment_var = "A",
                           treatment = 1,
                           outcome = "Y",
@@ -102,7 +103,6 @@ escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
 # mean(tmp_2$psi_coverage)
 # hist(tmp_2$psi_est)
 # var(tmp_2$psi_est)+(mean(tmp_2$psi_est)-ate)^2
-
 
 atmle_res$upper-atmle_res$lower
 #atmle_res_bounded$upper-atmle_res_bounded$lower

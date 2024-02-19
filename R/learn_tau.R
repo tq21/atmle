@@ -47,7 +47,10 @@ learn_tau <- function(S,
                       controls_only,
                       method,
                       v_folds,
-                      max_degree) {
+                      max_degree,
+                      min_working_model,
+                      undersmooth,
+                      weak_penalize = FALSE) {
 
   pred <- NULL
   A1 <- numeric(length = length(A))
@@ -101,12 +104,15 @@ learn_tau <- function(S,
       W_aug <- model.matrix(as.formula(paste0("~ -1+(.)^", max_degree)), data = W)
       X <- cbind(W_aug, A, W_aug*A)
     } else {
-      X <- cbind(W, A, W*A)
+      X <- cbind(W, A, W*A) # good
+      #X <- cbind(W*A, A, W*(1-A))
     }
 
     # counterfactual design matrices
-    X_A1_counter <- cbind(1, X, 1, X)
-    X_A0_counter <- cbind(1, X, 0, X*0)
+    X_A1_counter <- cbind(1, W, 1, W)
+    X_A0_counter <- cbind(1, W, 0, W*0)
+    #X_A1_counter <- cbind(1, W*1, 1, W*0)
+    #X_A0_counter <- cbind(1, W*0, 0, W*1)
   }
 
   if (method == "binomial loss") {
@@ -139,6 +145,7 @@ learn_tau <- function(S,
                      keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE)
     non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
     coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
+    #print(non_zero)
 
     if (controls_only) {
       # selected counterfactual bases
@@ -161,50 +168,103 @@ learn_tau <- function(S,
     }
 
   } else if (method == "HAL") {
-    # TODO: not fully working right now
-    X <- NULL
-    if (controls_only) {
-      X <- as.matrix(W[A == 0, ])
-    } else {
-      X <- as.matrix(cbind(W, A))
-    }
-
-    # fit HAL
-    fit <- fit_relaxed_hal(X = X, Y = pseudo_outcome,
-                           family = "gaussian",
-                           weights = pseudo_weights,
-                           v_folds = v_folds,
-                           screen_unpenalize = TRUE,
-                           hal_args = list())
 
     if (controls_only) {
-      # design matrices
+      # external data has only controls
+      X <- data.frame(W)
+
+      # enforce a minimal (main-term only) working model
+      if (min_working_model) {
+        X_unpenalized <- X_unpenalized_A0 <- X_unpenalized_A1 <- as.matrix(W)
+      } else {
+        X_unpenalized <- X_unpenalized_A0 <- X_unpenalized_A1 <- NULL
+      }
+
+      # fit relaxed HAL
+      fit <- fit_relaxed_hal(X = X, Y = pseudo_outcome,
+                             X_unpenalized = X_unpenalized,
+                             family = "gaussian",
+                             weights = pseudo_weights,
+                             v_folds = v_folds,
+                             hal_args = list())
+
+      # selected bases
       x_basis <- x_basis_A0 <- make_counter_design_matrix(
-        fit$hal_basis_list,
-        as.matrix(W),
-        X_unpenalized = fit$X_unpenalized)
+        basis_list = fit$hal_basis_list,
+        X_counterfactual = as.matrix(W),
+        X_unpenalized = X_unpenalized)
 
       # predictions
       pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
+
     } else {
-      # design matrices
-      x_basis <- fit$x_basis
-      x_basis_A1 <- make_counter_design_matrix(fit$hal_basis_list,
-                                               as.matrix(cbind(W, A = 1)),
-                                               X_unpenalized = fit$X_unpenalized)
-      x_basis_A0 <- make_counter_design_matrix(fit$hal_basis_list,
-                                               as.matrix(cbind(W, A = 0)),
-                                               X_unpenalized = fit$X_unpenalized)
+      # external data has both controls and treated
+      X <- data.frame(W, A)
+      X_A0 <- data.frame(W, A = 0)
+      X_A1 <- data.frame(W, A = 1)
 
-      # predictions
-      A1 <- as.numeric(x_basis_A1 %*% matrix(fit$beta))
-      A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
-      pred[A == 1] <- A1[A == 1]
-      pred[A == 0] <- A0[A == 0]
+      # enforce a minimal (main-term only) working model
+      if (min_working_model) {
+        X_unpenalized <- model.matrix(as.formula("~-1+.+A:."),
+                                      data = X)
+        X_unpenalized_A0 <- model.matrix(as.formula("~-1+.+A:."),
+                                         data = data.frame(W, A = 0))
+        X_unpenalized_A1 <- model.matrix(as.formula("~-1+.+A:."),
+                                         data = data.frame(W, A = 1))
+      } else {
+        X_unpenalized <- X_unpenalized_A0 <- X_unpenalized_A1 <- NULL
+      }
+
+      if (weak_penalize) {
+        X_weak_penalized <- model.matrix(as.formula("~-1+.+A:."),
+                                        data = X)
+      } else {
+        X_weak_penalized <- NULL
+      }
+
+      # fit relaxed HAL
+      fit <- fit_relaxed_hal(X = X, Y = pseudo_outcome,
+                             X_unpenalized = X_unpenalized,
+                             X_weak_penalized = X_weak_penalized,
+                             X_weak_penalized_level = 0.1,
+                             family = "gaussian",
+                             weights = pseudo_weights,
+                             relaxed = TRUE,
+                             v_folds = v_folds,
+                             hal_args = list())
+
+      print("non zero: " %+% length(fit$beta))
+
+      if (undersmooth) {
+        # undersmoothing
+        tau <- undersmooth_fit(hal_fit = fit$hal_fit,
+                               S = S, W = W, A = A, X = X, Y = pseudo_outcome,
+                               Pi = Pi, theta = theta,
+                               X_unpenalized = X_unpenalized,
+                               controls_only = controls_only,
+                               relaxed = FALSE)
+
+        return(tau)
+
+      } else {
+        # selected bases
+        x_basis <- fit$x_basis
+        x_basis_A1 <- make_counter_design_matrix(
+          basis_list = fit$hal_basis_list,
+          X_counterfactual = as.matrix(X_A1),
+          X_unpenalized = X_unpenalized_A1[, fit$selected_unpenalized_idx, drop = FALSE])
+        x_basis_A0 <- make_counter_design_matrix(
+          basis_list = fit$hal_basis_list,
+          X_counterfactual = as.matrix(X_A0),
+          X_unpenalized = X_unpenalized_A0[, fit$selected_unpenalized_idx, drop = FALSE])
+
+        # predictions
+        A1 <- as.numeric(x_basis_A1 %*% matrix(fit$beta))
+        A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
+        pred[A == 1] <- A1[A == 1]
+        pred[A == 0] <- A0[A == 0]
+      }
     }
-
-    coefs <- fit$beta
-    #print(head(fit$x_basis))
   }
 
   return(list(A1 = A1,
@@ -213,5 +273,6 @@ learn_tau <- function(S,
               x_basis_A1 = x_basis_A1,
               x_basis_A0 = x_basis_A0,
               pred = pred,
-              coefs = coefs))
+              coefs = fit$beta,
+              non_zero = non_zero))
 }

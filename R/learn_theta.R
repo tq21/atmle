@@ -108,14 +108,39 @@ learn_theta <- function(W,
       pred[A == 1] <- A1
     }
 
+    # # A = 0
+    # folds_A0 <- make_folds(n = length(A)-sum(A), V = 5)
+    # A0 <- numeric(length = length(A)-sum(A))
+    # walk(folds_A0, function(.x) {
+    #   train_idx <- .x$training_set
+    #   valid_idx <- .x$validation_set
+    #   fit_A0 <- glm(Y[A == 0][train_idx] ~., data = data.frame(W[A == 0, ])[train_idx,], family = family)
+    #   A0[valid_idx] <<- .bound(as.numeric(predict(fit_A0, newdata = data.frame(W[A == 0, ])[valid_idx,],
+    #                                               type = "response")), theta_bounds)
+    # })
+    # pred[A == 0] <- A0
+#
+    # if (!controls_only) {
+    #   # A = 1
+    #   folds_A1 <- make_folds(n = sum(A), V = 5)
+    #   A1 <- numeric(length = sum(A))
+    #   walk(folds_A1, function(.x) {
+    #     train_idx <- .x$training_set
+    #     valid_idx <- .x$validation_set
+    #     fit_A1 <- glm(Y[A == 1][train_idx] ~., data = data.frame(W[A == 1, ])[train_idx,], family = family)
+    #     A1[valid_idx] <<- .bound(as.numeric(predict(fit_A1, newdata = data.frame(W[A == 1, ])[valid_idx,],
+    #                                                 type = "response")), theta_bounds)
+    #   })
+    #   pred[A == 1] <- A1
+    # }
+
   } else if (method == "glmnet") {
     # A = 0
     fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0, ]), y = Y[A == 0],
                         keep = TRUE, alpha = 1, nfolds = v_folds,
                         family = family)
-    A0 <- .bound(as.numeric(predict(fit_A0, newx = as.matrix(W[A == 0, ]),
-                                    s = "lambda.min", type = "response")),
-                 theta_bounds)
+    A0_lambda_min <- fit_A0$lambda[which.min(fit_A0$cvm[!is.na(colSums(fit_A0$fit.preval))])]
+    A0 <- .bound(as.numeric(fit_A0$fit.preval[,!is.na(colSums(fit_A0$fit.preval))][, fit_A0$lambda[!is.na(colSums(fit_A0$fit.preval))] == A0_lambda_min]), theta_bounds)
     pred[A == 0] <- A0
 
     if (!controls_only) {
@@ -123,9 +148,8 @@ learn_theta <- function(W,
       fit_A1 <- cv.glmnet(x = as.matrix(W[A == 1, ]), y = Y[A == 1],
                           keep = TRUE, alpha = 1, nfolds = v_folds,
                           family = family)
-      A1 <- .bound(as.numeric(predict(fit_A1, newx = as.matrix(W[A == 1, ]),
-                                      s = "lambda.min", type = "response")),
-                   theta_bounds)
+      A1_lambda_min <- fit_A1$lambda[which.min(fit_A1$cvm[!is.na(colSums(fit_A1$fit.preval))])]
+      A1 <- .bound(as.numeric(fit_A1$fit.preval[,!is.na(colSums(fit_A1$fit.preval))][, fit_A1$lambda[!is.na(colSums(fit_A1$fit.preval))] == A1_lambda_min]), theta_bounds)
       pred[A == 1] <- A1
     }
   } else {

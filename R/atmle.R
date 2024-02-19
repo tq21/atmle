@@ -129,6 +129,8 @@ atmle <- function(data,
                   Q_method = "glmnet",
                   bias_working_model = "glmnet",
                   pooled_working_model = "glmnet",
+                  min_working_model = FALSE,
+                  undersmooth = FALSE,
                   g_rct,
                   var_method = "ic",
                   max_degree = 1,
@@ -162,6 +164,7 @@ atmle <- function(data,
       print("learning \U03B8(W,A)=E(Y|W,A)")
     }
   }
+
   theta <- learn_theta(W, A, Y, controls_only, theta_method, v_folds, family, theta_bounds)
 
   if (verbose) print("learning \U03A0(S=1|W,A)=P(S=1|W,A)")
@@ -172,24 +175,20 @@ atmle <- function(data,
 
   # learn working model tau for bias
   if (verbose) print("learning \U03C4(Y|S,W,A)=E(Y|S,W,A)")
-  tau <- learn_tau(S, W, A, Y, Pi, theta, controls_only, bias_working_model, v_folds, max_degree)
+  tau <- learn_tau(S, W, A, Y, Pi, theta,
+                   controls_only,
+                   bias_working_model,
+                   v_folds,
+                   max_degree,
+                   min_working_model,
+                   undersmooth)
 
   # TMLE to target Pi
   if (verbose) print("targeting \U03A0(S=1|W,A)=P(S=1|W,A)")
-  iter <- 0
-  while (iter < max_iter) {
-    # TODO: check empirical mean of IC, iterate until convergence
-    # targeted Pi
-    Pi_star <- Pi_tmle(S, W, A, g, tau, Pi, controls_only, target_gwt, Pi_bounds)
+  Pi <- Pi_tmle(S, W, A, g, tau, Pi, controls_only, target_gwt, Pi_bounds)
 
-    # re-learn working model tau with targeted Pi
-    tau_star <- learn_tau(S, W, A, Y, Pi_star, theta, controls_only,
-                          bias_working_model, v_folds, max_degree)
-
-    Pi <- Pi_star
-    tau <- tau_star
-    iter <- iter + 1
-  }
+  ## LOG
+  tmp_log$epsilon <- Pi$epsilon
 
   psi_pound_est <- NULL
   if (controls_only) {
@@ -250,6 +249,7 @@ atmle <- function(data,
     est <- psi_tilde_est - psi_pound_est
     eic <- psi_tilde_eic - psi_pound_eic
     se <- sqrt(var(eic, na.rm = TRUE)/n)
+    #se <- sqrt((var(psi_pound_eic, na.rm = TRUE)+var(psi_tilde_eic, na.rm = TRUE))/n)
     lower <- est+qnorm(0.025)*se
     upper <- est+qnorm(0.975)*se
   } else if (var_method == "bootstrap") {
@@ -277,13 +277,17 @@ atmle <- function(data,
     upper <- est+qnorm(0.975)*se
   }
 
-  return(list(est = est,
-              lower = lower,
-              upper = upper,
-              psi_pound_est = psi_pound_est,
-              psi_pound_lower = psi_pound_lower,
-              psi_pound_upper = psi_pound_upper,
-              psi_tilde_est = psi_tilde_est,
-              psi_tilde_lower = psi_tilde_lower,
-              psi_tilde_upper = psi_tilde_upper))
+  results <- list(est = est,
+                  lower = lower,
+                  upper = upper,
+                  psi_pound_est = psi_pound_est,
+                  psi_pound_lower = psi_pound_lower,
+                  psi_pound_upper = psi_pound_upper,
+                  psi_tilde_est = psi_tilde_est,
+                  psi_tilde_lower = psi_tilde_lower,
+                  psi_tilde_upper = psi_tilde_upper,
+                  tau_A1 = tau$A1,
+                  tau_A0 = tau$A0)
+
+  return(c(results, tmp_log))
 }

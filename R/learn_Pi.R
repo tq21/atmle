@@ -115,19 +115,20 @@ learn_Pi <- function(S,
       pred[A == 1] <- A1[A == 1]
     }
 
-  } else if (method == "empirical") {
-    # estimate Pi using its empirical distribution, not recommended
-    # for testing purposes only, only use if S independent of W
-    # A == 0
-    A0 <- rep(mean(S[A == 0]), length(A))
-    pred[A == 0] <- A0[A == 0]
+  # } else if (method == "empirical") {
+  #   # estimate Pi using its empirical distribution, not recommended
+  #   # for testing purposes only, only use if S independent of W
+  #   # A == 0
+  #   A0 <- rep(mean(S[A == 0]), length(A))
+  #   pred[A == 0] <- A0[A == 0]
 
-    if (controls_only) {
-      pred[A == 1] <- 1
-    } else {
-      A1 <- rep(mean(S[A == 1]), length(A))
-      pred[A == 1] <- A1[A == 1]
-    }
+  #   if (controls_only) {
+  #     pred[A == 1] <- 1
+  #   } else {
+  #     A1 <- rep(mean(S[A == 1]), length(A))
+  #     pred[A == 1] <- A1[A == 1]
+  #   }
+
   } else {
     stop("Invalid method. Must be one of 'glm', 'glmnet', or 'sl3', or a
          list of sl3 learners.")

@@ -18,6 +18,40 @@
 #' control-arm observations.
 #'
 #' @return A vector of efficient influence function values.
+# get_eic_psi_pound <- function(Pi, tau, g, theta, psi_pound_est, S, A, Y, n, controls_only) {
+#
+#   browser()
+#   if (controls_only) {
+#     W_comp <- (1-Pi$A0)*tau$A0-psi_pound_est
+#     Pi_comp <- -1/(1-g)*tau$A0*(S-Pi$pred)
+#     IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
+#     IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
+#     tmp <- tau$A0
+#     beta_comp <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
+#
+#     return(W_comp+Pi_comp+beta_comp)
+#
+#   } else {
+#     W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound_est
+#     Pi_comp <- ((A/g*tau$A1-(1-A)/(1-g)*tau$A0))*(S-Pi$pred)
+#     IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
+#     IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
+#     IM_A1 <- IM%*%colMeans(tau$x_basis_A1*(1-Pi$A1))
+#     tmp <- vector(length = n)
+#     tmp[A == 1] <- tau$A1[A == 1]
+#     tmp[A == 0] <- tau$A0[A == 0]
+#     D_beta_A0 <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
+#     D_beta_A1 <- as.numeric(tau$x_basis%*%IM_A1)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tmp)
+#     beta_comp <- D_beta_A0-D_beta_A1
+#
+#     print("EIC W component: " %+% round(mean(W_comp), 5))
+#     print("EIC Pi component: " %+% round(mean(Pi_comp), 5))
+#     print("EIC beta component: " %+% round(mean(beta_comp), 5))
+#
+#     return(W_comp+Pi_comp+beta_comp)
+#   }
+# }
+
 get_eic_psi_pound <- function(Pi,
                               tau,
                               g,
@@ -43,19 +77,20 @@ get_eic_psi_pound <- function(Pi,
   } else {
     W_comp <- (1-Pi$A0)*tau$A0-(1-Pi$A1)*tau$A1-psi_pound_est
     Pi_comp <- ((A/g*tau$A1-(1-A)/(1-g)*tau$A0))*(S-Pi$pred)
-    IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
-    IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
-    IM_A1 <- IM%*%colMeans(tau$x_basis_A1*(1-Pi$A1))
-    D_beta_A0 <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
-    D_beta_A1 <- as.numeric(tau$x_basis%*%IM_A1)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
-    beta_comp <- D_beta_A0-D_beta_A1
-
+    IM <- t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n
+    D <- tau$x_basis%*%solve(IM)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$pred)
+    beta_comp <- NULL
+     if (ncol(D) > 1) {
+       beta_comp <- rowSums(D%*%diag(colMeans((1-Pi$A0)*tau$x_basis_A0)))-rowSums(D%*%diag(colMeans((1-Pi$A1)*tau$x_basis_A1)))
+     } else {
+       beta_comp <- rowSums(D*colMeans((1-Pi$A0)*tau$x_basis_A0))-rowSums(D*colMeans((1-Pi$A1)*tau$x_basis_A1))
+     }
   }
 
   # if (verbose) {
-  #   print("EIC W component: " %+% round(mean(W_comp), 5))
-  #   print("EIC Pi component: " %+% round(mean(Pi_comp), 5))
-  #   print("EIC beta component: " %+% round(mean(beta_comp), 5))
+  # print("EIC W component: " %+% round(mean(W_comp), 5))
+  # print("EIC Pi component: " %+% round(mean(Pi_comp), 5))
+  # print("EIC beta component: " %+% round(mean(beta_comp), 5))
   # }
 
   return(W_comp+Pi_comp+beta_comp)
@@ -83,9 +118,20 @@ get_eic_psi_tilde <- function(psi_tilde,
                               Y,
                               A,
                               n) {
-  IM <- solve(t(psi_tilde$x_basis)%*%diag((g_pred*(1-g_pred)))%*%psi_tilde$x_basis/n)%*%colMeans(psi_tilde$x_basis)
-  D_beta <- psi_tilde$x_basis%*%IM*(A-g_pred)*(Y-theta-(A-g_pred)*psi_tilde$pred)
-  return(as.vector(psi_tilde$pred-mean(psi_tilde$pred)+D_beta))
+  # IM <- solve(t(psi_tilde$x_basis)%*%diag((g_pred*(1-g_pred)))%*%psi_tilde$x_basis/n)%*%colMeans(psi_tilde$x_basis)
+  # D_beta <- psi_tilde$x_basis%*%IM*(A-g_pred)*(Y-theta-(A-g_pred)*psi_tilde$pred)
+
+  IM <- t(psi_tilde$x_basis)%*%diag(g_pred*(1-g_pred))%*%psi_tilde$x_basis/n
+  D_beta <- as.vector(psi_tilde$x_basis%*%solve(IM)%*%colMeans(psi_tilde$x_basis)*(A-g_pred)*(Y-theta-(A-g_pred)*psi_tilde$pred))
+
+  W_comp <- psi_tilde$pred-mean(psi_tilde$pred)
+
+  # print("Pooled EIC W component: " %+% round(mean(W_comp), 5))
+  # print("Pooled EIC beta component: " %+% round(mean(D_beta), 5))
+
+  return(W_comp+D_beta)
+
+  #return(as.vector(psi_tilde$pred-mean(psi_tilde$pred)+D_beta))
 }
 
 get_eic_Pi <- function(g, tau, Pi, S, A) {
