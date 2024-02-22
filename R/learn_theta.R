@@ -55,7 +55,7 @@ learn_theta <- function(W,
                         Y,
                         controls_only,
                         method,
-                        v_folds,
+                        folds,
                         family,
                         theta_bounds) {
 
@@ -71,87 +71,92 @@ learn_theta <- function(W,
     }
   }
 
-  pred <- numeric(length = length(A))
+  pred <- rep(NA, length(A))
 
   if (is.list(method)) {
-    lrnr_stack <- Stack$new(method)
-    lrnr_theta <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
-                               Lrnr_cv_selector$new(loss_squared_error))
+    if (family == "gaussian") {
+      lrnr_stack <- Stack$new(method)
+      lrnr_theta <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
+                                 Lrnr_cv_selector$new(loss_squared_error))
 
+      if (controls_only) {
+        task_theta <- sl3_Task$new(data = data.table(W, Y = Y)[A == 0, ],
+                                   covariates = colnames(W),
+                                   outcome = "Y", outcome_type = "continuous")
+        fit_theta <- lrnr_theta$train(task_theta)
+        pred[A == 0] <- .bound(fit_theta$predict(task_theta), theta_bounds)
+
+      } else {
+        task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
+                                   covariates = c(colnames(W), "A"),
+                                   outcome = "Y", outcome_type = "continuous")
+        fit_theta <- lrnr_theta$train(task_theta)
+        pred <- .bound(fit_theta$predict(task_theta), theta_bounds)
+      }
+    } else if (family == "binomial") {
+      lrnr_stack <- Stack$new(method)
+      lrnr_theta <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
+                                 Lrnr_cv_selector$new(loss_loglik_binomial))
+
+      if (controls_only) {
+        task_theta <- sl3_Task$new(data = data.table(W, Y = Y)[A == 0, ],
+                                   covariates = colnames(W),
+                                   outcome = "Y", outcome_type = "binomial")
+        fit_theta <- lrnr_theta$train(task_theta)
+        pred[A == 0] <- .bound(fit_theta$predict(task_theta), theta_bounds)
+
+      } else {
+        task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
+                                   covariates = c(colnames(W), "A"),
+                                   outcome = "Y", outcome_type = "binomial")
+        fit_theta <- lrnr_theta$train(task_theta)
+        pred <- .bound(fit_theta$predict(task_theta), theta_bounds)
+      }
+    } else {
+      stop("Invalid family. Must be either 'gaussian' or 'binomial'.")
+    }
+
+  } else if (method == "glm") {
     if (controls_only) {
-      task_theta <- sl3_Task$new(data = data.table(W, Y = Y)[A == 0, ],
-                                 covariates = colnames(W),
-                                 outcome = "Y", outcome_type = "continuous")
-      fit_theta <- lrnr_theta$train(task_theta)
-      pred[A == 0] <- .bound(fit_theta$predict(task_theta), theta_bounds)
+      fit <- glm(Y[A == 0] ~., data = data.frame(W[A == 0, ]), family = family)
+      A0 <- .bound(as.numeric(predict(fit, newdata = data.frame(W[A == 0, ]),
+                                      type = "response")), theta_bounds)
+      pred[A == 0] <- A0
 
     } else {
-      task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
-                                 covariates = c(colnames(W), "A"),
-                                 outcome = "Y", outcome_type = "continuous")
-      fit_theta <- lrnr_theta$train(task_theta)
-      pred <- .bound(fit_theta$predict(task_theta), theta_bounds)
+      X <- as.data.frame(model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A)))
+      walk(folds, function(.x) {
+        train_idx <- .x$training_set
+        valid_idx <- .x$validation_set
+        fit <- glm(Y[train_idx] ~., data = X[train_idx, ], family = family)
+        pred[valid_idx] <<- .bound(as.numeric(predict(fit, newdata = X[valid_idx,],
+                                                      type = "response")), theta_bounds)
+      })
     }
-  } else if (method == "glm") {
-    # A = 0
-    fit_A0 <- glm(Y[A == 0] ~., data = data.frame(W[A == 0, ]), family = family)
-    A0 <- .bound(as.numeric(predict(fit_A0, newdata = data.frame(W[A == 0, ]),
-                                    type = "response")), theta_bounds)
-    pred[A == 0] <- A0
-
-    if (!controls_only) {
-      # A = 1
-      fit_A1 <- glm(Y[A == 1] ~., data = data.frame(W[A == 1, ]),
-                    family = family)
-      A1 <- .bound(as.numeric(predict(fit_A1, newdata = data.frame(W[A == 1, ]),
-                                      type = "response")), theta_bounds)
-      pred[A == 1] <- A1
-    }
-
-    # # A = 0
-    # folds_A0 <- make_folds(n = length(A)-sum(A), V = 5)
-    # A0 <- numeric(length = length(A)-sum(A))
-    # walk(folds_A0, function(.x) {
-    #   train_idx <- .x$training_set
-    #   valid_idx <- .x$validation_set
-    #   fit_A0 <- glm(Y[A == 0][train_idx] ~., data = data.frame(W[A == 0, ])[train_idx,], family = family)
-    #   A0[valid_idx] <<- .bound(as.numeric(predict(fit_A0, newdata = data.frame(W[A == 0, ])[valid_idx,],
-    #                                               type = "response")), theta_bounds)
-    # })
-    # pred[A == 0] <- A0
-#
-    # if (!controls_only) {
-    #   # A = 1
-    #   folds_A1 <- make_folds(n = sum(A), V = 5)
-    #   A1 <- numeric(length = sum(A))
-    #   walk(folds_A1, function(.x) {
-    #     train_idx <- .x$training_set
-    #     valid_idx <- .x$validation_set
-    #     fit_A1 <- glm(Y[A == 1][train_idx] ~., data = data.frame(W[A == 1, ])[train_idx,], family = family)
-    #     A1[valid_idx] <<- .bound(as.numeric(predict(fit_A1, newdata = data.frame(W[A == 1, ])[valid_idx,],
-    #                                                 type = "response")), theta_bounds)
-    #   })
-    #   pred[A == 1] <- A1
-    # }
 
   } else if (method == "glmnet") {
-    # A = 0
-    fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0, ]), y = Y[A == 0],
-                        keep = TRUE, alpha = 1, nfolds = v_folds,
-                        family = family)
-    A0_lambda_min <- fit_A0$lambda[which.min(fit_A0$cvm[!is.na(colSums(fit_A0$fit.preval))])]
-    A0 <- .bound(as.numeric(fit_A0$fit.preval[,!is.na(colSums(fit_A0$fit.preval))][, fit_A0$lambda[!is.na(colSums(fit_A0$fit.preval))] == A0_lambda_min]), theta_bounds)
-    pred[A == 0] <- A0
-
-    if (!controls_only) {
-      # A = 1
-      fit_A1 <- cv.glmnet(x = as.matrix(W[A == 1, ]), y = Y[A == 1],
-                          keep = TRUE, alpha = 1, nfolds = v_folds,
+    if (controls_only) {
+      fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0, ]), y = Y[A == 0],
+                          keep = TRUE, alpha = 1, nfolds = length(folds),
                           family = family)
-      A1_lambda_min <- fit_A1$lambda[which.min(fit_A1$cvm[!is.na(colSums(fit_A1$fit.preval))])]
-      A1 <- .bound(as.numeric(fit_A1$fit.preval[,!is.na(colSums(fit_A1$fit.preval))][, fit_A1$lambda[!is.na(colSums(fit_A1$fit.preval))] == A1_lambda_min]), theta_bounds)
-      pred[A == 1] <- A1
+      A0 <- .bound(as.numeric(predict(fit_A0, newx = as.matrix(W[A == 0, ]),
+                                      s = "lambda.min", type = "response")),
+                   theta_bounds)
+      pred[A == 0] <- A0
+
+    } else {
+      X <- as.data.frame(model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A)))
+      walk(folds, function(.x) {
+        train_idx <- .x$training_set
+        valid_idx <- .x$validation_set
+        fit <- cv.glmnet(x = as.matrix(X[train_idx, ]), y = Y[train_idx],
+                         keep = TRUE, alpha = 1, nfolds = length(folds), family = family)
+        pred[valid_idx] <<- .bound(as.numeric(predict(fit, newx = as.matrix(X[valid_idx, ]),
+                                                    s = "lambda.min", type = "response")),
+                                   theta_bounds)
+      })
     }
+
   } else {
     stop("Invalid method. Must be one of 'glm', 'glmnet', or 'sl3', or a
          list of sl3 learners.")

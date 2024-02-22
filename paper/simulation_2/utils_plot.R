@@ -38,16 +38,18 @@ get_mse_plot <- function(title, names, ...) {
   dt_res <- dt_res[order(dt_res$n), ]
 
   p_mse <- ggplot(dt_res, aes(x = n, y = mse, color = estimator)) +
-    geom_point(size = 1.5) +
-    geom_line(linewidth = 1) +
+    geom_point() +
+    geom_line() +
     labs(title = "",
          x = "n",
          y = "mse") +
     theme_minimal() +
-    theme(text = element_text(size = 16),
-          legend.position = "none")
+    theme(text = element_text(size = 16))
 
-  return(p_mse)
+  plt <- ggarrange(p_mse, nrow = 1, ncol = 1)
+  plt <- annotate_figure(plt, top = text_grob(title, face = "bold", size = 16))
+
+  return(plt)
 }
 
 get_cover_plot <- function(title, names, ...) {
@@ -58,18 +60,20 @@ get_cover_plot <- function(title, names, ...) {
   dt_res <- dt_res[order(dt_res$n), ]
 
   p_cover <- ggplot(dt_res, aes(x = n, y = cover, color = estimator)) +
-    geom_point(size = 1.5) +
-    geom_line(linewidth = 1) +
+    geom_point() +
+    geom_line() +
     geom_hline(yintercept = 0.95, color = "red", linetype = "dashed", linewidth = 1) +
-    scale_y_continuous(breaks = seq(0, 1.0, 0.1), limits = c(0, 1.0)) +
+    scale_y_continuous(breaks = seq(0.8, 1.0, 0.05), limits = c(0.8, 1.0)) +
     labs(title = "",
          x = "n",
-         y = "Coverage") +
+         y = "coverage") +
     theme_minimal() +
-    theme(text = element_text(size = 16),
-          legend.position = "none")
+    theme(text = element_text(size = 16))
 
-  return(p_cover)
+  plt <- ggarrange(p_cover, nrow = 1, ncol = 1)
+  plt <- annotate_figure(plt, top = text_grob(title, face = "bold", size = 16))
+
+  return(plt)
 }
 
 get_plot <- function(title, names, ...) {
@@ -129,15 +133,29 @@ get_plot_prop_selected <- function(escvtmle_res, name) {
   df <- data.frame(n = total_sample_sizes,
                    prop = map_vec(escvtmle_res$all_escvtmle_prop_selected, mean))
   p <- ggplot(df, aes(x = n, y = prop)) +
-    geom_point(size = 1.5, color = "#7CAE00") +
-    geom_line(linewidth = 1, color = "#7CAE00") +
+    geom_point() +
+    geom_line() +
     scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
     labs(title = "",
          x = "n",
-         y = "Avg. prop. folds selected") +
+         y = "Average proportion of folds that pooled by ES-CVTMLE") +
+    theme_minimal() +
+    theme(text = element_text(size = 16))
+
+  return(p)
+}
+
+get_plot_selected <- function(escvtmle_res, name) {
+  df <- data.frame(prop = escvtmle_res$escvtmle_prop_selected)
+  p <- ggplot(df, aes(x = prop)) +
+    geom_bar(stat = "count") +
+    scale_x_continuous(breaks = seq(0, 1, 0.2)) +
+    labs(title = name,
+         x = "prop. of folds selected",
+         y = "frequency") +
     theme_minimal() +
     theme(text = element_text(size = 16),
-          legend.position = "none")
+          plot.title = element_text(hjust = 0.5))
 
   return(p)
 }
@@ -165,18 +183,11 @@ get_relative_mse_plot <- function(title, estimator_names, comparisons, ...) {
     geom_point(size = 1.5) +
     geom_line(linewidth = 1) +
     geom_hline(yintercept = 1, color = "red", linetype = "dashed", linewidth = 1) +
-    scale_y_continuous(breaks = seq(0.8, 2, 0.2), limits = c(0.8, 2)) +
+    scale_y_continuous(breaks = seq(1, 2, 0.5), limits = c(1, 2)) +
     labs(title = title,
          x = "n",
          y = "Relative MSE") +
     theme_minimal() +
     theme(text = element_text(size = 16),
-          legend.position = "none")
+          plot.title = element_text(face = "bold", size = 16, hjust = 0.5))
 }
-
-# gg_color_hue <- function(n) {
-#   hues = seq(15, 375, length = n + 1)
-#   hcl(h = hues, l = 65, c = 100)[1:n]
-# }
-# n = 4
-# cols = gg_color_hue(n)

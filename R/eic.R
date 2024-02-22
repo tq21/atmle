@@ -68,8 +68,8 @@ get_eic_psi_pound <- function(Pi,
   beta_comp <- NULL # beta-component of the EIC
 
   if (controls_only) {
-    W_comp <- (1-Pi$A0)*tau$A0-psi_pound_est
-    Pi_comp <- -1/(1-g)*tau$A0*(S-Pi$pred)
+    W_comp <- ((1-Pi$A0)*tau$A0-psi_pound_est)
+    Pi_comp <- (-1/(1-g)*tau$A0*(S-Pi$pred))
     IM <- solve(t(tau$x_basis)%*%diag((Pi$pred*(1-Pi$pred)))%*%tau$x_basis/n)
     IM_A0 <- IM%*%colMeans(tau$x_basis_A0*(1-Pi$A0))
     beta_comp <- as.numeric(tau$x_basis%*%IM_A0)*(S-Pi$pred)*(Y-theta-(S-Pi$pred)*tau$A0)

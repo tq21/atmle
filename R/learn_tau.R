@@ -168,7 +168,7 @@ learn_tau <- function(S,
     }
 
   } else if (method == "HAL") {
-
+    non_zero <- NULL
     if (controls_only) {
       # external data has only controls
       X <- data.frame(W)
@@ -233,7 +233,7 @@ learn_tau <- function(S,
                              v_folds = v_folds,
                              hal_args = list())
 
-      print("non zero: " %+% length(fit$beta))
+      #print("non zero: " %+% length(fit$beta))
 
       if (undersmooth) {
         # undersmoothing

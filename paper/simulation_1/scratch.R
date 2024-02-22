@@ -4,11 +4,11 @@ load_all()
 source("sim_data.R")
 
 g_rct <- 0.67
-bias <- "a"
+bias <- "b"
 ate <- 1.5
-n_rct <- 500
-n_rwd <- 2000
-controls_only <- FALSE
+n_rct <- 1000
+n_rwd <- 5000
+controls_only <- TRUE
 data_rct <- sim_data(ate = ate,
                      n = n_rct,
                      rct = TRUE,

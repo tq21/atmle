@@ -67,9 +67,9 @@ run_sim <- function(data_list,
       data <- cur_data_list[[j]]
 
       S_node <- 1
-      W_node <- 2:4
-      A_node <- 5
-      Y_node <- 6
+      W_node <- 2:3
+      A_node <- 4
+      Y_node <- 5
 
       # fit
       res <- NULL
@@ -88,7 +88,7 @@ run_sim <- function(data_list,
                      theta_tilde_method = nuisance_method,
                      Q_method = nuisance_method,
                      bias_working_model = working_model,
-                     pooled_working_model = working_model,
+                     pooled_working_model = "glmnet",
                      g_rct = g_rct,
                      verbose = FALSE)
       } else if (method == "atmle_tmle") {
@@ -106,11 +106,11 @@ run_sim <- function(data_list,
                      theta_tilde_method = nuisance_method,
                      Q_method = nuisance_method,
                      bias_working_model = working_model,
-                     pooled_working_model = working_model,
+                     pooled_working_model = "glmnet",
                      g_rct = g_rct,
                      verbose = FALSE)
       } else if (method == "escvtmle") {
-        covariates <- c("W1", "W2", "W3")
+        covariates <- c("W1", "W2")
         tmp <- ES.cvtmle(txinrwd = !controls_only,
                          data = data,
                          study = "S",

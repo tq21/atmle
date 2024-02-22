@@ -39,16 +39,16 @@ learn_Pi <- function(S,
                      A,
                      controls_only,
                      method,
-                     v_folds,
+                     folds,
                      Pi_bounds) {
 
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners("binomial")
   }
 
-  pred <- numeric(length(A))
+  pred <- rep(NA, length(A))
   A1 <- rep(1, length(A))
-  A0 <- numeric(length(A))
+  A0 <- rep(NA, length(A))
 
   if (is.list(method)) {
     lrnr_stack <- Stack$new(method)
@@ -73,29 +73,35 @@ learn_Pi <- function(S,
       A1 <- .bound(fit_Pi$predict(task_Pi_A1), Pi_bounds)
       pred[A == 1] <- A1[A == 1]
     }
-  } else if (method == "glm") {
-    # A = 0
-    fit_A0 <- glm(S[A == 0] ~., data = data.frame(W[A == 0,]),
-                  family = "binomial")
-    A0 <- .bound(as.numeric(predict(fit_A0, newdata = data.frame(W),
-                                    type = "response")), Pi_bounds)
-    pred[A == 0] <- A0[A == 0]
 
+  } else if (method == "glm") {
     if (controls_only) {
-      pred[A == 1] <- 1 # no treated in external
-    } else {
-      # A = 1
-      fit_A1 <- glm(S[A == 1] ~., data = data.frame(W[A == 1,]),
-                    family = "binomial")
-      A1 <- .bound(as.numeric(predict(fit_A1, newdata = data.frame(W),
+      fit <- glm(S[A == 0] ~ ., data = data.frame(W[A == 0, ]), family = "binomial")
+      A0 <- .bound(as.numeric(predict(fit, newdata = data.frame(W),
                                       type = "response")), Pi_bounds)
-      pred[A == 1] <- A1[A == 1]
+      pred[A == 1] <- 1 # no treated in external
+      pred[A == 0] <- A0[A == 0]
+    } else {
+      X <- as.data.frame(model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A)))
+      X_A0 <- as.data.frame(model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = 0)))
+      X_A1 <- as.data.frame(model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = 1)))
+      walk(folds, function(.x) {
+        train_idx <- .x$training_set
+        valid_idx <- .x$validation_set
+        fit <- glm(S[train_idx] ~., data = X[train_idx, ], family = "binomial")
+        pred[valid_idx] <<- .bound(as.numeric(predict(fit, newdata = X[valid_idx,],
+                                                      type = "response")), Pi_bounds)
+        A0[valid_idx] <<- .bound(as.numeric(predict(fit, newdata = X_A0[valid_idx,],
+                                                    type = "response")), Pi_bounds)
+        A1[valid_idx] <<- .bound(as.numeric(predict(fit, newdata = X_A1[valid_idx,],
+                                                    type = "response")), Pi_bounds)
+      })
     }
 
   } else if (method == "glmnet") {
     # A = 0
     fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0, ]), y = S[A == 0],
-                        keep = TRUE, alpha = 1, nfolds = v_folds,
+                        keep = TRUE, alpha = 1, nfolds = length(folds),
                         family = "binomial")
     A0 <- .bound(as.numeric(predict(fit_A0, newx = as.matrix(W),
                                     s = "lambda.min",
@@ -114,20 +120,6 @@ learn_Pi <- function(S,
                                       type = "response")), Pi_bounds)
       pred[A == 1] <- A1[A == 1]
     }
-
-  # } else if (method == "empirical") {
-  #   # estimate Pi using its empirical distribution, not recommended
-  #   # for testing purposes only, only use if S independent of W
-  #   # A == 0
-  #   A0 <- rep(mean(S[A == 0]), length(A))
-  #   pred[A == 0] <- A0[A == 0]
-
-  #   if (controls_only) {
-  #     pred[A == 1] <- 1
-  #   } else {
-  #     A1 <- rep(mean(S[A == 1]), length(A))
-  #     pred[A == 1] <- A1[A == 1]
-  #   }
 
   } else {
     stop("Invalid method. Must be one of 'glm', 'glmnet', or 'sl3', or a

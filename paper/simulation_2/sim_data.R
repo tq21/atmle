@@ -8,9 +8,10 @@ sim_data <- function(ate,
   UY <- rnorm(n, 0, 1)
 
   # baseline covariates
-  W1 <- rnorm(n, 0, 1)
-  W2 <- rnorm(n, 0, 1)
-  W3 <- rnorm(n, 0, 1)
+  # W1 <- round(runif(n, -1, 1), 1)
+  # W2 <- round(runif(n, -1, 1), 1)
+  W1 <- round(rnorm(n, 0, 1), 2)
+  W2 <- rbinom(n, 1, 0.5)
 
   # study indicator S and treatment A
   if (rct) {
@@ -21,25 +22,28 @@ sim_data <- function(ate,
     if (controls_only) {
       A <- rep(0, n)
     } else {
-      A <- rbinom(n, 1, plogis(0.5*W1))
+      A <- rbinom(n, 1, plogis(W1))
     }
   }
 
   # bias term for RWD data
-  if (bias == "a") {
-    b <- 0.2+0.1*W1*(1-A)
-  } else if (bias == "b") {
-    b <- 0.5+3.1*W1*(1-A)+0.8*W3
+  if (is.numeric(bias)) {
+    b <- bias
+  } else if (bias == "HAL_1") {
+    b <- 0.3+0.1*W1*W2*(1-A)+0.6*(1-A)
+  } else if (bias == "HAL_2") {
+    b <- 0.5+0.4*sin(2*pi*abs(W1))*(1-A)+0.3*(1-A)
+  } else if (bias == "HAL_3") {
+    b <- 0.8+(0.5*as.numeric(W1 >= 0)+0.3*W1*W2)*(1-A)
   }
 
   # outcome
-  Y <- 2.5+0.9*W1+1.1*W2+2.7*W3+ate*A+UY+(1-S)*b
+  Y <- 2.5+0.9*W1+1.1*W2+ate*A+UY+(1-S)*b
 
   # data frames combining RCT and RWD
   data <- data.frame(S = S,
                      W1 = W1,
                      W2 = W2,
-                     W3 = W3,
                      A = A,
                      Y = Y)
 

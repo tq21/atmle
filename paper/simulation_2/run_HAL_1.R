@@ -7,18 +7,18 @@
 source("utils.R")
 
 # simulation parameters --------------------------------------------------------
-set.seed(123)
+set.seed(213)
 B <- 500 # number of runs for each sample size n
 n_rct_seq <- c(400, 500, 600, 700, 800)
 n_rwd_seq <- n_rct_seq * 3
 ate <- 1.5 # true ATE
-bias <- "a" # true bias
-controls_only <- TRUE
+bias <- "HAL_1" # true bias
+controls_only <- FALSE
 nuisance_method <- "glm"
-working_model <- "glmnet"
+working_model <- "HAL"
 g_rct <- 0.67
 f_name <- bias %+% "_bias"
-date_name <- "0221"
+date_name <- "0218"
 
 # make data
 data_list <- make_data(B = B,

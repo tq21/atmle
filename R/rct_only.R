@@ -5,6 +5,7 @@ rct_only <- function(data,
                      A_node,
                      Y_node,
                      g_rct,
+                     family,
                      nuisance_method="glm",
                      verbose=TRUE) {
 
@@ -19,7 +20,7 @@ rct_only <- function(data,
   Q <- learn_Q(W, A, Y)
   Q_star <- tmle(Y = Y, A = A, W = W, g1W = rep(g_rct, sum(S == 1)),
                  Q = as.matrix(data.frame(Q$A1, Q$A0)),
-                 family = "gaussian")
+                 family = family)
   psi_est <- Q_star$estimates$ATE$psi
   psi_eic <- Q_star$estimates$IC$IC.ATE
   psi_se <- sqrt(var(psi_eic, na.rm = TRUE)/n)

@@ -56,7 +56,7 @@ fit_relaxed_hal <- function(X,
                                   max_degree = ifelse(ncol(X) >= 20, 2, 3),
                                   smoothness_orders = 1,
                                   base_num_knots_0 = 200,
-                                  base_num_knots_1 = 20))
+                                  base_num_knots_1 = 50))
   penalty_factor <- rep(1, length(basis_list))
 
   if (!is.null(X_weak_penalized)) {
@@ -81,7 +81,7 @@ fit_relaxed_hal <- function(X,
                            reduce_basis = NULL,
                            family = family,
                            weights = weights,
-                           fit_control = list(use_min = FALSE),
+                           #fit_control = list(use_min = FALSE),
                            return_x_basis = TRUE)
 
   # merge arguments

@@ -18,7 +18,7 @@ nuisance_method <- "glm"
 working_model <- "glmnet"
 g_rct <- 0.67
 f_name <- bias %+% "_bias"
-date_name <- "0218"
+date_name <- "0221"
 
 # make data
 data_list <- make_data(B = B,
