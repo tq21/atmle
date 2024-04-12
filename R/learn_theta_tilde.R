@@ -35,9 +35,10 @@
 learn_theta_tilde <- function(W,
                               Y,
                               method,
-                              v_folds,
+                              folds,
                               family,
-                              theta_bounds) {
+                              theta_bounds,
+                              cross_fit_nuisance) {
 
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners(family)
@@ -74,15 +75,50 @@ learn_theta_tilde <- function(W,
 
     fit_theta_tilde <- lrnr_theta_tilde$train(task_theta_tilde)
     pred <- fit_theta_tilde$predict(task_theta_tilde)
+
   } else if (method == "glm") {
-    fit <- glm(Y ~., data = data.frame(W), family = family)
-    pred <- as.numeric(predict(fit, newdata = data.frame(W), type = "response"))
+
+    X <- data.frame(W)
+
+    if (cross_fit_nuisance) {
+      # cross fit
+      walk(folds, function(.x) {
+        train_idx <- .x$training_set
+        valid_idx <- .x$validation_set
+        fit <- glm(Y[train_idx] ~., data = X[train_idx, ], family = family)
+        pred[valid_idx] <<- as.numeric(predict(
+          fit, newdata = X[valid_idx,], type = "response"))
+      })
+
+    } else {
+      # no cross fit
+      fit <- glm(Y ~., data = X, family = family)
+      pred <- as.numeric(predict(fit, newdata = X, type = "response"))
+    }
 
   } else if (method == "glmnet") {
-    fit <- cv.glmnet(x = as.matrix(W), y = Y,
-                     keep = TRUE, alpha = 1, nfolds = v_folds, family = family)
-    pred <- as.numeric(predict(fit, newx = as.matrix(W), s = "lambda.min",
-                               type = "response"))
+
+    X <- as.matrix(W)
+
+    if (cross_fit_nuisance) {
+      # cross fit
+      walk(folds, function(.x) {
+        train_idx <- .x$training_set
+        valid_idx <- .x$validation_set
+        fit <- cv.glmnet(x = X[train_idx, ], y = Y[train_idx], keep = TRUE,
+                         alpha = 1, nfolds = length(folds), family = family)
+        pred[valid_idx] <<- as.numeric(predict(
+          fit, newx = X[valid_idx, ], s = "lambda.min", type = "response"))
+      })
+
+    } else {
+      # no cross fit
+      fit <- cv.glmnet(x = X, y = Y, keep = TRUE, alpha = 1,
+                       nfolds = length(folds), family = family)
+      pred <- as.numeric(predict(
+        fit, newx = X, s = "lambda.min", type = "response"))
+    }
+
   } else {
     stop("Invalid method. Must be one of 'glm', 'glmnet', or 'sl3', or a
          list of sl3 learners.")

@@ -42,7 +42,7 @@ library(atmle)
 library(EScvtmle)
 options(sl3.verbose = TRUE)
 `%+%` <- function(a, b) paste0(a, b)
-set.seed(82379)
+set.seed(234897)
 
 # simulate data
 n <- 2000
@@ -54,7 +54,7 @@ A[S == 1] <- rbinom(sum(S), 1, g_rct)
 A[S == 0] <- rbinom(n-sum(S), 1, plogis(1.2*W1-0.9*W2))
 UY <- rnorm(n, 0, 1)
 U_bias <- rnorm(n, 0, 0.5)
-Y <- -0.5-0.8*W1-1.1*W2+1.5*A+UY+(1-S)*(0.9+2.6*W1)+(1-S)*U_bias
+Y <- -0.5-0.8*W1-1.1*W2+1.5*A+UY+(1-S)*(0.9+2.6*W1*A)+(1-S)*U_bias
 data <- data.frame(S, W1, W2, A, Y)
 true_ate <- 1.5
 

@@ -4,11 +4,11 @@ load_all()
 source("sim_data.R")
 
 g_rct <- 0.67
-bias <- "b"
+bias <- "a"
 ate <- 1.5
-n_rct <- 1000
-n_rwd <- 5000
-controls_only <- TRUE
+n_rct <- 300
+n_rwd <- 1200
+controls_only <- FALSE
 data_rct <- sim_data(ate = ate,
                      n = n_rct,
                      rct = TRUE,
@@ -52,7 +52,8 @@ atmle_res <- atmle(data = data,
                    pooled_working_model = pooled_working_model,
                    g_rct = g_rct,
                    family = family,
-                   verbose = FALSE)
+                   verbose = FALSE,
+                   var_method = "ic")
 
 escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,

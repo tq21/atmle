@@ -76,7 +76,8 @@ run_sim_n_increase <- function(B,
                      bias_working_model = working_model,
                      pooled_working_model = working_model,
                      g_rct = g_rct,
-                     verbose = FALSE)
+                     verbose = FALSE,
+                     var_method = "ic")
       } else if (method == "atmle_tmle") {
         res <- atmle(data = data,
                      S_node = S_node,

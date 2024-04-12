@@ -5,7 +5,7 @@
 \title{Learn nuisance function: conditional mean of outcome given baseline
 covariates}
 \usage{
-learn_theta_tilde(W, Y, method, v_folds, family, theta_bounds)
+learn_theta_tilde(W, Y, method, folds, family, theta_bounds)
 }
 \arguments{
 \item{W}{A matrix of baseline covariates.}
@@ -16,9 +16,6 @@ learn_theta_tilde(W, Y, method, v_folds, family, theta_bounds)
 \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
 super learner-based estimation.}
 
-\item{v_folds}{A numeric of number of folds for cross-validation
-(when necessary).}
-
 \item{family}{A character string specifying the family of the outcome
 \eqn{Y}. Either \code{"gaussian"} or \code{"binomial"}.}
 
@@ -26,6 +23,9 @@ super learner-based estimation.}
 conditional mean of outcome given baseline covariates.
 The first element is the lower bound, and the second element is the upper
 bound.}
+
+\item{v_folds}{A numeric of number of folds for cross-validation
+(when necessary).}
 }
 \value{
 A numeric vector of the estimated values.

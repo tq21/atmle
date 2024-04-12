@@ -6,23 +6,21 @@ source("sim_data.R")
 g_rct <- 0.67
 bias <- "b"
 ate <- 1.5
-n_rct <- 1000
-n_rwd <- 2000
-controls_only <- FALSE
+n_rct <- 400
+n_rwd <- 1600
+controls_only <- TRUE
 data_rct <- sim_data(ate = ate,
                      n = n_rct,
                      rct = TRUE,
                      g_rct = g_rct,
                      bias = bias,
-                     controls_only = controls_only,
-                     censor = 2.3)
+                     controls_only = controls_only)
 data_rwd <- sim_data(ate = ate,
                      n = n_rwd,
                      rct = FALSE,
                      g_rct = g_rct,
                      bias = bias,
-                     controls_only = controls_only,
-                     censor = 2.3)
+                     controls_only = controls_only)
 data <- rbind(data_rct, data_rwd)
 
 S_node <- 1
@@ -32,7 +30,6 @@ Y_node <- 6
 theta_method <- "glm"
 Pi_method <- "glm"
 g_method <- "glm"
-g_delta_method <- "glm"
 theta_tilde_method <- "glm"
 Q_method <- "glm"
 bias_working_model <- "glmnet"
@@ -49,15 +46,13 @@ atmle_res <- atmle(data = data,
                    theta_method = theta_method,
                    Pi_method = Pi_method,
                    g_method = g_method,
-                   g_delta_method = g_delta_method,
                    theta_tilde_method = theta_tilde_method,
                    Q_method = Q_method,
                    bias_working_model = bias_working_model,
                    pooled_working_model = pooled_working_model,
                    g_rct = g_rct,
                    family = family,
-                   verbose = FALSE,
-                   var_method = "ic")
+                   verbose = FALSE)
 
 escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,
@@ -70,30 +65,27 @@ escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
                           family = family,
                           Q.SL.library = c("SL.glm"),
                           g.SL.library = c("SL.glm"),
-                          d.SL.library.RCT = c("SL.glm"),
-                          d.SL.library.RWD = c("SL.glm"),
                           Q.discreteSL = TRUE,
                           g.discreteSL = TRUE,
-                          d.discreteSL = TRUE,
                           V = 5)
 
-# tmle_res <- nonparametric(data = data,
-#                           S_node = S_node,
-#                           W_node = W_node,
-#                           A_node = A_node,
-#                           Y_node = Y_node,
-#                           controls_only = controls_only,
-#                           family = "gaussian",
-#                           atmle_pooled = TRUE,
-#                           theta_method = theta_method,
-#                           Pi_method = Pi_method,
-#                           g_method = g_method,
-#                           theta_tilde_method = theta_tilde_method,
-#                           Q_method = Q_method,
-#                           bias_working_model = bias_working_model,
-#                           pooled_working_model = pooled_working_model,
-#                           g_rct = g_rct,
-#                           verbose = FALSE)
+tmle_res <- nonparametric(data = data,
+                          S_node = S_node,
+                          W_node = W_node,
+                          A_node = A_node,
+                          Y_node = Y_node,
+                          controls_only = controls_only,
+                          family = "gaussian",
+                          atmle_pooled = TRUE,
+                          theta_method = theta_method,
+                          Pi_method = Pi_method,
+                          g_method = g_method,
+                          theta_tilde_method = theta_tilde_method,
+                          Q_method = Q_method,
+                          bias_working_model = bias_working_model,
+                          pooled_working_model = pooled_working_model,
+                          g_rct = g_rct,
+                          verbose = FALSE)
 # (mean(atmle_both_res$all_psi_est[[1]])-ate)^2+var(atmle_both_res$all_psi_est[[1]])
 # (mean(escvtmle_res$all_psi_est[[1]])-ate)^2+var(escvtmle_res$all_psi_est[[1]])
 # (mean(tmle_res$all_psi_est[[1]])-ate)^2+var(tmle_res$all_psi_est[[1]])
@@ -107,4 +99,4 @@ escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
 atmle_res$upper-atmle_res$lower
 as.numeric(escvtmle_res$CI$b2v[2]-escvtmle_res$CI$b2v[1])
 escvtmle_res$proportionselected
-#tmle_res$upper-tmle_res$lower
+tmle_res$upper-tmle_res$lower

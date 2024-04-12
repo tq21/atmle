@@ -23,40 +23,47 @@
 #' \item{A1}{The estimated trial enrollment probabilities under treatment;}
 #' \item{A0}{The estimated trial enrollment probabilities under control.}
 #' @param B The number of bootstrap samples.
-bootstrap_psi_pound <- function(tau, W, Pi, B = 1000) {
-  psi_pound_var <- var(unlist(map(seq(B), function(b) {
+bootstrap_ci <- function(tau,
+                         T_working,
+                         Pi,
+                         tau_weights,
+                         B = 500) {
+
+  boot_ests <- map_vec(seq(B), function(b) {
     # sample rows
-    psi_pound_samp_idx <- sample(nrow(tau$x_basis), replace = TRUE)
+    samp_idx <- sample(nrow(tau$x_basis), replace = TRUE)
 
-    # predictions
-    A1 <- as.numeric(tau$x_basis_A1[psi_pound_samp_idx,] %*% matrix(tau$coefs))
-    A0 <- as.numeric(tau$x_basis_A0[psi_pound_samp_idx,] %*% matrix(tau$coefs))
+    # learn psi pound
+    fit_tau <- glm.fit(x = tau$x_basis[samp_idx, ],
+                       y = tau$pseudo_outcome[samp_idx],
+                       family = gaussian(),
+                       weights = tau$pseudo_weights,
+                       intercept = FALSE)
+    beta_tau <- coef(fit_tau); beta_tau[is.na(beta_tau)] <- 0
+    A1 <- as.numeric(tau$x_basis_A1[samp_idx, ] %*% matrix(beta_tau))
+    A0 <- as.numeric(tau$x_basis_A0[samp_idx, ] %*% matrix(beta_tau))
 
-    return(mean((1-Pi$A0[psi_pound_samp_idx])*A0-(1-Pi$A1[psi_pound_samp_idx])*A1))
-  })))
+    # learn psi tilde
+    fit_T_working <- glm.fit(x = T_working$x_basis[samp_idx, ],
+                             y = T_working$pseudo_outcome[samp_idx],
+                             family = gaussian(),
+                             weights = T_working$pseudo_weights,
+                             intercept = FALSE)
+    beta_T_working <- coef(fit_T_working); beta_T_working[is.na(beta_T_working)] <- 0
+    pred <- as.numeric(T_working$x_basis[samp_idx, ] %*% matrix(beta_T_working))
 
-  return(sqrt(psi_pound_var))
-}
+    # get point estimate
+    if (controls_only) {
+      psi_pound_est <- mean((1-A0)*A0)
+    } else {
+      psi_pound_est <- mean((1-Pi$A0[samp_idx])*A0-(1-Pi$A1[samp_idx])*A1)
+    }
+    psi_tilde_est <- mean(pred)
+    psi <- psi_tilde_est - psi_pound_est
 
-#' @title Function to compute bootstrap confidence interval for
-#' the pooled-ATE estimate.
-#'
-#' @importFrom purrr map
-#'
-#' @param W A matrix of baseline covariates.
-#' @param psi_tilde A \code{list} containing the following elements:
-#' \item{pred}{A numeric vector of the estimated conditional effects;}
-#' \item{x_basis}{A numeric matrix of the working model bases;}
-#' \item{coefs}{A numeric vector of the working model coefficients.}
-#' @param B The number of bootstrap samples.
-bootstrap_psi_tilde <- function(W, psi_tilde, B = 1000) {
-  psi_tilde_var <- var(unlist(map(seq(B), function(b) {
-    # sample rows
-    psi_tilde_samp_idx <- sample(nrow(W), replace = TRUE)
+    return(psi)
+  })
 
-    # predict
-    return(mean(as.numeric(as.matrix(cbind(1, W)) %*% matrix(psi_tilde$coefs))))
-  })))
-
-  return(sqrt(psi_tilde_var))
+  return(list(lower = as.numeric(quantile(boot_ests, probs = 0.025)),
+              upper = as.numeric(quantile(boot_ests, probs = 0.975))))
 }

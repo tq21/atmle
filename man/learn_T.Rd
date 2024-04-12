@@ -5,18 +5,7 @@
 \title{Learn working model for the conditional effect of treatment on the
 outcome}
 \usage{
-learn_T(
-  W,
-  A,
-  Y,
-  g,
-  delta,
-  theta_tilde,
-  method,
-  min_working_model,
-  v_folds,
-  weights
-)
+learn_T(W, A, Y, g, theta_tilde, method, min_working_model, v_folds)
 }
 \arguments{
 \item{W}{A matrix of baseline covariates.}

@@ -22,12 +22,60 @@ get_res <- function(res, ate, estimator_name) {
   mse <- bias^2+var
   cover <- get_cover(res)
 
-  return(data.frame(n = seq(n_min, n_max, n_step),
-                    estimator = estimator_name,
+  return(data.frame(n = total_sample_sizes,
+                    Estimator = estimator_name,
                     bias = bias,
                     se = se,
                     mse = mse,
                     cover = cover))
+}
+
+get_mse_plot <- function(title, names, ...) {
+  res_list <- list(...)
+  dt_res <- map_dfr(1:length(res_list), function(i) {
+    return(get_res(res_list[[i]], ate, names[i]))
+  })
+  dt_res <- dt_res[order(dt_res$n), ]
+
+  p_mse <- ggplot(dt_res, aes(x = n, y = mse, color = Estimator)) +
+    geom_point(size = 1.5) +
+    geom_line(linewidth = 1) +
+    scale_x_continuous(breaks = n_rct_seq+n_rwd_seq,
+                       limits = c(min(n_rct_seq+n_rwd_seq),
+                                  max(n_rct_seq+n_rwd_seq))) +
+    labs(title = "",
+         x = "n",
+         y = "MSE") +
+    theme_minimal() +
+    theme(text = element_text(size = 16),
+          legend.position = "none")
+
+  return(p_mse)
+}
+
+get_cover_plot <- function(title, names, ...) {
+  res_list <- list(...)
+  dt_res <- map_dfr(1:length(res_list), function(i) {
+    return(get_res(res_list[[i]], ate, names[i]))
+  })
+  dt_res <- dt_res[order(dt_res$n), ]
+
+  p_cover <- ggplot(dt_res, aes(x = n, y = cover, color = Estimator)) +
+    geom_point(size = 1.5) +
+    geom_line(linewidth = 1) +
+    geom_hline(yintercept = 0.95, color = "red", linetype = "dashed", linewidth = 1) +
+    scale_y_continuous(breaks = seq(0, 1.0, 0.1), limits = c(0, 1.0)) +
+    scale_x_continuous(breaks = n_rct_seq+n_rwd_seq,
+                       limits = c(min(n_rct_seq+n_rwd_seq),
+                                  max(n_rct_seq+n_rwd_seq))) +
+    labs(title = "",
+         x = "n",
+         y = "Coverage") +
+    theme_minimal() +
+    theme(text = element_text(size = 16),
+          legend.position = "none")
+
+  return(p_cover)
 }
 
 get_plot <- function(title, names, ...) {
@@ -37,7 +85,7 @@ get_plot <- function(title, names, ...) {
   })
   dt_res <- dt_res[order(dt_res$n), ]
 
-  p_bias <- ggplot(dt_res, aes(x = n, y = abs(bias), color = estimator)) +
+  p_bias <- ggplot(dt_res, aes(x = n, y = abs(bias), color = Estimator)) +
     geom_point() +
     geom_line() +
     labs(title = "",
@@ -46,7 +94,7 @@ get_plot <- function(title, names, ...) {
     theme_minimal() +
     theme(text = element_text(size = 16))
 
-  p_se <- ggplot(dt_res, aes(x = n, y = se, color = estimator)) +
+  p_se <- ggplot(dt_res, aes(x = n, y = se, color = Estimator)) +
     geom_point() +
     geom_line() +
     labs(title = "",
@@ -55,7 +103,7 @@ get_plot <- function(title, names, ...) {
     theme_minimal() +
     theme(text = element_text(size = 16))
 
-  p_mse <- ggplot(dt_res, aes(x = n, y = mse, color = estimator)) +
+  p_mse <- ggplot(dt_res, aes(x = n, y = mse, color = Estimator)) +
     geom_point() +
     geom_line() +
     labs(title = "",
@@ -64,7 +112,7 @@ get_plot <- function(title, names, ...) {
     theme_minimal() +
     theme(text = element_text(size = 16))
 
-  p_cover <- ggplot(dt_res, aes(x = n, y = cover, color = estimator)) +
+  p_cover <- ggplot(dt_res, aes(x = n, y = cover, color = Estimator)) +
     geom_point() +
     geom_line() +
     geom_hline(yintercept = 0.95, color = "red", linetype = "dashed", linewidth = 1) +
@@ -82,17 +130,22 @@ get_plot <- function(title, names, ...) {
   return(plt)
 }
 
-get_plot_selected <- function(escvtmle_res, name) {
-  df <- data.frame(prop = escvtmle_res$escvtmle_prop_selected)
-  p <- ggplot(df, aes(x = prop)) +
-    geom_bar(stat = "count") +
-    scale_x_continuous(breaks = seq(0, 1, 0.2)) +
-    labs(title = name,
-         x = "prop. of folds selected",
-         y = "frequency") +
+# average proportion of folds selected plot for each n
+get_plot_prop_selected <- function(escvtmle_res, name) {
+  df <- data.frame(n = total_sample_sizes,
+                   prop = map_vec(escvtmle_res$all_escvtmle_prop_selected, mean))
+  p <- ggplot(df, aes(x = n, y = prop)) +
+    geom_point(size = 1.5, color = "#17B02B") +
+    geom_line(linewidth = 1, color = "#17B02B") +
+    scale_x_continuous(breaks = n_rct_seq+n_rwd_seq,
+                       limits = c(min(n_rct_seq+n_rwd_seq),
+                                  max(n_rct_seq+n_rwd_seq))) +
+    labs(title = "",
+         x = "n",
+         y = "Avg. prop. folds selected") +
     theme_minimal() +
     theme(text = element_text(size = 16),
-          plot.title = element_text(hjust = 0.5))
+          legend.position = "none")
 
   return(p)
 }
@@ -113,18 +166,24 @@ get_relative_mse_plot <- function(title, estimator_names, comparisons, ...) {
   for (i in 1:length(comparisons)) {
     comparator <- comparisons[[i]][1]
     reference <- comparisons[[i]][2]
-    dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$estimator == reference] / dt_res$mse[dt_res$estimator == comparator]
+    dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$Estimator == reference] / dt_res$mse[dt_res$Estimator == comparator]
   }
 
   relative_mse_plot <- ggplot(dt_relative, aes(x = n, y = ratio, color = names)) +
     geom_point(size = 1.5) +
     geom_line(linewidth = 1) +
     geom_hline(yintercept = 1, color = "red", linetype = "dashed", linewidth = 1) +
-    scale_y_continuous(breaks = seq(0, 7, 1), limits = c(0, 7)) +
+    scale_x_continuous(breaks = n_rct_seq+n_rwd_seq,
+                       limits = c(min(n_rct_seq+n_rwd_seq),
+                                  max(n_rct_seq+n_rwd_seq))) +
     labs(title = title,
          x = "n",
-         y = "relative mse") +
+         y = "Relative MSE") +
     theme_minimal() +
     theme(text = element_text(size = 16),
-          plot.title = element_text(face = "bold", size = 16, hjust = 0.5))
+          legend.position = "none")
+}
+
+get_avg_ci_length <- function(obj) {
+  return(mean(unlist(obj$all_psi_ci_upper) - unlist(obj$all_psi_ci_lower)))
 }

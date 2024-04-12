@@ -33,6 +33,7 @@ learn_T <- function(W,
                     g,
                     theta_tilde,
                     method,
+                    min_working_model,
                     v_folds) {
 
   # R-transformations
@@ -56,17 +57,29 @@ learn_T <- function(W,
 
   } else if (method == "HAL") {
 
-    # TODO: not fully functional right now.
-
     X <- as.matrix(W)
+
+    if (min_working_model) {
+      X_unpenalized <- cbind(1, W)
+    } else {
+      X_unpenalized <- NULL
+    }
+
+    ###########################################
+    # EXPERIMENTAL FEATURE, NOT USED RIGHT NOW!
+    X_weak_penalized <- NULL
+    X_weak_penalized_level <- 0
+    ###########################################
 
     # fit HAL
     fit <- fit_relaxed_hal(X = X, Y = pseudo_outcome,
+                           X_unpenalized = X_unpenalized,
+                           X_weak_penalized = X_weak_penalized,
+                           X_weak_penalized_level = X_weak_penalized_level,
                            family = "gaussian",
                            weights = pseudo_weights,
-                           v_folds = v_folds,
-                           screen_unpenalize = TRUE,
-                           hal_args = list())
+                           relaxed = TRUE,
+                           v_folds = v_folds)
 
     # design matrices
     x_basis <- fit$x_basis
@@ -79,5 +92,7 @@ learn_T <- function(W,
   return(list(pred = pred,
               x_basis = x_basis,
               coefs = coefs,
-              non_zero = non_zero))
+              non_zero = non_zero,
+              pseudo_outcome = pseudo_outcome,
+              pseudo_weights = pseudo_weights))
 }

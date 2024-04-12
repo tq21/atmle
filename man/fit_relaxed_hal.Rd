@@ -4,12 +4,26 @@
 \alias{fit_relaxed_hal}
 \title{Fit relaxed HAL}
 \usage{
-fit_relaxed_hal(X, Y, family, weights, v_folds, screen_unpenalize, hal_args)
+fit_relaxed_hal(
+  X,
+  Y,
+  X_unpenalized,
+  X_weak_penalized,
+  X_weak_penalized_level,
+  family,
+  weights,
+  relaxed,
+  v_folds,
+  hal_args
+)
 }
 \arguments{
 \item{X}{A numeric matrix of covariates.}
 
 \item{Y}{A numeric vector of outcomes.}
+
+\item{X_unpenalized}{A numeric matrix of covariates that should not be
+penalized by HAL.}
 
 \item{family}{A character string specifying the family of the outcome.}
 
@@ -17,9 +31,6 @@ fit_relaxed_hal(X, Y, family, weights, v_folds, screen_unpenalize, hal_args)
 
 \item{X_no_basis}{A numeric matrix of covariates that should not be used
 to construct HAL basis.}
-
-\item{X_unpenalized}{A numeric matrix of covariates that should not be
-penalized by HAL.}
 }
 \value{
 A list with the following components:

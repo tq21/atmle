@@ -1,3 +1,5 @@
+`%+%` <- function(a, b) paste0(a, b)
+
 learn_Q_S1 <- function(S, W, A, Y, method = "glm") {
   pred <- numeric(length = length(A))
   S1A1 <- numeric(length = length(A))

@@ -1,61 +1,75 @@
 library(ggplot2)
-library(devtools)
 library(EScvtmle)
 library(sl3)
+library(purrr)
+library(atmle)
+devtools::load_all()
 
-load_all()
 `%+%` <- function(a, b) paste0(a, b)
+source("sim_data.R")
 
-run_sim_n_increase <- function(B,
-                               n_min,
-                               n_max,
-                               n_step,
-                               rct_prop,
-                               ate,
-                               bias,
-                               controls_only,
-                               nuisance_method,
-                               working_model,
-                               g_rct,
-                               num_covs,
-                               method,
-                               verbose = TRUE) {
+make_data <- function(B,
+                      n_rct_seq,
+                      n_rwd_seq,
+                      ate,
+                      bias,
+                      controls_only) {
 
-  n_seq <- seq(n_min, n_max, n_step)
+  data_list <- map2(n_rct_seq, n_rwd_seq, function(n_rct, n_rwd) {
+    map(1:B, function(i) {
+      rct_data <- sim_data(ate = ate,
+                           n = n_rct,
+                           rct = TRUE,
+                           g_rct = g_rct,
+                           bias = bias,
+                           controls_only = controls_only)
+      rwd_data <- sim_data(ate = ate,
+                           n = n_rwd,
+                           rct = FALSE,
+                           g_rct = g_rct,
+                           bias = bias,
+                           controls_only = controls_only)
+      rbind(rct_data, rwd_data)
+    })
+  })
+
+  return(data_list)
+}
+
+run_sim <- function(data_list,
+                    ate = ate,
+                    controls_only,
+                    nuisance_method,
+                    working_model,
+                    g_rct,
+                    method) {
 
   # results
-  all_psi_est <- vector(mode = "list", length = length(n_seq))
-  all_psi_coverage <- vector(mode = "list", length = length(n_seq))
-  all_psi_ci_lower <- vector(mode = "list", length = length(n_seq))
-  all_psi_ci_upper <- vector(mode = "list", length = length(n_seq))
-  all_escvtmle_prop_selected <- vector(mode = "list", length = length(n_seq))
+  all_psi_est <- vector(mode = "list", length = length(data_list))
+  all_psi_coverage <- vector(mode = "list", length = length(data_list))
+  all_psi_ci_lower <- vector(mode = "list", length = length(data_list))
+  all_psi_ci_upper <- vector(mode = "list", length = length(data_list))
+  all_escvtmle_prop_selected <- vector(mode = "list", length = length(data_list))
 
-  for (i in 1:length(n_seq)) {
-    n <- n_seq[i]
-    print(n)
+  for (i in 1:length(data_list)) {
+    cur_data_list <- data_list[[i]]
 
-    psi_est <- vector(length = B)
-    psi_coverage <- vector(length = B)
-    psi_ci_lower <- vector(length = B)
-    psi_ci_upper <- vector(length = B)
-    escvtmle_prop_selected <- vector(length = B)
+    print("rct: " %+% sum(cur_data_list[[1]]$S) %+%
+            ", rwd: " %+% sum(cur_data_list[[1]]$S == 0))
 
-    for (j in 1:B) {
-      # simulate data
-      data <- NULL
+    psi_est <- vector(length = length(cur_data_list))
+    psi_coverage <- vector(length = length(cur_data_list))
+    psi_ci_lower <- vector(length = length(cur_data_list))
+    psi_ci_upper <- vector(length = length(cur_data_list))
+    escvtmle_prop_selected <- vector(length = length(cur_data_list))
+
+    for (j in 1:length(cur_data_list)) {
+      data <- cur_data_list[[j]]
+
       S_node <- 1
-      W_nodes <- NULL
-      if (num_covs == 2) {
-        data <- sim_two_covs(ate, n, rct_prop, g_rct, bias, controls_only)
-        W_node <- 2:3
-        A_node <- 4
-        Y_node <- 5
-      } else if (num_covs == 4) {
-        data <- sim_four_covs(ate, n, rct_prop, g_rct, bias, controls_only)
-        W_node <- 2:5
-        A_node <- 6
-        Y_node <- 7
-      }
+      W_node <- 2:4
+      A_node <- 5
+      Y_node <- 6
 
       # fit
       res <- NULL
@@ -68,7 +82,7 @@ run_sim_n_increase <- function(B,
                      controls_only = controls_only,
                      family = "gaussian",
                      atmle_pooled = TRUE,
-                     theta_method = "glmnet",
+                     theta_method = nuisance_method,
                      Pi_method = nuisance_method,
                      g_method = nuisance_method,
                      theta_tilde_method = nuisance_method,
@@ -76,7 +90,13 @@ run_sim_n_increase <- function(B,
                      bias_working_model = working_model,
                      pooled_working_model = "glmnet",
                      g_rct = g_rct,
-                     verbose = FALSE)
+                     verbose = FALSE,
+                     enumerate_basis_args = list(
+                       num_knots = hal9001:::num_knots_generator(
+                         max_degree = 3,
+                         smoothness_orders = 1,
+                         base_num_knots_0 = 200,
+                         base_num_knots_1 = 20)))
       } else if (method == "atmle_tmle") {
         res <- atmle(data = data,
                      S_node = S_node,
@@ -86,7 +106,7 @@ run_sim_n_increase <- function(B,
                      controls_only = controls_only,
                      family = "gaussian",
                      atmle_pooled = FALSE,
-                     theta_method = "glmnet",
+                     theta_method = nuisance_method,
                      Pi_method = nuisance_method,
                      g_method = nuisance_method,
                      theta_tilde_method = nuisance_method,
@@ -96,12 +116,7 @@ run_sim_n_increase <- function(B,
                      g_rct = g_rct,
                      verbose = FALSE)
       } else if (method == "escvtmle") {
-        covariates <- NULL
-        if (num_covs == 2) {
-          covariates <- c("W1", "W2")
-        } else if (num_covs == 4) {
-          covariates <- c("W1", "W2", "W3", "W4")
-        }
+        covariates <- c("W1", "W2", "W3")
         tmp <- ES.cvtmle(txinrwd = !controls_only,
                          data = data,
                          study = "S",
@@ -129,13 +144,13 @@ run_sim_n_increase <- function(B,
                              controls_only = controls_only,
                              family = "gaussian",
                              atmle_pooled = TRUE,
-                             theta_method = "glmnet",
+                             theta_method = nuisance_method,
                              Pi_method = nuisance_method,
                              g_method = nuisance_method,
                              theta_tilde_method = nuisance_method,
                              Q_method = nuisance_method,
                              bias_working_model = working_model,
-                             pooled_working_model = "glmnet",
+                             pooled_working_model = working_model,
                              g_rct = g_rct,
                              verbose = FALSE)
       } else if (method == "rct_only") {
@@ -151,12 +166,14 @@ run_sim_n_increase <- function(B,
       }
 
       if (res$lower <= ate & res$upper >= ate) {
-        if (verbose) print("psi covered")
+        print("psi covered")
         psi_coverage[j] <- 1
       } else {
-        if (verbose) print("psi not covered")
+        print("psi not covered")
         psi_coverage[j] <- 0
       }
+
+      print("current coverage: " %+% round(mean(psi_coverage[1:j]), 2))
 
       psi_est[j] <- res$est
       psi_ci_lower[j] <- res$lower
@@ -177,5 +194,5 @@ run_sim_n_increase <- function(B,
               all_psi_coverage = all_psi_coverage,
               all_psi_ci_lower = all_psi_ci_lower,
               all_psi_ci_upper = all_psi_ci_upper,
-              escvtmle_prop_selected = escvtmle_prop_selected))
+              all_escvtmle_prop_selected = all_escvtmle_prop_selected))
 }
