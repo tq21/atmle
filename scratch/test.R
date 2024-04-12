@@ -25,10 +25,10 @@ W_node <- 2:4
 A_node <- 5
 Y_node <- 6
 var_method <- "ic"
-theta_method <- "glm"
-Pi_method <- "glm"
-g_method <- "glm"
-theta_tilde_method <- "glm"
+theta_method <- "glmnet"
+Pi_method <- "glmnet"
+g_method <- "glmnet"
+theta_tilde_method <- "glmnet"
 Q_method <- "glmnet"
 bias_working_model <- "glmnet"
 pooled_working_model <- "glmnet"
@@ -53,8 +53,7 @@ atmle_res <- atmle(data = data,
                    cross_fit_nuisance = cross_fit_nuisance,
                    family = family,
                    verbose = FALSE,
-                   min_working_model = FALSE,
-                   max_iter = 1)
+                   min_working_model = FALSE)
 
 escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,

@@ -190,8 +190,7 @@ learn_theta <- function(W,
 
     } else {
       # treat + control
-      X <- as.data.frame(model.matrix(as.formula("~-1+.+A:."),
-                                      data = data.frame(W, A = A)))
+      X <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A))
 
       if (cross_fit_nuisance) {
         # cross fit
