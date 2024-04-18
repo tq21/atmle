@@ -53,6 +53,7 @@
 learn_theta <- function(W,
                         A,
                         Y,
+                        delta,
                         controls_only,
                         method,
                         folds,
@@ -80,18 +81,29 @@ learn_theta <- function(W,
                                  Lrnr_cv_selector$new(loss_squared_error))
 
       if (controls_only) {
-        task_theta <- sl3_Task$new(data = data.table(W, Y = Y)[A == 0, ],
-                                   covariates = colnames(W),
-                                   outcome = "Y", outcome_type = "continuous")
-        fit_theta <- lrnr_theta$train(task_theta)
-        pred[A == 0] <- .bound(fit_theta$predict(task_theta), theta_bounds)
+
+        task_train <- sl3_Task$new(
+          data = data.table(W, Y = Y)[A == 0 & delta == 1],
+          covariates = colnames(W), outcome = "Y", outcome_type = "continuous")
+        task_pred <- sl3_Task$new(
+          data = data.table(W, Y = Y)[A == 0],
+          covariates = colnames(W), outcome = "Y", outcome_type = "continuous")
+        fit_theta <- lrnr_theta$train(task_train)
+        pred[A == 0] <- fit_theta$predict(task_pred)
 
       } else {
-        task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
-                                   covariates = c(colnames(W), "A"),
-                                   outcome = "Y", outcome_type = "continuous")
-        fit_theta <- lrnr_theta$train(task_theta)
-        pred <- .bound(fit_theta$predict(task_theta), theta_bounds)
+
+        task_train <- sl3_Task$new(
+          data = data.table(W, Y = Y, A = A)[delta == 1],
+          covariates = c(colnames(W), "A"),
+          outcome = "Y", outcome_type = "continuous")
+        task_pred <- sl3_Task$new(
+          data = data.table(W, Y = 0, A = A),
+          covariates = c(colnames(W), "A"),
+          outcome = "Y", outcome_type = "continuous")
+        fit_theta <- lrnr_theta$train(task_train)
+        pred <- fit_theta$predict(task_pred)
+
       }
     } else if (family == "binomial") {
       lrnr_stack <- Stack$new(method)
@@ -99,18 +111,28 @@ learn_theta <- function(W,
                                  Lrnr_cv_selector$new(loss_loglik_binomial))
 
       if (controls_only) {
-        task_theta <- sl3_Task$new(data = data.table(W, Y = Y)[A == 0, ],
-                                   covariates = colnames(W),
-                                   outcome = "Y", outcome_type = "binomial")
-        fit_theta <- lrnr_theta$train(task_theta)
-        pred[A == 0] <- .bound(fit_theta$predict(task_theta), theta_bounds)
+
+        task_train <- sl3_Task$new(
+          data = data.table(W, Y = Y)[A == 0 & delta == 1],
+          covariates = colnames(W), outcome = "Y", outcome_type = "binomial")
+        task_pred <- sl3_Task$new(
+          data = data.table(W, Y = Y)[A == 0],
+          covariates = colnames(W), outcome = "Y", outcome_type = "binomial")
+        fit_theta <- lrnr_theta$train(task_train)
+        pred[A == 0] <- fit_theta$predict(task_pred)
 
       } else {
-        task_theta <- sl3_Task$new(data = data.table(W, Y = Y, A = A),
-                                   covariates = c(colnames(W), "A"),
-                                   outcome = "Y", outcome_type = "binomial")
-        fit_theta <- lrnr_theta$train(task_theta)
-        pred <- .bound(fit_theta$predict(task_theta), theta_bounds)
+
+        task_train <- sl3_Task$new(
+          data = data.table(W, Y = Y, A = A)[delta == 1],
+          covariates = c(colnames(W), "A"),
+          outcome = "Y", outcome_type = "binomial")
+        task_pred <- sl3_Task$new(
+          data = data.table(W, Y = Y, A = A),
+          covariates = c(colnames(W), "A"),
+          outcome = "Y", outcome_type = "binomial")
+        fit_theta <- lrnr_theta$train(task_train)
+        pred <- fit_theta$predict(task_pred)
       }
     } else {
       stop("Invalid family. Must be either 'gaussian' or 'binomial'.")
@@ -118,7 +140,7 @@ learn_theta <- function(W,
 
   } else if (method == "glm") {
     if (controls_only) {
-      fit <- glm(Y[A == 0] ~., data = data.frame(W[A == 0, ]), family = family)
+      fit <- glm(Y[A == 0 & delta == 1] ~., data = data.frame(W[A == 0 & delta == 1, ]), family = family)
       A0 <- .bound(as.numeric(predict(fit, newdata = data.frame(W[A == 0, ]),
                                       type = "response")), theta_bounds)
       pred[A == 0] <- A0
@@ -128,7 +150,8 @@ learn_theta <- function(W,
       walk(folds, function(.x) {
         train_idx <- .x$training_set
         valid_idx <- .x$validation_set
-        fit <- glm(Y[train_idx] ~., data = X[train_idx, ], family = family)
+        fit <- glm(Y[train_idx][delta[train_idx] == 1] ~.,
+                   data = X[train_idx,][delta[train_idx] == 1,], family = family)
         pred[valid_idx] <<- .bound(as.numeric(predict(fit, newdata = X[valid_idx,],
                                                       type = "response")), theta_bounds)
       })
@@ -136,7 +159,7 @@ learn_theta <- function(W,
 
   } else if (method == "glmnet") {
     if (controls_only) {
-      fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0, ]), y = Y[A == 0],
+      fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0 & delta == 1, ]), y = Y[A == 0 & delta == 1],
                           keep = TRUE, alpha = 1, nfolds = length(folds),
                           family = family)
       A0 <- .bound(as.numeric(predict(fit_A0, newx = as.matrix(W[A == 0, ]),
@@ -149,7 +172,8 @@ learn_theta <- function(W,
       walk(folds, function(.x) {
         train_idx <- .x$training_set
         valid_idx <- .x$validation_set
-        fit <- cv.glmnet(x = as.matrix(X[train_idx, ]), y = Y[train_idx],
+        fit <- cv.glmnet(x = as.matrix(X[train_idx,][delta[train_idx] == 1,]),
+                         y = Y[train_idx][delta[train_idx] == 1],
                          keep = TRUE, alpha = 1, nfolds = length(folds), family = family)
         pred[valid_idx] <<- .bound(as.numeric(predict(fit, newx = as.matrix(X[valid_idx, ]),
                                                     s = "lambda.min", type = "response")),

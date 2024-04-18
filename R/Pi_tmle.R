@@ -34,8 +34,7 @@ Pi_tmle <- function(S,
                     Pi,
                     controls_only,
                     target_gwt,
-                    Pi_bounds,
-                    weights = 1) {
+                    Pi_bounds) {
 
   Pi_star <- Pi
 

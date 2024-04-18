@@ -1,0 +1,130 @@
+---
+title: "Data Fusion Example"
+author: "Sky Qiu"
+date: "2024-04-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+sim_data <- function(n) {
+  # Define the proportion of RCT in the total sample
+  pct_rct <- 0.3
+  n_rct <- round(n * pct_rct)
+  n_rwd <- n - n_rct
+  
+  # Generate covariates for all participants
+  Age <- rnorm(n, mean=50, sd=12) # Mean age of 50 with sd of 12
+  BMI <- rnorm(n, mean=28, sd=5)  # Mean BMI of 28 with sd of 5
+  Smoking <- rbinom(n, 1, 0.2)    # 20% smokers in the population
+  
+  # Unmeasured confounders for RWD
+  Health_Literacy <- rnorm(n_rwd, mean=50, sd=10)
+  Socioeconomic_Status <- rnorm(n_rwd, mean=50, sd=10)
+
+  # Treatment assignment
+  # RCT: Randomized treatment
+  A_rct <- rbinom(n_rct, 1, 0.5)
+  
+  # RWD: Probabilistic treatment based on observed and unobserved covariates
+  logit_p_rwd <- -1 + 0.05 * Age[(n_rct+1):n] + 
+    0.04 * BMI[(n_rct+1):n] + 
+    0.8 * Smoking[(n_rct+1):n] + 
+    0.03 * Health_Literacy + 0.02 * Socioeconomic_Status
+  prob_treatment_rwd <- plogis(logit_p_rwd)
+  A_rwd <- rbinom(n_rwd, 1, prob_treatment_rwd)
+  
+  A <- c(A_rct, A_rwd)
+  
+  # Outcome model with non-linear and interaction effects
+  base_effect <- 120 - 0.1 * Age + 0.05 * BMI^2 - 5 * Smoking
+  treatment_effect <- -10 * A
+  random_effect <- rnorm(n)
+  Y <- base_effect + treatment_effect + random_effect
+  
+  # Add effects of unmeasured confounders to RWD outcomes
+  Y[(n_rct+1):n] <- Y[(n_rct+1):n] + 0.04 * Health_Literacy + 0.03 * Socioeconomic_Status
+  
+  # Study indicator
+  S <- c(rep(1, n_rct), rep(0, n_rwd))
+  
+  # Assemble the dataframe without the unmeasured confounders (as they are not observed)
+  data.frame(Age = Age, BMI = BMI, Smoking = Smoking, A = A, Y = Y, S = S)
+}
+
+# Example usage:
+set.seed(123) # For reproducibility
+simulated_data <- sim_data(1000)
+head(simulated_data)
+
+```
+
+```{r}
+load_all()
+`%+%` <- function(a, b) paste0(a, b)
+```
+
+```{r}
+set.seed(143)
+data <- sim_data(3000)
+atmle_res <- atmle(data = data,
+                   S_node = 6,
+                   W_node = c(1, 2, 3),
+                   A_node = 4,
+                   Y_node = 5,
+                   controls_only = FALSE,
+                   family = "gaussian",
+                   atmle_pooled = TRUE,
+                   theta_method = "sl3",
+                   Pi_method = "sl3",
+                   g_method = "sl3",
+                   g_delta_method = "sl3",
+                   theta_tilde_method = "sl3",
+                   bias_working_model = "HAL",
+                   pooled_working_model = "HAL",
+                   g_rct = 0.5,
+                   var_method = "ic",
+                   v_folds = 5,
+                   g_bounds = c(0.01, 0.99),
+                   Pi_bounds = c(0.01, 0.99),
+                   theta_bounds = c(-Inf, Inf),
+                   target_gwt = TRUE)
+```
+
+
+```{r}
+atmle_res$lower
+atmle_res$upper
+```
+
+```{r}
+escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
+                          data = data,
+                          study = "S",
+                          covariates = c("Age", "BMI", "Smoking"),
+                          treatment_var = "A",
+                          treatment = 1,
+                          outcome = "Y",
+                          pRCT = 0.5,
+                          family = "gaussian",
+                          Q.SL.library = c("SL.glm", "SL.xgboost", "SL.gam"),
+                          g.SL.library = c("SL.glm", "SL.xgboost", "SL.gam"),
+                          Q.discreteSL = TRUE,
+                          g.discreteSL = TRUE,
+                          V = 5)
+```
+
+
+```{r}
+atmle_res$lower
+atmle_res$upper
+```
+
+```{r}
+escvtmle_res
+```
+
+

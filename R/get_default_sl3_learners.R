@@ -13,9 +13,8 @@
 #' @examples
 #' lrnrs <- get_default_sl3_learners("gaussian")
 get_default_sl3_learners <- function(family) {
-  # TODO: use different learners for binomial vs cont. outcomes.
   learner_list <- list(
-    Lrnr_xgboost$new(max_depth = 4, nrounds = 20, verbose = 0),
+    #Lrnr_xgboost$new(max_depth = 4, nrounds = 20, verbose = 0),
     Lrnr_earth$new(degree = 3),
     Lrnr_gam$new(),
     Lrnr_glm$new())

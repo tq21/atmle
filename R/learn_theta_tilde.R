@@ -34,6 +34,7 @@
 #' @returns A numeric vector of the estimated values.
 learn_theta_tilde <- function(W,
                               Y,
+                              delta,
                               method,
                               folds,
                               family,
@@ -55,37 +56,45 @@ learn_theta_tilde <- function(W,
 
   if (is.list(method)) {
     lrnr_stack <- Stack$new(method)
-    lrnr_theta_tilde <- NULL
-    task_theta_tilde <- NULL
     if (family == "gaussian") {
       lrnr_theta_tilde <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
                                        Lrnr_cv_selector$new(loss_squared_error))
-      task_theta_tilde <- sl3_Task$new(data = data.table(W, Y = Y),
-                                       covariates = colnames(W),
-                                       outcome = "Y",
-                                       outcome_type = "continuous")
+      train_task <- sl3_Task$new(data = data.table(W, Y = Y)[delta == 1],
+                                 covariates = colnames(W),
+                                 outcome = "Y",
+                                 outcome_type = "continuous")
+      pred_task <- sl3_Task$new(data = data.table(W, Y = 0),
+                                covariates = colnames(W),
+                                outcome = "Y",
+                                outcome_type = "continuous")
     } else if (family == "binomial") {
       lrnr_theta_tilde <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
                                        Lrnr_cv_selector$new(loss_loglik_binomial))
-      task_theta_tilde <- sl3_Task$new(data = data.table(W, Y = Y),
-                                       covariates = colnames(W),
-                                       outcome = "Y", outcome_type = "binomial")
+      train_task <- sl3_Task$new(data = data.table(W, Y = Y)[delta == 1],
+                                 covariates = colnames(W),
+                                 outcome = "Y",
+                                 outcome_type = "binomial")
+      pred_task <- sl3_Task$new(data = data.table(W, Y = Y),
+                                covariates = colnames(W),
+                                outcome = "Y",
+                                outcome_type = "binomial")
     }
 
-    fit_theta_tilde <- lrnr_theta_tilde$train(task_theta_tilde)
-    pred <- fit_theta_tilde$predict(task_theta_tilde)
+    fit_theta_tilde <- lrnr_theta_tilde$train(train_task)
+    pred <- fit_theta_tilde$predict(pred_task)
   } else if (method == "glm") {
     X <- data.frame(W)
     walk(folds, function(.x) {
       train_idx <- .x$training_set
       valid_idx <- .x$validation_set
-      fit <- glm(Y[train_idx] ~., data = X[train_idx, ], family = family)
+      fit <- glm(Y[train_idx][delta[train_idx] == 1] ~.,
+                 data = X[train_idx,][delta[train_idx] == 1,], family = family)
       pred[valid_idx] <<- .bound(as.numeric(predict(fit, newdata = X[valid_idx,],
                                                     type = "response")), theta_bounds)
     })
 
   } else if (method == "glmnet") {
-    fit <- cv.glmnet(x = as.matrix(W), y = Y,
+    fit <- cv.glmnet(x = as.matrix(W[delta == 1,]), y = Y[delta == 1],
                      keep = TRUE, alpha = 1, nfolds = length(folds), family = family)
     pred <- as.numeric(predict(fit, newx = as.matrix(W), s = "lambda.min",
                                type = "response"))

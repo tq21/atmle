@@ -3,41 +3,7 @@ library(data.table)
 library(tmle)
 library(glmnet)
 library(origami)
-
 library(purrr)
-
-learn_Q <- function(W, A, Y, method = "glm") {
-  pred <- numeric(length = length(A))
-  A1 <- numeric(length = length(A))
-  A0 <- numeric(length = length(A))
-  X <- data.frame(W, A = A)
-  X_A1 <- data.frame(W, A = 1)
-  X_A0 <- data.frame(W, A = 0)
-
-  if (method == "lasso") {
-    fit <- cv.glmnet(x = as.matrix(X), y = Y, keep = TRUE, alpha = 1, nfolds = 5, family = "gaussian")
-    pred <- as.numeric(predict(fit, newx = as.matrix(X), s = "lambda.min", type = "response"))
-    A1 <- as.numeric(predict(fit, newx = as.matrix(X_A1), s = "lambda.min", type = "response"))
-    A0 <- as.numeric(predict(fit, newx = as.matrix(X_A0), s = "lambda.min", type = "response"))
-  } else if (method == "HAL") {
-    fit_Q <- fit_relaxed_hal(as.matrix(data.table(W, A)), Y, "gaussian")
-    pred <- as.vector(fit_Q$pred)
-
-    x_basis_A1 <- make_counter_design_matrix(fit_Q$basis_list, as.matrix(data.table(W, A = 1)))
-    x_basis_A0 <- make_counter_design_matrix(fit_Q$basis_list, as.matrix(data.table(W, A = 0)))
-    A1 <- as.vector(x_basis_A1 %*% fit_Q$beta)
-    A0 <- as.vector(x_basis_A0 %*% fit_Q$beta)
-  } else if (method == "glm") {
-    fit <- lm(Y ~ ., data = X)
-    pred <- as.numeric(predict(fit, newdata = X))
-    A1 <- as.numeric(predict(fit, newdata = X_A1))
-    A0 <- as.numeric(predict(fit, newdata = X_A0))
-  }
-
-  return(list(pred = pred,
-              A1 = A1,
-              A0 = A0))
-}
 
 Q_tmle <- function(g, Q, A, Y_bound) {
 
@@ -98,10 +64,10 @@ learn_S_W <- function(S, W, method = "glmnet") {
   return(list(pred = pred))
 }
 
-target_Q <- function(S, W, A, Y, Pi, g, Q) {
+target_Q <- function(S, W, A, Y, Pi, g, Q, delta, g_delta) {
   # bound Y
-  min_Y <- min(Y, Q$pred, Q$S1A1, Q$S1A0)-0.001
-  max_Y <- max(Y, Q$pred, Q$S1A1, Q$S1A0)+0.001
+  min_Y <- min(Y, Q$pred, Q$S1A1, Q$S1A0, na.rm = TRUE)-0.001
+  max_Y <- max(Y, Q$pred, Q$S1A1, Q$S1A0, na.rm = TRUE)+0.001
   Y_bounded <- (Y-min_Y)/(max_Y-min_Y)
   Q$pred <- (Q$pred-min_Y)/(max_Y-min_Y)
   Q$S1A1 <- (Q$S1A1-min_Y)/(max_Y-min_Y)
@@ -109,8 +75,8 @@ target_Q <- function(S, W, A, Y, Pi, g, Q) {
 
   # clever covariates
   wt <- S/Pi$pred
-  H1_n <- wt*(A/g)
-  H0_n <- wt*((1-A)/(1-g))
+  H1_n <- wt*(A/g)*(delta/g_delta$pred)
+  H0_n <- wt*((1-A)/(1-g))*(delta/g_delta$pred)
 
   # logistic submodel
   epsilon <- coef(glm(Y_bounded ~ -1 + offset(qlogis(Q$pred)) + H0_n + H1_n, family = "quasibinomial"))

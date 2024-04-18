@@ -24,8 +24,7 @@
 #' @param method Learning method. \code{"glm"} for main-term linear model,
 #' \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
 #' super learner-based estimation.
-#' @param v_folds A numeric of number of folds for cross-validation
-#' (when necessary).
+#' @param folds A CV object from `make_folds` function.
 #' @param Pi_bounds A numeric vector of lower and upper bounds for the
 #' trial enrollment probabilities. The first element is the lower bound,
 #' and the second element is the upper bound.
@@ -113,7 +112,7 @@ learn_Pi <- function(S,
     } else {
       # A = 1
       fit_A1 <- cv.glmnet(x = as.matrix(W[A == 1, ]), y = S[A == 1],
-                          keep = TRUE, alpha = 1, nfolds = v_folds,
+                          keep = TRUE, alpha = 1, nfolds = length(folds),
                           family = "binomial")
       A1 <- .bound(as.numeric(predict(fit_A1, newx = as.matrix(W),
                                       s = "lambda.min",

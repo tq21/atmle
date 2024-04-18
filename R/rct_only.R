@@ -14,12 +14,22 @@ rct_only <- function(data,
   W <- data[S == 1, W_node]
   A <- data[S == 1, A_node]
   Y <- data[S == 1, Y_node]
+  delta <- as.numeric(!is.na(Y)) # missingness indicator
   n <- nrow(W)
 
   # estimate ATE using TMLE
-  Q <- learn_Q(W, A, Y)
+  Q <- learn_Q(W = W,
+               A = A,
+               Y = Y,
+               delta = delta,
+               method = nuisance_method,
+               v_folds = 5,
+               family = family,
+               theta_bounds = c(-Inf, Inf))
   Q_star <- tmle(Y = Y, A = A, W = W, g1W = rep(g_rct, sum(S == 1)),
                  Q = as.matrix(data.frame(Q$A1, Q$A0)),
+                 Delta = delta,
+                 g.Delta.SL.library = c("SL.glm"),
                  family = family)
   psi_est <- Q_star$estimates$ATE$psi
   psi_eic <- Q_star$estimates$IC$IC.ATE

@@ -4,7 +4,7 @@
 \alias{learn_g}
 \title{Learn nuisance function: treatment mechanism}
 \usage{
-learn_g(S, W, A, g_rct, controls_only, method, v_folds, g_bounds)
+learn_g(S, W, A, g_rct, controls_only, method, folds, g_bounds)
 }
 \arguments{
 \item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
@@ -23,12 +23,12 @@ control-arm observations.}
 \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
 super learner-based estimation.}
 
-\item{v_folds}{A numeric of number of folds for cross-validation
-(when necessary).}
-
 \item{g_bounds}{A numeric vector of lower and upper bounds for the
 treatment mechanism. The first element is the lower bound, and the second
 element is the upper bound.}
+
+\item{v_folds}{A numeric of number of folds for cross-validation
+(when necessary).}
 }
 \value{
 A numeric vector of estimated treatment probabilities.
