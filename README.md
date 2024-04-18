@@ -38,14 +38,13 @@ set.seed(82379)
 # simulate data
 n <- 2000
 S <- rbinom(n, 1, 0.2)
-W1 <- rnorm(n); W2 <- rnorm(n); W <- cbind(W1, W2)
+W1 <- rnorm(n); W2 <- rnorm(n); W3 <- rnorm(n)
 A <- numeric(n)
 g_rct <- 0.67
 A[S == 1] <- rbinom(sum(S), 1, g_rct)
-A[S == 0] <- rbinom(n-sum(S), 1, plogis(1.2*W1-0.9*W2))
+A[S == 0] <- rbinom(n-sum(S), 1, plogis(0.5*W1[S == 0]))
 UY <- rnorm(n, 0, 1)
-U_bias <- rnorm(n, 0, 0.5)
-Y <- -0.5-0.8*W1-1.1*W2+1.5*A+UY+(1-S)*(0.9+2.6*W1)+(1-S)*U_bias
+Y <- 2.5+0.9*W1+1.1*W2+2.7*W3+1.5*A+UY+(1-S)*(0.2+0.1*W1*(1-A))
 data <- data.frame(S, W1, W2, A, Y)
 true_ate <- 1.5
 
@@ -62,7 +61,7 @@ res <- atmle(data,
              verbose = FALSE)
 print("A-TMLE ATE estimate: " %+% round(res$est, 2) %+% 
         " (" %+% round(res$lower, 2) %+% ", " %+% round(res$upper, 2) %+% ")")
-#> [1] "A-TMLE ATE estimate: 1.53 (1.43, 1.62)"
+#> [1] "A-TMLE ATE estimate: 1.56 (1.3, 1.82)"
 print("True ATE: " %+% true_ate)
 #> [1] "True ATE: 1.5"
 
@@ -84,7 +83,7 @@ escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
 print("ES-CVTMLE ATE estimate: " %+% round(escvtmle_res$ATE$b2v, 2) %+% 
         " (" %+% round(escvtmle_res$CI$b2v[1], 2) %+% 
         ", " %+% round(escvtmle_res$CI$b2v[2], 2) %+% ")")
-#> [1] "ES-CVTMLE ATE estimate: 1.53 (1.33, 1.73)"
+#> [1] "ES-CVTMLE ATE estimate: 1.34 (0.81, 1.75)"
 print("True ATE: " %+% true_ate)
 #> [1] "True ATE: 1.5"
 ```
