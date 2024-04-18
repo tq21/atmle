@@ -1,7 +1,5 @@
 library(ggpubr)
 library(purrr)
-library(devtools)
-load_all()
 source("utils_plot.R")
 
 # simulation parameters --------------------------------------------------------
@@ -38,16 +36,6 @@ plt_coverage_a <- get_cover_plot(
 # proportion of selected
 plt_prop_a <- get_plot_prop_selected(escvtmle_res, "")
 
-# average ci length
-atmle_ci_length <- get_avg_ci_length(atmle_both_res)
-escvtmle_ci_length <- get_avg_ci_length(escvtmle_res)
-tmle_ci_length <- get_avg_ci_length(tmle_res)
-rct_only_ci_length <- get_avg_ci_length(rct_only_res)
-
-print("A-TMLE vs. ES-CVTMLE = " %+% (round(atmle_ci_length / escvtmle_ci_length, 3)))
-print("A-TMLE vs. TMLE = " %+% (round(atmle_ci_length / tmle_ci_length, 3)))
-print("A-TMLE vs. RCT ONLY = " %+% (round(atmle_ci_length / rct_only_ci_length, 3)))
-
 # bias b -----------------------------------------------------------------------
 atmle_both_res <- readRDS("out/atmle_both_b_bias_0218.RDS")
 escvtmle_res <- readRDS("out/escvtmle_b_bias_0218.RDS")
@@ -75,18 +63,8 @@ plt_coverage_b <- get_cover_plot(
 # proportion of selected
 plt_prop_b <- get_plot_prop_selected(escvtmle_res, "")
 
-# average ci length
-atmle_ci_length <- get_avg_ci_length(atmle_both_res)
-escvtmle_ci_length <- get_avg_ci_length(escvtmle_res)
-tmle_ci_length <- get_avg_ci_length(tmle_res)
-rct_only_ci_length <- get_avg_ci_length(rct_only_res)
-
-print("A-TMLE vs. ES-CVTMLE = " %+% (round(atmle_ci_length / escvtmle_ci_length, 3)))
-print("A-TMLE vs. TMLE = " %+% (round(atmle_ci_length / tmle_ci_length, 3)))
-print("A-TMLE vs. RCT ONLY = " %+% (round(atmle_ci_length / rct_only_ci_length, 3)))
-
 plt <- ggarrange(plt_mse_a, plt_relative_mse_a, plt_coverage_a, plt_prop_a,
                  plt_mse_b, plt_relative_mse_b, plt_coverage_b, plt_prop_b,
                  nrow = 2, ncol = 4, common.legend = TRUE)
-ggsave(filename = "simple.pdf", plot = plt, device = "pdf",
+ggsave(filename = "param.pdf", plot = plt, device = "pdf",
        path = "figs", width = 16, height = 8, dpi = 300)

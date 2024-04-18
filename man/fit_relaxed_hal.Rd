@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit_relaxed_hal.R
 \name{fit_relaxed_hal}
 \alias{fit_relaxed_hal}
-\title{Fit relaxed HAL}
+\title{Relaxed highly adaptive lasso}
 \usage{
 fit_relaxed_hal(
   X,
@@ -13,8 +13,8 @@ fit_relaxed_hal(
   family,
   weights,
   relaxed,
-  v_folds,
-  hal_args
+  enumerate_basis_args = list(),
+  fit_hal_args = list()
 )
 }
 \arguments{
@@ -23,22 +23,28 @@ fit_relaxed_hal(
 \item{Y}{A numeric vector of outcomes.}
 
 \item{X_unpenalized}{A numeric matrix of covariates that should not be
-penalized by HAL.}
+penalized by HAL. Used for enforcing minimal working models.}
 
-\item{family}{A character string specifying the family of the outcome.}
+\item{family}{A character string specifying the family of the outcome.
+Either "gaussian" or "binomial".}
 
 \item{weights}{A numeric vector of weights.}
 
-\item{X_no_basis}{A numeric matrix of covariates that should not be used
-to construct HAL basis.}
+\item{enumerate_basis_args}{A list of arguments to pass to `enumerate_basis`
+function in `hal9001`.}
+
+\item{fit_hal_args}{A list of arguments to pass to `fit_hal` function in
+`hal9001`.}
 }
 \value{
 A list with the following components:
 \item{beta}{A numeric vector of coefficients.}
+\item{hal_basis_list}{A list of selected HAL basis.}
+\item{x_basis}{The design matrix of selected basis.}
 \item{pred}{A numeric vector of predictions.}
-\item{hal_basis_list}{A list of HAL basis.}
-\item{x_basis}{A numeric matrix of basis.}
+\item{hal_fit}{The output of `fit_hal`.}
 }
 \description{
-Fit relaxed HAL
+First fit highly adaptive lasso, then fit a `glm` only on the
+design matrix of the selected basis functions (with non-zero coefficients).
 }

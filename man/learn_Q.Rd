@@ -4,7 +4,7 @@
 \alias{learn_Q}
 \title{Learn outcome regression}
 \usage{
-learn_Q(W, A, Y, method, v_folds, family, theta_bounds)
+learn_Q(W, A, Y, delta, method, v_folds, family, theta_bounds)
 }
 \arguments{
 \item{W}{A matrix of baseline covariates.}

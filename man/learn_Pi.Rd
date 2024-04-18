@@ -4,7 +4,16 @@
 \alias{learn_Pi}
 \title{Learn nuisance function: trial enrollment mechanism}
 \usage{
-learn_Pi(S, W, A, controls_only, method, folds, Pi_bounds)
+learn_Pi(
+  S,
+  W,
+  A,
+  controls_only,
+  method,
+  folds,
+  Pi_bounds,
+  cross_fit_nuisance = TRUE
+)
 }
 \arguments{
 \item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}

@@ -5,7 +5,16 @@
 \title{Learn nuisance function: conditional mean of outcome given baseline
 covariates}
 \usage{
-learn_theta_tilde(W, Y, method, folds, family, theta_bounds)
+learn_theta_tilde(
+  W,
+  Y,
+  delta,
+  method,
+  folds,
+  family,
+  theta_bounds,
+  cross_fit_nuisance = TRUE
+)
 }
 \arguments{
 \item{W}{A matrix of baseline covariates.}

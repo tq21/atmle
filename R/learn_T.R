@@ -31,13 +31,14 @@ learn_T <- function(W,
                     A,
                     Y,
                     g,
+                    delta,
                     theta_tilde,
                     method,
                     min_working_model,
-                    v_folds) {
+                    v_folds,
+                    weights) {
 
   # R-transformations
-  weights <- 1 # TODO: currently not used
   pseudo_outcome <- ifelse(abs(A-g)<1e-10, 0, (Y-theta_tilde)/(A-g))
   pseudo_weights <- (A-g)^2*weights
 
@@ -47,8 +48,8 @@ learn_T <- function(W,
   non_zero <- NULL
 
   if (method == "glmnet") {
-    fit <- cv.glmnet(x = as.matrix(W), y = pseudo_outcome,
-                     family = "gaussian", weights = pseudo_weights,
+    fit <- cv.glmnet(x = as.matrix(W[delta == 1,]), y = pseudo_outcome[delta == 1],
+                     family = "gaussian", weights = pseudo_weights[delta == 1],
                      keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE)
     non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
     coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
@@ -72,14 +73,13 @@ learn_T <- function(W,
     ###########################################
 
     # fit HAL
-    fit <- fit_relaxed_hal(X = X, Y = pseudo_outcome,
+    fit <- fit_relaxed_hal(X = X[delta == 1,], Y = pseudo_outcome[delta == 1],
                            X_unpenalized = X_unpenalized,
                            X_weak_penalized = X_weak_penalized,
                            X_weak_penalized_level = X_weak_penalized_level,
                            family = "gaussian",
-                           weights = pseudo_weights,
-                           relaxed = TRUE,
-                           v_folds = v_folds)
+                           weights = pseudo_weights[delta == 1],
+                           relaxed = TRUE)
 
     # design matrices
     x_basis <- fit$x_basis

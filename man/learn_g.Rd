@@ -4,7 +4,17 @@
 \alias{learn_g}
 \title{Learn nuisance function: treatment mechanism}
 \usage{
-learn_g(S, W, A, g_rct, controls_only, method, folds, g_bounds)
+learn_g(
+  S,
+  W,
+  A,
+  g_rct,
+  controls_only,
+  method,
+  folds,
+  g_bounds,
+  cross_fit_nuisance = TRUE
+)
 }
 \arguments{
 \item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}

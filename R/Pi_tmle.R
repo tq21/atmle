@@ -34,8 +34,7 @@ Pi_tmle <- function(S,
                     Pi,
                     controls_only,
                     target_gwt,
-                    Pi_bounds,
-                    weights = 1) {
+                    Pi_bounds) {
 
   Pi_star <- Pi
 
@@ -54,7 +53,6 @@ Pi_tmle <- function(S,
     epsilon <- coef(glm(S[A == 0] ~ -1 + offset(qlogis(Pi$pred[A == 0])) + H0_n,
                         family = "quasibinomial", weights = wt))
     epsilon[is.na(epsilon)] <- 0
-    Pi_star$epsilon <- epsilon
 
     # TMLE update
     if (target_gwt) {
@@ -84,7 +82,6 @@ Pi_tmle <- function(S,
     epsilon <- coef(glm(S ~ -1 + offset(qlogis(Pi$pred)) + H0_n + H1_n,
                         family = "quasibinomial", weights = wt))
     epsilon[is.na(epsilon)] <- 0
-    Pi_star$epsilon <- epsilon
 
     # TMLE updates
     if (target_gwt) {

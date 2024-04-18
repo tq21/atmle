@@ -12,7 +12,6 @@ test_that("basic functionality test, external has both treated and controls", {
   Y <- -0.5-0.8*W1-1.1*W2+1.5*A+UY+(1-S)*(0.9+2.6*W1)+(1-S)*U_bias
   data <- data.frame(S, W1, W2, A, Y)
 
-  # test atmle_pooled = TRUE
   res <- atmle(data,
                S_node = c(1),
                W_node = c(2, 3),
@@ -21,19 +20,6 @@ test_that("basic functionality test, external has both treated and controls", {
                controls_only = FALSE,
                family = "gaussian",
                atmle_pooled = TRUE,
-               g_rct = 0.67,
-               verbose = FALSE)
-  expect_equal(res$est, 1.5, tolerance = 1)
-
-  # test atmle_pooled = FALSE
-  res <- atmle(data,
-               S_node = c(1),
-               W_node = c(2, 3),
-               A_node = 4,
-               Y_node = 5,
-               controls_only = FALSE,
-               family = "gaussian",
-               atmle_pooled = FALSE,
                g_rct = 0.67,
                verbose = FALSE)
   expect_equal(res$est, 1.5, tolerance = 1)
@@ -53,7 +39,6 @@ test_that("basic functionality test, external has only controls", {
   Y <- -0.5-0.8*W1-1.1*W2+1.5*A+UY+(1-S)*(0.9+2.6*W1)+(1-S)*U_bias
   data <- data.frame(S, W1, W2, A, Y)
 
-  # test atmle_pooled = TRUE
   res <- atmle(data,
                S_node = c(1),
                W_node = c(2, 3),
@@ -62,19 +47,6 @@ test_that("basic functionality test, external has only controls", {
                controls_only = TRUE,
                family = "gaussian",
                atmle_pooled = TRUE,
-               g_rct = 0.67,
-               verbose = FALSE)
-  expect_equal(res$est, 1.5, tolerance = 1)
-
-  # test atmle_pooled = FALSE
-  res <- atmle(data,
-               S_node = c(1),
-               W_node = c(2, 3),
-               A_node = 4,
-               Y_node = 5,
-               controls_only = TRUE,
-               family = "gaussian",
-               atmle_pooled = FALSE,
                g_rct = 0.67,
                verbose = FALSE)
   expect_equal(res$est, 1.5, tolerance = 1)

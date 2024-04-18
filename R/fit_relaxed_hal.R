@@ -1,22 +1,29 @@
-#' @title Fit relaxed HAL
+#' @title Relaxed highly adaptive lasso
+#'
+#' @description First fit highly adaptive lasso, then fit a `glm` only on the
+#' design matrix of the selected basis functions (with non-zero coefficients).
 #'
 #' @param X A numeric matrix of covariates.
 #' @param Y A numeric vector of outcomes.
-#' @param family A character string specifying the family of the outcome.
-#' @param weights A numeric vector of weights.
-#' @param X_no_basis A numeric matrix of covariates that should not be used
-#' to construct HAL basis.
 #' @param X_unpenalized A numeric matrix of covariates that should not be
-#' penalized by HAL.
+#' penalized by HAL. Used for enforcing minimal working models.
+#' @param family A character string specifying the family of the outcome.
+#' Either "gaussian" or "binomial".
+#' @param weights A numeric vector of weights.
+#' @param enumerate_basis_args A list of arguments to pass to `enumerate_basis`
+#' function in `hal9001`.
+#' @param fit_hal_args A list of arguments to pass to `fit_hal` function in
+#' `hal9001`.
 #'
 #' @importFrom hal9001 enumerate_basis
 #' @importFrom hal9001 fit_hal
 #'
 #' @return A list with the following components:
 #' \item{beta}{A numeric vector of coefficients.}
+#' \item{hal_basis_list}{A list of selected HAL basis.}
+#' \item{x_basis}{The design matrix of selected basis.}
 #' \item{pred}{A numeric vector of predictions.}
-#' \item{hal_basis_list}{A list of HAL basis.}
-#' \item{x_basis}{A numeric matrix of basis.}
+#' \item{hal_fit}{The output of `fit_hal`.}
 fit_relaxed_hal <- function(X,
                             Y,
                             X_unpenalized,
@@ -25,7 +32,6 @@ fit_relaxed_hal <- function(X,
                             family,
                             weights,
                             relaxed,
-                            v_folds,
                             enumerate_basis_args = list(),
                             fit_hal_args = list()) {
 
@@ -125,7 +131,7 @@ fit_relaxed_hal <- function(X,
                     type = "response")
   }
 
-  print("number of non-zero coefficients: " %+% length(beta))
+  #print("number of non-zero coefficients: " %+% length(beta))
 
   return(list(beta = beta,
               hal_basis_list = hal_basis_list,

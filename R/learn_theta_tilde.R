@@ -16,6 +16,7 @@
 #' @importFrom sl3 Lrnr_cv_selector
 #' @importFrom sl3 loss_loglik_binomial
 #' @importFrom sl3 loss_squared_error
+#' @importFrom purrr walk
 #'
 #' @param W A matrix of baseline covariates.
 #' @param Y A vector of outcomes.
@@ -34,11 +35,12 @@
 #' @returns A numeric vector of the estimated values.
 learn_theta_tilde <- function(W,
                               Y,
+                              delta,
                               method,
                               folds,
                               family,
                               theta_bounds,
-                              cross_fit_nuisance) {
+                              cross_fit_nuisance = TRUE) {
 
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners(family)
@@ -59,25 +61,32 @@ learn_theta_tilde <- function(W,
     lrnr_theta_tilde <- NULL
     task_theta_tilde <- NULL
     if (family == "gaussian") {
-      lrnr_theta_tilde <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
-                                       Lrnr_cv_selector$new(loss_squared_error))
-      task_theta_tilde <- sl3_Task$new(data = data.table(W, Y = Y),
-                                       covariates = colnames(W),
-                                       outcome = "Y",
-                                       outcome_type = "continuous")
+      lrnr_theta_tilde <- make_learner(
+        Pipeline, Lrnr_cv$new(lrnr_stack),
+        Lrnr_cv_selector$new(loss_squared_error))
+      task_train <- sl3_Task$new(
+        data = data.table(W, Y = Y)[delta == 1],
+        covariates = colnames(W), outcome = "Y", outcome_type = "continuous")
+      task_pred <- sl3_Task$new(
+        data = data.table(W, Y = 0),
+        covariates = colnames(W), outcome = "Y", outcome_type = "continuous")
+
     } else if (family == "binomial") {
-      lrnr_theta_tilde <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
-                                       Lrnr_cv_selector$new(loss_loglik_binomial))
-      task_theta_tilde <- sl3_Task$new(data = data.table(W, Y = Y),
-                                       covariates = colnames(W),
-                                       outcome = "Y", outcome_type = "binomial")
+      lrnr_theta_tilde <- make_learner(
+        Pipeline, Lrnr_cv$new(lrnr_stack),
+        Lrnr_cv_selector$new(loss_loglik_binomial))
+      task_train <- sl3_Task$new(
+        data = data.table(W, Y = Y)[delta == 1],
+        covariates = colnames(W), outcome = "Y", outcome_type = "binomial")
+      task_pred <- sl3_Task$new(
+        data = data.table(W, Y = 0),
+        covariates = colnames(W), outcome = "Y", outcome_type = "binomial")
     }
 
-    fit_theta_tilde <- lrnr_theta_tilde$train(task_theta_tilde)
-    pred <- fit_theta_tilde$predict(task_theta_tilde)
+    fit_theta_tilde <- lrnr_theta_tilde$train(task_train)
+    pred <- fit_theta_tilde$predict(task_pred)
 
   } else if (method == "glm") {
-
     X <- data.frame(W)
 
     if (cross_fit_nuisance) {
@@ -85,14 +94,16 @@ learn_theta_tilde <- function(W,
       walk(folds, function(.x) {
         train_idx <- .x$training_set
         valid_idx <- .x$validation_set
-        fit <- glm(Y[train_idx] ~., data = X[train_idx, ], family = family)
+        fit <- glm(Y[train_idx][delta[train_idx] == 1] ~.,
+                   data = X[train_idx,][delta[train_idx] == 1,],
+                   family = family)
         pred[valid_idx] <<- as.numeric(predict(
           fit, newdata = X[valid_idx,], type = "response"))
       })
 
     } else {
       # no cross fit
-      fit <- glm(Y ~., data = X, family = family)
+      fit <- glm(Y[delta == 1] ~., data = X[delta == 1,], family = family)
       pred <- as.numeric(predict(fit, newdata = X, type = "response"))
     }
 
@@ -105,7 +116,8 @@ learn_theta_tilde <- function(W,
       walk(folds, function(.x) {
         train_idx <- .x$training_set
         valid_idx <- .x$validation_set
-        fit <- cv.glmnet(x = X[train_idx, ], y = Y[train_idx], keep = TRUE,
+        fit <- cv.glmnet(x = X[train_idx,][delta[train_idx] == 1,],
+                         y = Y[train_idx][delta[train_idx] == 1], keep = TRUE,
                          alpha = 1, nfolds = length(folds), family = family)
         pred[valid_idx] <<- as.numeric(predict(
           fit, newx = X[valid_idx, ], s = "lambda.min", type = "response"))
@@ -113,8 +125,8 @@ learn_theta_tilde <- function(W,
 
     } else {
       # no cross fit
-      fit <- cv.glmnet(x = X, y = Y, keep = TRUE, alpha = 1,
-                       nfolds = length(folds), family = family)
+      fit <- cv.glmnet(x = X[delta == 1,], y = Y[delta == 1], keep = TRUE,
+                       alpha = 1, nfolds = length(folds), family = family)
       pred <- as.numeric(predict(
         fit, newx = X, s = "lambda.min", type = "response"))
     }
@@ -124,5 +136,5 @@ learn_theta_tilde <- function(W,
          list of sl3 learners.")
   }
 
-  return(.bound(pred, theta_bounds))
+  return(pred)
 }

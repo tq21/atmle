@@ -14,6 +14,7 @@
 #' @importFrom sl3 Lrnr_cv
 #' @importFrom sl3 Lrnr_cv_selector
 #' @importFrom sl3 loss_loglik_binomial
+#' @importFrom purrr walk
 #'
 #' @param S A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.
 #' @param W A matrix of baseline covariates.
@@ -60,7 +61,7 @@ learn_g <- function(S,
                     method,
                     folds,
                     g_bounds,
-                    cross_fit_nuisance) {
+                    cross_fit_nuisance = TRUE) {
 
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners("binomial")

@@ -45,6 +45,7 @@ learn_tau <- function(S,
                       Pi,
                       theta,
                       g,
+                      delta,
                       controls_only,
                       method,
                       v_folds,
@@ -56,7 +57,11 @@ learn_tau <- function(S,
                       Pi_bounds,
                       enumerate_basis_args = list(),
                       fit_hal_args = list(),
-                      weak_penalize = FALSE) {
+                      weak_penalize = FALSE,
+                      weights) {
+
+  enumerate_basis_args <- list()
+  fit_hal_args = list()
 
   pred <- NULL
   A1 <- numeric(length = length(A))
@@ -69,7 +74,6 @@ learn_tau <- function(S,
   x_basis_A0 <- NULL
   coefs <- NULL
 
-  weights <- 1 # TODO: not used yet
   pseudo_outcome <- NULL
   pseudo_weights <- NULL
 
@@ -82,7 +86,7 @@ learn_tau <- function(S,
 
     # R-transformations, only controls
     pseudo_outcome <- (Y[A == 0]-theta[A == 0])/(S[A == 0]-Pi$pred[A == 0])
-    pseudo_weights <- (S[A == 0]-Pi$pred[A == 0])^2*weights
+    pseudo_weights <- (S[A == 0]-Pi$pred[A == 0])^2*weights[A == 0]
 
     # design matrix, only controls (X: W)
     if (max_degree > 1) {
@@ -126,7 +130,7 @@ learn_tau <- function(S,
   if (method == "binomial loss") {
     # TODO: testing stage right now. Do not use this.
     X <- S * cbind(W, A, W*A)
-    fit <- cv.glmnet(x = as.matrix(X), y = Y, offset = theta,
+    fit <- cv.glmnet(x = as.matrix(X[delta == 1,]), y = Y[delta == 1], offset = theta,
                      intercept = TRUE, family = "binomial", keep = TRUE,
                      nfolds = v_folds, alpha = 1, relax = TRUE)
     non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
@@ -148,9 +152,20 @@ learn_tau <- function(S,
     pred[A == 0] <- A0[A == 0]
 
   } else if (method == "glmnet") {
-    fit <- cv.glmnet(x = as.matrix(X), y = pseudo_outcome, intercept = TRUE,
-                     family = "gaussian", weights = pseudo_weights,
-                     keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE)
+
+    if (controls_only) {
+      fit <- cv.glmnet(x = as.matrix(X[delta[A == 0] == 1,,drop=FALSE]),
+                       y = pseudo_outcome[delta[A == 0] == 1], intercept = TRUE,
+                       family = "gaussian", weights = pseudo_weights[delta[A == 0] == 1],
+                       keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE)
+
+    } else {
+      fit <- cv.glmnet(x = as.matrix(X[delta == 1,,drop=FALSE]),
+                       y = pseudo_outcome[delta == 1], intercept = TRUE,
+                       family = "gaussian", weights = pseudo_weights[delta == 1],
+                       keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE)
+    }
+
     non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
     coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
     #print(non_zero)
@@ -211,14 +226,13 @@ learn_tau <- function(S,
       }
 
       # fit relaxed HAL
-      fit <- fit_relaxed_hal(X = X, Y = pseudo_outcome,
+      fit <- fit_relaxed_hal(X = X[delta == 1,], Y = pseudo_outcome[delta == 1],
                              X_unpenalized = X_unpenalized,
                              X_weak_penalized = NULL,
                              X_weak_penalized_level = 0,
                              family = "gaussian", # ALWAYS GAUSSIAN, EVEN FOR BINARIES!
-                             weights = pseudo_weights,
-                             relaxed = TRUE,
-                             v_folds = v_folds)
+                             weights = pseudo_weights[delta == 1],
+                             relaxed = TRUE)
 
       # selected bases
       x_basis <- x_basis_A0 <- make_counter_design_matrix(
@@ -282,15 +296,15 @@ learn_tau <- function(S,
       # EXPERIMENTAL FEATURE, NOT USED RIGHT NOW!
       undersmooth <- 0
       if (undersmooth == 0) {
+
         # fit relaxed HAL, no undersmoothing at all
-        fit <- fit_relaxed_hal(X = X, Y = pseudo_outcome,
+        fit <- fit_relaxed_hal(X = X[delta == 1,], Y = pseudo_outcome[delta == 1],
                                X_unpenalized = X_unpenalized,
                                X_weak_penalized = X_weak_penalized,
                                X_weak_penalized_level = 0,
                                family = "gaussian", # ALWAYS GAUSSIAN, EVEN FOR BINARIES!
-                               weights = pseudo_weights,
+                               weights = pseudo_weights[delta == 1],
                                relaxed = TRUE,
-                               v_folds = v_folds,
                                enumerate_basis_args = enumerate_basis_args,
                                fit_hal_args = fit_hal_args)
 

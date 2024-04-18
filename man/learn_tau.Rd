@@ -13,6 +13,7 @@ learn_tau(
   Pi,
   theta,
   g,
+  delta,
   controls_only,
   method,
   v_folds,
@@ -22,7 +23,10 @@ learn_tau(
   undersmooth,
   target_gwt,
   Pi_bounds,
-  weak_penalize = FALSE
+  enumerate_basis_args = list(),
+  fit_hal_args = list(),
+  weak_penalize = FALSE,
+  weights
 )
 }
 \arguments{
