@@ -347,13 +347,13 @@ atmle <- function(data,
                                        controls_only = controls_only,
                                        weights = weights)
     psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE)/n)
-    psi_pound_lower <- psi_pound_est-2*psi_pound_se
-    psi_pound_upper <- psi_pound_est+2*psi_pound_se
+    psi_pound_lower <- psi_pound_est-1.96*psi_pound_se
+    psi_pound_upper <- psi_pound_est+1.96*psi_pound_se
 
     # pooled-ATE parameter
     psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE)/n)
-    psi_tilde_lower <- psi_tilde_est-2*psi_tilde_se
-    psi_tilde_upper <- psi_tilde_est+2*psi_tilde_se
+    psi_tilde_lower <- psi_tilde_est-1.96*psi_tilde_se
+    psi_tilde_upper <- psi_tilde_est+1.96*psi_tilde_se
 
     # RCT-ATE
     est <- psi_tilde_est - psi_pound_est
@@ -366,13 +366,13 @@ atmle <- function(data,
     #   psi_pound_eic <- tmp
     # }
     #se <- sqrt((var(psi_pound_eic, na.rm = TRUE)+var(psi_tilde_eic, na.rm = TRUE))/n)
-    lower <- est-2*se
-    upper <- est+2*se
+    lower <- est-1.96*se
+    upper <- est+1.96*se
   } else if (var_method == "bootstrap") {
     # bias parameter
     psi_pound_se <- bootstrap_psi_pound(tau, W, Pi)
-    psi_pound_lower <- psi_pound_est-2*psi_pound_se
-    psi_pound_upper <- psi_pound_est+2*psi_pound_se
+    psi_pound_lower <- psi_pound_est-1.96*psi_pound_se
+    psi_pound_upper <- psi_pound_est+1.96*psi_pound_se
 
     # pooled-ATE parameter (use ic-based for now)
     psi_tilde_se <- NULL
@@ -382,15 +382,15 @@ atmle <- function(data,
     #  psi_tilde_upper <- psi_tilde_est+qnorm(0.975)*psi_tilde_se
     #} else {
     psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE)/n)
-    psi_tilde_lower <- psi_tilde_est-2*psi_tilde_se
-    psi_tilde_upper <- psi_tilde_est+2*psi_tilde_se
+    psi_tilde_lower <- psi_tilde_est-1.96*psi_tilde_se
+    psi_tilde_upper <- psi_tilde_est+1.96*psi_tilde_se
     #}
 
     # RCT-ATE
     est <- psi_tilde_est - psi_pound_est
     se <- sqrt(psi_pound_se^2+psi_tilde_se^2)
-    lower <- est+2*se
-    upper <- est-2*se
+    lower <- est+1.96*se
+    upper <- est-1.96*se
   }
 
   results <- list(est = est,

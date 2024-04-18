@@ -31,7 +31,9 @@ atmle(
   Pi_bounds = c(0.01, 0.99),
   theta_bounds = c(-Inf, Inf),
   target_gwt = TRUE,
-  verbose = TRUE
+  verbose = TRUE,
+  enumerate_basis_args = list(),
+  fit_hal_args = list()
 )
 }
 \arguments{

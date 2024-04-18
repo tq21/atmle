@@ -13,7 +13,6 @@ fit_relaxed_hal(
   family,
   weights,
   relaxed,
-  v_folds,
   enumerate_basis_args = list(),
   fit_hal_args = list()
 )
@@ -30,9 +29,6 @@ penalized by HAL. Used for enforcing minimal working models.}
 Either "gaussian" or "binomial".}
 
 \item{weights}{A numeric vector of weights.}
-
-\item{v_folds}{An integer specifying the number of folds for
-cross-validation when selecting the penalization factor.}
 
 \item{enumerate_basis_args}{A list of arguments to pass to `enumerate_basis`
 function in `hal9001`.}

@@ -8,14 +8,14 @@ source("utils.R")
 
 # simulation parameters --------------------------------------------------------
 set.seed(123)
-B <- 100 # number of runs for each sample size n
+B <- 500 # number of runs for each sample size n
 n_rct_seq <- c(400, 500, 600, 700, 800)
 n_rwd_seq <- n_rct_seq * 3
 ate <- 1.5 # true ATE
 bias <- "a" # true bias
 censor <- 2.3 # censoring level
 controls_only <- FALSE
-nuisance_method <- "sl3"
+nuisance_method <- "glm"
 working_model <- "glmnet"
 g_rct <- 0.67
 f_name <- bias %+% "_bias_" %+% censor %+% "_censor"

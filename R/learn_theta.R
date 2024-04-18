@@ -16,6 +16,7 @@
 #' @importFrom sl3 Lrnr_cv
 #' @importFrom sl3 Lrnr_cv_selector
 #' @importFrom sl3 loss_squared_error
+#' @importFrom purrr walk
 #'
 #' @param W A matrix of baseline covariates.
 #' @param A A vector of treatment indicators.
@@ -58,7 +59,8 @@ learn_theta <- function(W,
                         method,
                         folds,
                         family,
-                        theta_bounds) {
+                        theta_bounds,
+                        cross_fit_nuisance = TRUE) {
 
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners(family)
@@ -86,7 +88,7 @@ learn_theta <- function(W,
           data = data.table(W, Y = Y)[A == 0 & delta == 1],
           covariates = colnames(W), outcome = "Y", outcome_type = "continuous")
         task_pred <- sl3_Task$new(
-          data = data.table(W, Y = Y)[A == 0],
+          data = data.table(W, Y = 0)[A == 0],
           covariates = colnames(W), outcome = "Y", outcome_type = "continuous")
         fit_theta <- lrnr_theta$train(task_train)
         pred[A == 0] <- fit_theta$predict(task_pred)
@@ -103,9 +105,10 @@ learn_theta <- function(W,
           outcome = "Y", outcome_type = "continuous")
         fit_theta <- lrnr_theta$train(task_train)
         pred <- fit_theta$predict(task_pred)
-
       }
+
     } else if (family == "binomial") {
+
       lrnr_stack <- Stack$new(method)
       lrnr_theta <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
                                  Lrnr_cv_selector$new(loss_loglik_binomial))
@@ -116,7 +119,7 @@ learn_theta <- function(W,
           data = data.table(W, Y = Y)[A == 0 & delta == 1],
           covariates = colnames(W), outcome = "Y", outcome_type = "binomial")
         task_pred <- sl3_Task$new(
-          data = data.table(W, Y = Y)[A == 0],
+          data = data.table(W, Y = 0)[A == 0],
           covariates = colnames(W), outcome = "Y", outcome_type = "binomial")
         fit_theta <- lrnr_theta$train(task_train)
         pred[A == 0] <- fit_theta$predict(task_pred)
@@ -128,7 +131,7 @@ learn_theta <- function(W,
           covariates = c(colnames(W), "A"),
           outcome = "Y", outcome_type = "binomial")
         task_pred <- sl3_Task$new(
-          data = data.table(W, Y = Y, A = A),
+          data = data.table(W, Y = 0, A = A),
           covariates = c(colnames(W), "A"),
           outcome = "Y", outcome_type = "binomial")
         fit_theta <- lrnr_theta$train(task_train)
@@ -140,45 +143,106 @@ learn_theta <- function(W,
 
   } else if (method == "glm") {
     if (controls_only) {
-      fit <- glm(Y[A == 0 & delta == 1] ~., data = data.frame(W[A == 0 & delta == 1, ]), family = family)
-      A0 <- .bound(as.numeric(predict(fit, newdata = data.frame(W[A == 0, ]),
-                                      type = "response")), theta_bounds)
-      pred[A == 0] <- A0
+      # control
+      X <- as.data.frame(model.matrix(
+        as.formula("~-1+.+A:."), data = data.frame(W, A = A)))
+      X_A0 <- as.data.frame(model.matrix(
+        as.formula("~-1+.+A:."), data = data.frame(W, A = 0)))
+
+      if (cross_fit_nuisance) {
+        # cross fit
+        walk(folds, function(.x) {
+          train_idx <- .x$training_set
+          valid_idx <- .x$validation_set
+          fit <- glm(Y[train_idx][delta[train_idx] == 1] ~.,
+                     data = X[train_idx,][delta[train_idx] == 1,],
+                     family = family)
+          pred[valid_idx] <<- as.numeric(predict(
+            fit, newdata = X_A0[valid_idx,], type = "response"))
+        })
+
+      } else {
+        # no cross fit
+        fit <- glm(Y[delta == 1] ~., data = X[delta == 1,], family = family)
+        pred <- as.numeric(predict(fit, newdata = X_A0, type = "response"))
+      }
 
     } else {
-      X <- as.data.frame(model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A)))
-      walk(folds, function(.x) {
-        train_idx <- .x$training_set
-        valid_idx <- .x$validation_set
-        fit <- glm(Y[train_idx][delta[train_idx] == 1] ~.,
-                   data = X[train_idx,][delta[train_idx] == 1,], family = family)
-        pred[valid_idx] <<- .bound(as.numeric(predict(fit, newdata = X[valid_idx,],
-                                                      type = "response")), theta_bounds)
-      })
+      # treat + control
+      X <- as.data.frame(model.matrix(
+        as.formula("~-1+.+A:."), data = data.frame(W, A = A)))
+
+      if (cross_fit_nuisance) {
+        # cross fit
+        walk(folds, function(.x) {
+          train_idx <- .x$training_set
+          valid_idx <- .x$validation_set
+          fit <- glm(Y[train_idx][delta[train_idx] == 1] ~.,
+                     data = X[train_idx,][delta[train_idx] == 1,],
+                     family = family)
+          pred[valid_idx] <<- as.numeric(predict(
+            fit, newdata = X[valid_idx,], type = "response"))
+        })
+
+      } else {
+        # no cross fit
+        fit <- glm(Y[delta == 1] ~., data = X[delta == 1,], family = family)
+        pred <- as.numeric(predict(fit, newdata = X, type = "response"))
+      }
     }
 
   } else if (method == "glmnet") {
     if (controls_only) {
-      fit_A0 <- cv.glmnet(x = as.matrix(W[A == 0 & delta == 1, ]), y = Y[A == 0 & delta == 1],
-                          keep = TRUE, alpha = 1, nfolds = length(folds),
-                          family = family)
-      A0 <- .bound(as.numeric(predict(fit_A0, newx = as.matrix(W[A == 0, ]),
-                                      s = "lambda.min", type = "response")),
-                   theta_bounds)
-      pred[A == 0] <- A0
+      # control
+      X <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A))
+      X_A0 <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = 0))
+
+      if (cross_fit_nuisance) {
+        # cross fit
+        walk(folds, function(.x) {
+          train_idx <- .x$training_set
+          valid_idx <- .x$validation_set
+          fit <- cv.glmnet(x = X[train_idx,][delta[train_idx] == 1,],
+                           y = Y[train_idx][delta[train_idx] == 1],
+                           keep = TRUE, alpha = 1, nfolds = length(folds),
+                           family = family)
+          pred[valid_idx] <<- as.numeric(predict(
+            fit, newx = X_A0[valid_idx,], s = "lambda.min", type = "response"))
+        })
+
+      } else {
+        # no cross fit
+        fit <- cv.glmnet(x = X[delta == 1,], y = Y[delta == 1], keep = TRUE,
+                         alpha = 1, nfolds = length(folds), family = family)
+        pred <- as.numeric(predict(
+          fit, newx = X_A0, s = "lambda.min", type = "response"))
+      }
 
     } else {
-      X <- as.data.frame(model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A)))
-      walk(folds, function(.x) {
-        train_idx <- .x$training_set
-        valid_idx <- .x$validation_set
-        fit <- cv.glmnet(x = as.matrix(X[train_idx,][delta[train_idx] == 1,]),
-                         y = Y[train_idx][delta[train_idx] == 1],
-                         keep = TRUE, alpha = 1, nfolds = length(folds), family = family)
-        pred[valid_idx] <<- .bound(as.numeric(predict(fit, newx = as.matrix(X[valid_idx, ]),
-                                                    s = "lambda.min", type = "response")),
-                                   theta_bounds)
-      })
+      # treat + control
+      X <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A))
+
+      if (cross_fit_nuisance) {
+        # cross fit
+        walk(folds, function(.x) {
+          train_idx <- .x$training_set
+          valid_idx <- .x$validation_set
+          fit <- cv.glmnet(x = X[train_idx,][delta[train_idx] == 1,],
+                           y = Y[train_idx][delta[train_idx] == 1],
+                           keep = TRUE, alpha = 1, nfolds = length(folds),
+                           family = family)
+          pred[valid_idx] <<- as.numeric(predict(
+            fit, newx = X[valid_idx,], s = "lambda.min", type = "response"))
+        })
+
+      } else {
+        # no cross fit
+        fit <- cv.glmnet(x = X[delta == 1,], y = Y[delta == 1],
+                         keep = TRUE, alpha = 1, nfolds = length(folds),
+                         family = family)
+        pred <- as.numeric(predict(
+          fit, newx = X, s = "lambda.min", type = "response"))
+      }
     }
 
   } else {

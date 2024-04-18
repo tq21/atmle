@@ -26,10 +26,10 @@ S_node <- 1
 W_node <- 2:4
 A_node <- 5
 Y_node <- 6
-theta_method <- "glm"
-Pi_method <- "glm"
-g_method <- "glm"
-theta_tilde_method <- "glm"
+theta_method <- "sl3"
+Pi_method <- "sl3"
+g_method <- "sl3"
+theta_tilde_method <- "sl3"
 Q_method <- "glm"
 bias_working_model <- "glmnet"
 pooled_working_model <- "glmnet"
@@ -40,7 +40,6 @@ atmle_res <- atmle(data = data,
                    W_node = W_node,
                    A_node = A_node,
                    Y_node = Y_node,
-                   cross_fit_nuisance = TRUE,
                    atmle_pooled = TRUE,
                    controls_only = controls_only,
                    theta_method = theta_method,

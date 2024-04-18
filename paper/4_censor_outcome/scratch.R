@@ -29,11 +29,11 @@ S_node <- 1
 W_node <- 2:4
 A_node <- 5
 Y_node <- 6
-theta_method <- "glmnet"
-Pi_method <- "glmnet"
-g_method <- "glmnet"
-g_delta_method <- "glmnet"
-theta_tilde_method <- "glmnet"
+theta_method <- "glm"
+Pi_method <- "glm"
+g_method <- "glm"
+g_delta_method <- "glm"
+theta_tilde_method <- "glm"
 Q_method <- "glm"
 bias_working_model <- "glmnet"
 pooled_working_model <- "glmnet"

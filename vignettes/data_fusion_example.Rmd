@@ -1,5 +1,5 @@
 ---
-title: "Data Fusion Example"
+title: "A-TMLE Package Tutorial: An Example of Data Fusion"
 author: "Sky Qiu"
 date: "2024-04-17"
 output: html_document
@@ -9,27 +9,56 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Introduction
+In this vignette, we will demonstrate an application of the A-TMLE R package
+for estimating the average treatment effect in a setting where data from both an
+RCT and real-world are available.
+
+## Data Generating Process
+In this section, we write a function `sim_data()` to generate an RCT, in which
+the treatment assignment is randomized, and real-world data, in which the
+treatment assignment depends on patient characteristics. We will mimic the
+realistic scenario where the real-world data is subject to unmeasured
+confounding.
+
+Suppose we have conducted a randomized trial where we would like to evaluate
+the effect of some hypertension medication on patients' systolic blood pressure.
+We have the following baseline covariates:
+- Age: patient age (mean = 50, sd = 12);
+- BMI: patient body mass index (mean = 28, sd = 5);
+- Smoking: patient smoking status (20% smokers in the population).
+Suppose the true effect of the medication on systolic blood pressure is -10mmHg.
+That is, if the patient took the medication, their systolic blood pressure would
+be 10mmHg lower than if they did not take the medication.
+
+- `A`: treatment assignment
+- `Y`: outcome
+- `Age`: age
+- `BMI`: body mass index
+- `Smoking`: smoking status
+
+TODO: write down the SCM
+
 ```{r}
 sim_data <- function(n) {
-  # Define the proportion of RCT in the total sample
-  pct_rct <- 0.3
+  pct_rct <- 0.3 # the proportion of RCT in the total sample
   n_rct <- round(n * pct_rct)
   n_rwd <- n - n_rct
   
-  # Generate covariates for all participants
+  # covariates for all participants
   Age <- rnorm(n, mean=50, sd=12) # Mean age of 50 with sd of 12
   BMI <- rnorm(n, mean=28, sd=5)  # Mean BMI of 28 with sd of 5
   Smoking <- rbinom(n, 1, 0.2)    # 20% smokers in the population
   
-  # Unmeasured confounders for RWD
+  # unmeasured confounders for RWD
   Health_Literacy <- rnorm(n_rwd, mean=50, sd=10)
   Socioeconomic_Status <- rnorm(n_rwd, mean=50, sd=10)
 
-  # Treatment assignment
-  # RCT: Randomized treatment
+  # treatment assignment
+  # RCT: randomized treatment
   A_rct <- rbinom(n_rct, 1, 0.5)
   
-  # RWD: Probabilistic treatment based on observed and unobserved covariates
+  # RWD: treatment assignment based on observed and unobserved covariates
   logit_p_rwd <- -1 + 0.05 * Age[(n_rct+1):n] + 
     0.04 * BMI[(n_rct+1):n] + 
     0.8 * Smoking[(n_rct+1):n] + 
@@ -63,7 +92,7 @@ head(simulated_data)
 ```
 
 ```{r}
-load_all()
+library(atmle)
 `%+%` <- function(a, b) paste0(a, b)
 ```
 
@@ -78,13 +107,13 @@ atmle_res <- atmle(data = data,
                    controls_only = FALSE,
                    family = "gaussian",
                    atmle_pooled = TRUE,
-                   theta_method = "sl3",
-                   Pi_method = "sl3",
-                   g_method = "sl3",
-                   g_delta_method = "sl3",
-                   theta_tilde_method = "sl3",
-                   bias_working_model = "HAL",
-                   pooled_working_model = "HAL",
+                   theta_method = "glm",
+                   Pi_method = "glm",
+                   g_method = "glm",
+                   g_delta_method = "glm",
+                   theta_tilde_method = "glm",
+                   bias_working_model = "glmnet",
+                   pooled_working_model = "glmnet",
                    g_rct = 0.5,
                    var_method = "ic",
                    v_folds = 5,
@@ -101,6 +130,7 @@ atmle_res$upper
 ```
 
 ```{r}
+library(EScvtmle)
 escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
                           data = data,
                           study = "S",
@@ -110,8 +140,8 @@ escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
                           outcome = "Y",
                           pRCT = 0.5,
                           family = "gaussian",
-                          Q.SL.library = c("SL.glm", "SL.xgboost", "SL.gam"),
-                          g.SL.library = c("SL.glm", "SL.xgboost", "SL.gam"),
+                          Q.SL.library = c("SL.glm"),
+                          g.SL.library = c("SL.glm"),
                           Q.discreteSL = TRUE,
                           g.discreteSL = TRUE,
                           V = 5)

@@ -4,7 +4,16 @@
 \alias{learn_Pi}
 \title{Learn nuisance function: trial enrollment mechanism}
 \usage{
-learn_Pi(S, W, A, controls_only, method, folds, Pi_bounds)
+learn_Pi(
+  S,
+  W,
+  A,
+  controls_only,
+  method,
+  folds,
+  Pi_bounds,
+  cross_fit_nuisance = TRUE
+)
 }
 \arguments{
 \item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
@@ -24,9 +33,6 @@ super learner-based estimation.}
 \item{Pi_bounds}{A numeric vector of lower and upper bounds for the
 trial enrollment probabilities. The first element is the lower bound,
 and the second element is the upper bound.}
-
-\item{v_folds}{A numeric of number of folds for cross-validation
-(when necessary).}
 }
 \value{
 A \code{list} containing the following elements:
