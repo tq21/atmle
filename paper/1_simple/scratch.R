@@ -8,7 +8,7 @@ bias <- "b"
 ate <- 1.5
 n_rct <- 500
 n_rwd <- 2000
-controls_only <- FALSE
+controls_only <- TRUE
 data_rct <- sim_data(ate = ate,
                      n = n_rct,
                      rct = TRUE,
