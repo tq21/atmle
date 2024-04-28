@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# `atmle` <img src="man/figures/logo.png" style="float: right; height: 138px; margin-left: auto; display: block;">
+# `atmle`: Adaptive-TMLE <img src="man/figures/logo.png" style="float: right; height: 138px; margin-left: auto; display: block;">
 
 <!-- badges: start -->
 
