@@ -16,7 +16,6 @@ Imports:
   hal9001,
   origami,
   purrr,
-  sl3,
   tmle
 Suggests: 
   testthat (>= 3.0.0)
