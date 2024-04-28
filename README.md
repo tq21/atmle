@@ -3,6 +3,8 @@
 
 # R/`atmle`: Adaptive Targeted Minimum Loss-Based Estimation
 
+# `atmle` <img src="man/figures/logo.svg" style="float:right; height:200px;">
+
 <!-- badges: start -->
 
 [![License: GPL

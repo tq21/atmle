@@ -16,6 +16,8 @@ knitr::opts_chunk$set(
 
 # R/`atmle`: Adaptive Targeted Minimum Loss-Based Estimation
 
+# `atmle` <img src="man/figures/logo.svg" style="float:right; height:200px;">
+
 <!-- badges: start -->
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Codecov test coverage](https://codecov.io/gh/tq21/atmle/branch/main/graph/badge.svg)](https://app.codecov.io/gh/tq21/atmle?branch=main)
