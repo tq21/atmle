@@ -1,9 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# R/`atmle`: Adaptive Targeted Minimum Loss-Based Estimation
-
-# <img src="man/figures/logo.png" style="float:right; height:200px;">
+# `atmle` <img src="man/figures/logo.png" style="align:right; height:200px;">
 
 <!-- badges: start -->
 
@@ -13,9 +11,10 @@ v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org
 coverage](https://codecov.io/gh/tq21/atmle/branch/main/graph/badge.svg)](https://app.codecov.io/gh/tq21/atmle?branch=main)
 <!-- badges: end -->
 
-> This package uses adaptive targeted minimum loss-based estimation to
-> estimate the average treatment effect from combined randomized trial
-> and real-world data.
+> Adaptive Targeted Minimum Loss-Based Estimation. This package uses
+> adaptive targeted minimum loss-based estimation to estimate the
+> average treatment effect from combined randomized trial and real-world
+> data.
 
 **Authors:** [Sky Qiu](https://github.com/tq21), [Lars van der
 Laan](https://larsvanderlaan.github.io/) [Mark van der
