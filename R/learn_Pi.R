@@ -41,7 +41,6 @@ learn_Pi <- function(S,
                      folds,
                      Pi_bounds,
                      cross_fit_nuisance = TRUE) {
-
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners("binomial")
   }
@@ -52,53 +51,65 @@ learn_Pi <- function(S,
 
   if (is.list(method)) {
     lrnr_stack <- Stack$new(method)
-    lrnr_Pi <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
-                            Lrnr_cv_selector$new(loss_loglik_binomial))
-    task_Pi <- sl3_Task$new(data = data.table(W, A = A, S = S),
-                            covariates = c(colnames(W), "A"),
-                            outcome = "S", outcome_type = "binomial")
+    lrnr_Pi <- make_learner(
+      Pipeline, Lrnr_cv$new(lrnr_stack),
+      Lrnr_cv_selector$new(loss_loglik_binomial)
+    )
+    task_Pi <- sl3_Task$new(
+      data = data.table(W, A = A, S = S),
+      covariates = c(colnames(W), "A"),
+      outcome = "S", outcome_type = "binomial"
+    )
     fit_Pi <- lrnr_Pi$train(task_Pi)
-    task_Pi_A0 <- sl3_Task$new(data = data.table(W, A = 0, S = S),
-                               covariates = c(colnames(W), "A"),
-                               outcome = "S", outcome_type = "binomial")
+    task_Pi_A0 <- sl3_Task$new(
+      data = data.table(W, A = 0, S = S),
+      covariates = c(colnames(W), "A"),
+      outcome = "S", outcome_type = "binomial"
+    )
     A0 <- .bound(fit_Pi$predict(task_Pi_A0), Pi_bounds)
     pred[A == 0] <- A0[A == 0]
 
     if (controls_only) {
       pred[A == 1] <- 1 # no treated in external
     } else {
-      task_Pi_A1 <- sl3_Task$new(data = data.table(W, A = 1, S = S),
-                                 covariates = c(colnames(W), "A"),
-                                 outcome = "S", outcome_type = "binomial")
+      task_Pi_A1 <- sl3_Task$new(
+        data = data.table(W, A = 1, S = S),
+        covariates = c(colnames(W), "A"),
+        outcome = "S", outcome_type = "binomial"
+      )
       A1 <- .bound(fit_Pi$predict(task_Pi_A1), Pi_bounds)
       pred[A == 1] <- A1[A == 1]
     }
-
   } else if (method == "glm") {
-
     if (controls_only) {
       # control
       X <- as.data.frame(model.matrix(as.formula("~-1+.+A:."),
-                                      data = data.frame(W, A = A)))
+        data = data.frame(W, A = A)
+      ))
       X_A0 <- as.data.frame(model.matrix(as.formula("~-1+.+A:."),
-                                         data = data.frame(W, A = 0)))
+        data = data.frame(W, A = 0)
+      ))
       X_A1 <- as.data.frame(model.matrix(as.formula("~-1+.+A:."),
-                                         data = data.frame(W, A = 1)))
+        data = data.frame(W, A = 1)
+      ))
 
       if (cross_fit_nuisance) {
         # cross fit
         walk(folds, function(.x) {
           train_idx <- .x$training_set
           valid_idx <- .x$validation_set
-          fit <- glm(S[train_idx] ~ ., data = X[train_idx,],
-                     family = "binomial")
+          fit <- glm(S[train_idx] ~ .,
+            data = X[train_idx, ],
+            family = "binomial"
+          )
           pred[valid_idx] <<- .bound(as.numeric(predict(
-            fit, newdata = X_A0[valid_idx,], type = "response")), Pi_bounds)
+            fit,
+            newdata = X_A0[valid_idx, ], type = "response"
+          )), Pi_bounds)
         })
 
         pred[A == 1] <- 1 # no treated in external
         A0 <- pred
-
       } else {
         # no cross fit
         fit <- glm(S ~ ., data = X, family = "binomial")
@@ -106,31 +117,40 @@ learn_Pi <- function(S,
         pred <- A0
         pred[A == 1] <- 1 # no treated in external
       }
-
     } else {
       # treat + control
       X <- as.data.frame(model.matrix(as.formula("~-1+.+A:."),
-                                      data = data.frame(W, A = A)))
+        data = data.frame(W, A = A)
+      ))
       X_A0 <- as.data.frame(model.matrix(as.formula("~-1+.+A:."),
-                                         data = data.frame(W, A = 0)))
+        data = data.frame(W, A = 0)
+      ))
       X_A1 <- as.data.frame(model.matrix(as.formula("~-1+.+A:."),
-                                         data = data.frame(W, A = 1)))
+        data = data.frame(W, A = 1)
+      ))
 
       if (cross_fit_nuisance) {
         # cross fit
         walk(folds, function(.x) {
           train_idx <- .x$training_set
           valid_idx <- .x$validation_set
-          fit <- glm(S[train_idx] ~., data = X[train_idx, ],
-                     family = "binomial")
+          fit <- glm(S[train_idx] ~ .,
+            data = X[train_idx, ],
+            family = "binomial"
+          )
           pred[valid_idx] <<- .bound(as.numeric(predict(
-            fit, newdata = X[valid_idx,], type = "response")), Pi_bounds)
+            fit,
+            newdata = X[valid_idx, ], type = "response"
+          )), Pi_bounds)
           A0[valid_idx] <<- .bound(as.numeric(predict(
-            fit, newdata = X_A0[valid_idx,], type = "response")), Pi_bounds)
+            fit,
+            newdata = X_A0[valid_idx, ], type = "response"
+          )), Pi_bounds)
           A1[valid_idx] <<- .bound(as.numeric(predict(
-            fit, newdata = X_A1[valid_idx,], type = "response")), Pi_bounds)
+            fit,
+            newdata = X_A1[valid_idx, ], type = "response"
+          )), Pi_bounds)
         })
-
       } else {
         # no cross fit
         fit <- glm(S ~ ., data = X, family = "binomial")
@@ -139,9 +159,7 @@ learn_Pi <- function(S,
         pred <- .bound(as.numeric(predict(fit, newdata = X, type = "response")), Pi_bounds)
       }
     }
-
   } else if (method == "glmnet") {
-
     if (controls_only) {
       # control
       X <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A))
@@ -153,30 +171,35 @@ learn_Pi <- function(S,
         walk(folds, function(.x) {
           train_idx <- .x$training_set
           valid_idx <- .x$validation_set
-          fit <- cv.glmnet(x = as.matrix(X[train_idx, ]),
-                           y = S[train_idx],
-                           keep = TRUE, alpha = 1, nfolds = length(folds),
-                           family = "binomial")
+          fit <- cv.glmnet(
+            x = as.matrix(X[train_idx, ]),
+            y = S[train_idx],
+            keep = TRUE, alpha = 1, nfolds = length(folds),
+            family = "binomial"
+          )
           pred[valid_idx] <<- .bound(as.numeric(predict(
-            fit, newx = as.matrix(X_A0[valid_idx, ]), s = "lambda.min",
-            type = "response")), Pi_bounds)
+            fit,
+            newx = as.matrix(X_A0[valid_idx, ]), s = "lambda.min",
+            type = "response"
+          )), Pi_bounds)
         })
 
         pred[A == 1] <- 1 # no treated in external
         A0 <- pred
-
       } else {
         # no cross fit
-        fit <- cv.glmnet(x = X, y = S,
-                         keep = TRUE, alpha = 1, nfolds = length(folds),
-                         family = "binomial")
+        fit <- cv.glmnet(
+          x = X, y = S,
+          keep = TRUE, alpha = 1, nfolds = length(folds),
+          family = "binomial"
+        )
         A0 <- .bound(as.numeric(predict(
-          fit, newx = X_A0, s = "lambda.min", type = "response")), Pi_bounds)
+          fit,
+          newx = X_A0, s = "lambda.min", type = "response"
+        )), Pi_bounds)
         pred <- A0
         pred[A == 1] <- 1 # no treated in external
-
       }
-
     } else {
       # treat + control
       X <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A))
@@ -188,36 +211,52 @@ learn_Pi <- function(S,
         walk(folds, function(.x) {
           train_idx <- .x$training_set
           valid_idx <- .x$validation_set
-          fit <- cv.glmnet(x = X[train_idx,], y = S[train_idx],
-                           keep = TRUE, alpha = 1, nfolds = length(folds),
-                           family = "binomial")
+          fit <- cv.glmnet(
+            x = X[train_idx, ], y = S[train_idx],
+            keep = TRUE, alpha = 1, nfolds = length(folds),
+            family = "binomial"
+          )
           pred[valid_idx] <<- .bound(as.numeric(predict(
-            fit, newx = X[valid_idx,], s = "lambda.min", type = "response")), Pi_bounds)
+            fit,
+            newx = X[valid_idx, ], s = "lambda.min", type = "response"
+          )), Pi_bounds)
           A0[valid_idx] <<- .bound(as.numeric(predict(
-            fit, newx = X_A0[valid_idx,], s = "lambda.min", type = "response")), Pi_bounds)
+            fit,
+            newx = X_A0[valid_idx, ], s = "lambda.min", type = "response"
+          )), Pi_bounds)
           A1[valid_idx] <<- .bound(as.numeric(predict(
-            fit, newx = X_A1[valid_idx,], s = "lambda.min", type = "response")), Pi_bounds)
+            fit,
+            newx = X_A1[valid_idx, ], s = "lambda.min", type = "response"
+          )), Pi_bounds)
         })
-
       } else {
         # no cross fit
-        fit <- cv.glmnet(x = X, y = S, keep = TRUE, alpha = 1,
-                         nfolds = length(folds), family = "binomial")
+        fit <- cv.glmnet(
+          x = X, y = S, keep = TRUE, alpha = 1,
+          nfolds = length(folds), family = "binomial"
+        )
         A0 <- .bound(as.numeric(predict(
-          fit, newx = X_A0, s = "lambda.min", type = "response")), Pi_bounds)
+          fit,
+          newx = X_A0, s = "lambda.min", type = "response"
+        )), Pi_bounds)
         A1 <- .bound(as.numeric(predict(
-          fit, newx = X_A1, s = "lambda.min", type = "response")), Pi_bounds)
+          fit,
+          newx = X_A1, s = "lambda.min", type = "response"
+        )), Pi_bounds)
         pred <- .bound(as.numeric(predict(
-          fit, newx = X, s = "lambda.min", type = "response")), Pi_bounds)
+          fit,
+          newx = X, s = "lambda.min", type = "response"
+        )), Pi_bounds)
       }
     }
-
   } else {
     stop("Invalid method. Must be one of 'glm', 'glmnet', or 'sl3', or a
          list of sl3 learners.")
   }
 
-  return(list(pred = pred,
-              A1 = A1,
-              A0 = A0))
+  return(list(
+    pred = pred,
+    A1 = A1,
+    A0 = A0
+  ))
 }

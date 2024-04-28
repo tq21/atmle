@@ -6,7 +6,7 @@ parametric <- function(data,
                        A_node,
                        Y_node,
                        g_rct,
-                       verbose=TRUE) {
+                       verbose = TRUE) {
   # define nodes
   S <- data[, S_node]
   W <- data[, W_node]
@@ -29,25 +29,29 @@ parametric <- function(data,
   tau_pred <- learn_tau_parametric(S, W, A, Y)
 
   # plug-in estimates
-  psi_pound_est <- mean((1-Pi_pred$A0)*tau_pred$A0-(1-Pi_pred$A1)*tau_pred$A1)
+  psi_pound_est <- mean((1 - Pi_pred$A0) * tau_pred$A0 - (1 - Pi_pred$A1) * tau_pred$A1)
   psi_pound_eic <- get_eic_psi_pound_parametric(Pi_pred, tau_pred, g_pred, psi_pound_est, S, A, Y, n)
 
   # estimate pooled ATE psi_tilde ----------------------------------------------
   Q_pred <- learn_Q(W, A, Y)
-  Q_star <- tmle(Y = Y, A = A, W = W, g1W = g_pred,
-                 Q = as.matrix(data.frame(Q_pred$A1, Q_pred$A0)),
-                 family = "gaussian")
+  Q_star <- tmle(
+    Y = Y, A = A, W = W, g1W = g_pred,
+    Q = as.matrix(data.frame(Q_pred$A1, Q_pred$A0)),
+    family = "gaussian"
+  )
   psi_tilde_est <- Q_star$estimates$ATE$psi
   psi_tilde_eic <- Q_star$estimates$IC$IC.ATE
 
   # estimate psi ---------------------------------------------------------------
   psi_est <- psi_tilde_est - psi_pound_est
   psi_eic <- psi_tilde_eic - psi_pound_eic
-  psi_pound_se <- sqrt(var(psi_eic, na.rm = TRUE)/n)
-  psi_ci_lower <- psi_est-1.96*psi_pound_se
-  psi_ci_upper <- psi_est+1.96*psi_pound_se
+  psi_pound_se <- sqrt(var(psi_eic, na.rm = TRUE) / n)
+  psi_ci_lower <- psi_est - 1.96 * psi_pound_se
+  psi_ci_upper <- psi_est + 1.96 * psi_pound_se
 
-  return(list(est = psi_est,
-              lower = psi_ci_lower,
-              upper = psi_ci_upper))
+  return(list(
+    est = psi_est,
+    lower = psi_ci_lower,
+    upper = psi_ci_upper
+  ))
 }

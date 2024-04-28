@@ -39,8 +39,8 @@ learn_T <- function(W,
                     weights) {
 
   # R-transformations
-  pseudo_outcome <- ifelse(abs(A-g)<1e-10, 0, (Y-theta_tilde)/(A-g))
-  pseudo_weights <- (A-g)^2*weights
+  pseudo_outcome <- ifelse(abs(A - g) < 1e-10, 0, (Y - theta_tilde) / (A - g))
+  pseudo_weights <- (A - g)^2 * weights
 
   pred <- NULL
   x_basis <- NULL
@@ -48,16 +48,16 @@ learn_T <- function(W,
   non_zero <- NULL
 
   if (method == "glmnet") {
-    fit <- cv.glmnet(x = as.matrix(W[delta == 1,]), y = pseudo_outcome[delta == 1],
-                     family = "gaussian", weights = pseudo_weights[delta == 1],
-                     keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE)
+    fit <- cv.glmnet(
+      x = as.matrix(W[delta == 1, ]), y = pseudo_outcome[delta == 1],
+      family = "gaussian", weights = pseudo_weights[delta == 1],
+      keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE
+    )
     non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
     coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
     x_basis <- as.matrix(cbind(1, W)[, non_zero, drop = FALSE])
     pred <- as.numeric(x_basis %*% matrix(coefs))
-
   } else if (method == "HAL") {
-
     X <- as.matrix(W)
 
     if (min_working_model) {
@@ -73,13 +73,15 @@ learn_T <- function(W,
     ###########################################
 
     # fit HAL
-    fit <- fit_relaxed_hal(X = X[delta == 1,], Y = pseudo_outcome[delta == 1],
-                           X_unpenalized = X_unpenalized,
-                           X_weak_penalized = X_weak_penalized,
-                           X_weak_penalized_level = X_weak_penalized_level,
-                           family = "gaussian",
-                           weights = pseudo_weights[delta == 1],
-                           relaxed = TRUE)
+    fit <- fit_relaxed_hal(
+      X = X[delta == 1, ], Y = pseudo_outcome[delta == 1],
+      X_unpenalized = X_unpenalized,
+      X_weak_penalized = X_weak_penalized,
+      X_weak_penalized_level = X_weak_penalized_level,
+      family = "gaussian",
+      weights = pseudo_weights[delta == 1],
+      relaxed = TRUE
+    )
 
     # design matrices
     x_basis <- fit$x_basis
@@ -89,10 +91,12 @@ learn_T <- function(W,
     coefs <- fit$beta
   }
 
-  return(list(pred = pred,
-              x_basis = x_basis,
-              coefs = coefs,
-              non_zero = non_zero,
-              pseudo_outcome = pseudo_outcome,
-              pseudo_weights = pseudo_weights))
+  return(list(
+    pred = pred,
+    x_basis = x_basis,
+    coefs = coefs,
+    non_zero = non_zero,
+    pseudo_outcome = pseudo_outcome,
+    pseudo_weights = pseudo_weights
+  ))
 }
