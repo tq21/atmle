@@ -14,7 +14,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-# `atmle`: Adaptive-TMLE for Data Fusion <img src="man/figures/logo.png" style="float: right; height: 138px; margin-left: auto; display: block;">
+# `atmle`: Adaptive-TMLE for Integrate RCT with RWD <img src="man/figures/logo.png" style="float: right; height: 138px; margin-left: auto; display: block;">
 
 <!-- badges: start -->
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
