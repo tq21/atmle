@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# `atmle`: Adaptive-TMLE for Integrate RCT with RWD <img src="man/figures/logo.png" style="float: right; height: 138px; margin-left: auto; display: block;">
+# `atmle`: Adaptive-TMLE for RCT + RWD <img src="man/figures/logo.png" style="float: right; height: 138px; margin-left: auto; display: block;">
 
 <!-- badges: start -->
 
