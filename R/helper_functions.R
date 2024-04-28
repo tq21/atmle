@@ -6,21 +6,22 @@ library(origami)
 library(purrr)
 
 Q_tmle <- function(g, Q, A, Y_bound) {
-
-  wt <- A/g+(1-A)/(1-g)
+  wt <- A / g + (1 - A) / (1 - g)
   H1W <- A
-  H0W <- 1-A
+  H0W <- 1 - A
 
   submodel <- glm(Y_bound ~ -1 + offset(Q$pred) + H0W + H1W, family = "quasibinomial", weights = wt)
   epsilon <- coef(submodel)
 
-  Q_star <- Q$pred+epsilon[1]*H0W+epsilon[2]*H1W
-  Q_A1_star <- Q$A1+rep(epsilon[1], length(Y_bound))
-  Q_A0_star <- Q$A0+rep(epsilon[2], length(Y_bound))
+  Q_star <- Q$pred + epsilon[1] * H0W + epsilon[2] * H1W
+  Q_A1_star <- Q$A1 + rep(epsilon[1], length(Y_bound))
+  Q_A0_star <- Q$A0 + rep(epsilon[2], length(Y_bound))
 
-  return(list(Q_star = Q_star,
-              A1 = Q_A1_star,
-              A0 = Q_A0_star))
+  return(list(
+    Q_star = Q_star,
+    A1 = Q_A1_star,
+    A0 = Q_A0_star
+  ))
 }
 
 .bound <- function(x, bounds) {
@@ -66,17 +67,17 @@ learn_S_W <- function(S, W, method = "glmnet") {
 
 target_Q <- function(S, W, A, Y, Pi, g, Q, delta, g_delta) {
   # bound Y
-  min_Y <- min(Y, Q$pred, Q$S1A1, Q$S1A0, na.rm = TRUE)-0.001
-  max_Y <- max(Y, Q$pred, Q$S1A1, Q$S1A0, na.rm = TRUE)+0.001
-  Y_bounded <- (Y-min_Y)/(max_Y-min_Y)
-  Q$pred <- (Q$pred-min_Y)/(max_Y-min_Y)
-  Q$S1A1 <- (Q$S1A1-min_Y)/(max_Y-min_Y)
-  Q$S1A0 <- (Q$S1A0-min_Y)/(max_Y-min_Y)
+  min_Y <- min(Y, Q$pred, Q$S1A1, Q$S1A0, na.rm = TRUE) - 0.001
+  max_Y <- max(Y, Q$pred, Q$S1A1, Q$S1A0, na.rm = TRUE) + 0.001
+  Y_bounded <- (Y - min_Y) / (max_Y - min_Y)
+  Q$pred <- (Q$pred - min_Y) / (max_Y - min_Y)
+  Q$S1A1 <- (Q$S1A1 - min_Y) / (max_Y - min_Y)
+  Q$S1A0 <- (Q$S1A0 - min_Y) / (max_Y - min_Y)
 
   # clever covariates
-  wt <- S/Pi$pred
-  H1_n <- wt*(A/g)*(delta/g_delta$pred)
-  H0_n <- wt*((1-A)/(1-g))*(delta/g_delta$pred)
+  wt <- S / Pi$pred
+  H1_n <- wt * (A / g) * (delta / g_delta$pred)
+  H0_n <- wt * ((1 - A) / (1 - g)) * (delta / g_delta$pred)
 
   # logistic submodel
   epsilon <- coef(glm(Y_bounded ~ -1 + offset(qlogis(Q$pred)) + H0_n + H1_n, family = "quasibinomial"))
@@ -84,14 +85,14 @@ target_Q <- function(S, W, A, Y, Pi, g, Q, delta, g_delta) {
 
   # TMLE updates
   Q_star <- NULL
-  Q_star$pred <- plogis(qlogis(Q$pred)+epsilon[1]*H0_n+epsilon[2]*H1_n)
-  Q_star$S1A0 <- plogis(qlogis(Q$S1A0)+epsilon[1]*H0_n)
-  Q_star$S1A1 <- plogis(qlogis(Q$S1A1)+epsilon[2]*H1_n)
+  Q_star$pred <- plogis(qlogis(Q$pred) + epsilon[1] * H0_n + epsilon[2] * H1_n)
+  Q_star$S1A0 <- plogis(qlogis(Q$S1A0) + epsilon[1] * H0_n)
+  Q_star$S1A1 <- plogis(qlogis(Q$S1A1) + epsilon[2] * H1_n)
 
   # scale back
-  Q_star$pred <- Q_star$pred*(max_Y-min_Y)+min_Y
-  Q_star$S1A0 <- Q_star$S1A0*(max_Y-min_Y)+min_Y
-  Q_star$S1A1 <- Q_star$S1A1*(max_Y-min_Y)+min_Y
+  Q_star$pred <- Q_star$pred * (max_Y - min_Y) + min_Y
+  Q_star$S1A0 <- Q_star$S1A0 * (max_Y - min_Y) + min_Y
+  Q_star$S1A1 <- Q_star$S1A1 * (max_Y - min_Y) + min_Y
 
   return(Q_star)
 }

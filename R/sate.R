@@ -11,7 +11,7 @@ sate <- function(data,
                  family) {
   # define nodes ---------------------------------------------------------------
   S <- data[, S_node] # study indicator
-  data <- data[S == 1,]
+  data <- data[S == 1, ]
   W <- data[, W_node] # covariates
   A <- data[, A_node] # treatment
   Y <- data[, Y_node] # outcome
@@ -32,7 +32,7 @@ sate <- function(data,
 
 doTMLE <- function(W, A, Y,
                    g_rct,
-                   family){
+                   family) {
   n <- length(A)
 
   # make counterfactual data
@@ -56,20 +56,21 @@ doTMLE <- function(W, A, Y,
   H.1W <- 1 / pscore
   H.0W <- -1 / (1 - pscore)
   H.AW <- rep(NA, n)
-  H.AW[A == 1]<- H.1W[A == 1]
-  H.AW[A == 0]<- H.0W[A == 0]
+  H.AW[A == 1] <- H.1W[A == 1]
+  H.AW[A == 0] <- H.0W[A == 0]
 
   # bound Y
-  min_Y <- min(Y, QbarAW, Qbar1W, Qbar0W)-0.001
-  max_Y <- max(Y, QbarAW, Qbar1W, Qbar0W)+0.001
-  Y_bounded <- (Y-min_Y)/(max_Y-min_Y)
-  QbarAW <- (QbarAW-min_Y)/(max_Y-min_Y)
-  Qbar1W <- (Qbar1W-min_Y)/(max_Y-min_Y)
-  Qbar0W <- (Qbar0W-min_Y)/(max_Y-min_Y)
+  min_Y <- min(Y, QbarAW, Qbar1W, Qbar0W) - 0.001
+  max_Y <- max(Y, QbarAW, Qbar1W, Qbar0W) + 0.001
+  Y_bounded <- (Y - min_Y) / (max_Y - min_Y)
+  QbarAW <- (QbarAW - min_Y) / (max_Y - min_Y)
+  Qbar1W <- (Qbar1W - min_Y) / (max_Y - min_Y)
+  Qbar0W <- (Qbar0W - min_Y) / (max_Y - min_Y)
 
   # updating step
   logitUpdate <- suppressWarnings(
-    glm(Y_bounded ~ -1 + offset(qlogis(QbarAW)) + H.AW, family = "quasibinomial"))
+    glm(Y_bounded ~ -1 + offset(qlogis(QbarAW)) + H.AW, family = "quasibinomial")
+  )
 
   # estimated coefficient on the clever covariate
   eps <- logitUpdate$coef
@@ -80,9 +81,9 @@ doTMLE <- function(W, A, Y,
   Qbar1W <- plogis(qlogis(Qbar1W) + eps * H.1W)
 
   # scale back
-  QbarAW <- QbarAW*(max_Y-min_Y)+min_Y
-  Qbar0W <- Qbar0W*(max_Y-min_Y)+min_Y
-  Qbar1W <- Qbar1W*(max_Y-min_Y)+min_Y
+  QbarAW <- QbarAW * (max_Y - min_Y) + min_Y
+  Qbar0W <- Qbar0W * (max_Y - min_Y) + min_Y
+  Qbar1W <- Qbar1W * (max_Y - min_Y) + min_Y
 
   # risk estimates under txt, under control and risk difference
   EY_1 <- mean(Qbar1W)
@@ -95,7 +96,9 @@ doTMLE <- function(W, A, Y,
   lower <- sample_ate - 1.96 * sqrt(var.SATE)
   upper <- sample_ate + 1.96 * sqrt(var.SATE)
 
-  return(data.frame(est = sample_ate,
-                    lower = lower,
-                    upper = upper))
+  return(data.frame(
+    est = sample_ate,
+    lower = lower,
+    upper = upper
+  ))
 }

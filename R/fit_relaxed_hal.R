@@ -36,12 +36,16 @@ fit_relaxed_hal <- function(X,
                             fit_hal_args = list()) {
 
   # make basis list
-  enumerate_basis_default_args <- list(max_degree = ifelse(ncol(X) >= 20, 2, 3),
-                                       smoothness_orders = rep(1, ncol(X)),
-                                       #num_knots = 25,
-                                       num_knots = 20)
-  enumerate_basis_args <- modifyList(enumerate_basis_default_args,
-                                     enumerate_basis_args)
+  enumerate_basis_default_args <- list(
+    max_degree = ifelse(ncol(X) >= 20, 2, 3),
+    smoothness_orders = rep(1, ncol(X)),
+    # num_knots = 25,
+    num_knots = 20
+  )
+  enumerate_basis_args <- modifyList(
+    enumerate_basis_default_args,
+    enumerate_basis_args
+  )
   enumerate_basis_args$x <- X
   basis_list <- do.call(enumerate_basis, enumerate_basis_args)
 
@@ -61,13 +65,18 @@ fit_relaxed_hal <- function(X,
     # make basis list for weakly penalized terms
     # append to basis list
     X_min <- apply(X_weak_penalized, 2, min)
-    basis_list_main_terms <- enumerate_basis(x = X_min,
-                                             max_degree = ifelse(
-                                               ncol(X) >= 20, 2, 3),
-                                             smoothness_orders = 1)
+    basis_list_main_terms <- enumerate_basis(
+      x = X_min,
+      max_degree = ifelse(
+        ncol(X) >= 20, 2, 3
+      ),
+      smoothness_orders = 1
+    )
     basis_list <- c(basis_list, basis_list_main_terms)
-    penalty_factor <- c(penalty_factor, rep(X_weak_penalized_level,
-                                            length(basis_list_main_terms)))
+    penalty_factor <- c(penalty_factor, rep(
+      X_weak_penalized_level,
+      length(basis_list_main_terms)
+    ))
   }
 
   # fit HAL
@@ -82,7 +91,7 @@ fit_relaxed_hal <- function(X,
 
   if (!is.null(X_unpenalized)) {
     # drop unpenalized terms from basis list, adjust indices accordingly
-    hal_bases_idx <- 2:(length(hal_fit$coefs)-ncol(X_unpenalized))
+    hal_bases_idx <- 2:(length(hal_fit$coefs) - ncol(X_unpenalized))
     hal_basis_list <- hal_fit$basis_list[hal_fit$coefs[hal_bases_idx] != 0]
   } else {
     hal_basis_list <- hal_fit$basis_list[hal_fit$coefs[-1] != 0]
@@ -90,7 +99,8 @@ fit_relaxed_hal <- function(X,
 
   selected_idx <- which(hal_fit$coefs != 0)
   selected_unpenalized_idx <- which(
-    hal_fit$coefs[length(hal_fit$basis_list)+1:length(hal_fit$coefs)] != 0)-1
+    hal_fit$coefs[length(hal_fit$basis_list) + 1:length(hal_fit$coefs)] != 0
+  ) - 1
   x_basis <- cbind(1, hal_fit$x_basis)[, selected_idx, drop = FALSE]
   beta <- NULL
 
@@ -104,19 +114,23 @@ fit_relaxed_hal <- function(X,
       good_idx <- which(!is.na(beta))
       beta <- beta[good_idx]
       x_basis <- x_basis[, good_idx, drop = FALSE]
-      hal_basis_list <- hal_basis_list[good_idx[-1]-1]
+      hal_basis_list <- hal_basis_list[good_idx[-1] - 1]
       pred <- x_basis %*% beta
       pred <- as.vector(1 / (1 + exp(-pred)))
     } else if (family == "gaussian") {
-      hal_relaxed_fit <- glm.fit(x = x_basis, y = Y, family = gaussian(),
-                                 weights = weights, intercept = FALSE)
+      hal_relaxed_fit <- glm.fit(
+        x = x_basis, y = Y, family = gaussian(),
+        weights = weights, intercept = FALSE
+      )
       beta <- coef(hal_relaxed_fit)
 
       # drop NA columns, collinearity
       selected_hal_idx_good <- as.numeric(which(
-        !is.na(beta[-1][seq(beta) <= length(hal_basis_list)])))
+        !is.na(beta[-1][seq(beta) <= length(hal_basis_list)])
+      ))
       selected_unpenalized_idx_good <- as.numeric(which(
-        !is.na(beta[-1][seq(beta) > length(hal_basis_list)])))
+        !is.na(beta[-1][seq(beta) > length(hal_basis_list)])
+      ))
       good_idx <- as.numeric(which(!is.na(beta)))
       beta <- beta[good_idx]
       x_basis <- x_basis[, good_idx, drop = FALSE]
@@ -127,17 +141,20 @@ fit_relaxed_hal <- function(X,
     # regular HAL fit
     beta <- hal_fit$coefs[selected_idx]
     pred <- predict(hal_fit,
-                    new_data = X,
-                    new_X_unpenalized = X_unpenalized,
-                    type = "response")
+      new_data = X,
+      new_X_unpenalized = X_unpenalized,
+      type = "response"
+    )
   }
 
   print("number of non-zero coefficients: " %+% length(beta))
 
-  return(list(beta = beta,
-              hal_basis_list = hal_basis_list,
-              pred = pred,
-              x_basis = as.matrix(x_basis),
-              selected_unpenalized_idx = selected_unpenalized_idx,
-              hal_fit = hal_fit))
+  return(list(
+    beta = beta,
+    hal_basis_list = hal_basis_list,
+    pred = pred,
+    x_basis = as.matrix(x_basis),
+    selected_unpenalized_idx = selected_unpenalized_idx,
+    hal_fit = hal_fit
+  ))
 }

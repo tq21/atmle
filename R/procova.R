@@ -13,7 +13,6 @@ procova <- function(data,
                     g_bounds = c(0.01, 0.99),
                     target_gwt = TRUE,
                     verbose = TRUE) {
-
   if (!is.data.frame(data)) {
     data <- as.data.frame(data)
   }
@@ -27,15 +26,17 @@ procova <- function(data,
   n <- nrow(data) # sample size
 
   # estimate additional score from external data
-  procova_score <- learn_procova_score(S = S,
-                                       W = W,
-                                       A = A,
-                                       Y = Y,
-                                       delta = delta,
-                                       family = family,
-                                       controls_only = TRUE,
-                                       v_folds = v_folds,
-                                       method = Q_method)
+  procova_score <- learn_procova_score(
+    S = S,
+    W = W,
+    A = A,
+    Y = Y,
+    delta = delta,
+    family = family,
+    controls_only = TRUE,
+    v_folds = v_folds,
+    method = Q_method
+  )
 
   # re-define nodes to include RCT only data
   S <- data[, S_node]
@@ -47,28 +48,34 @@ procova <- function(data,
   n <- nrow(W)
 
   # estimate ATE using TMLE
-  Q <- learn_Q(W = W,
-               A = A,
-               Y = Y,
-               delta = delta,
-               method = Q_method,
-               v_folds = 5,
-               family = family,
-               theta_bounds = c(-Inf, Inf))
+  Q <- learn_Q(
+    W = W,
+    A = A,
+    Y = Y,
+    delta = delta,
+    method = Q_method,
+    v_folds = 5,
+    family = family,
+    theta_bounds = c(-Inf, Inf)
+  )
 
   # targeting Q
-  Q_star <- tmle(Y = Y, A = A, W = W, g1W = rep(g_rct, sum(S == 1)),
-                 Q = as.matrix(data.frame(Q$A1, Q$A0)),
-                 Delta = delta,
-                 g.Delta.SL.library = c("SL.glm"),
-                 family = family)
+  Q_star <- tmle(
+    Y = Y, A = A, W = W, g1W = rep(g_rct, sum(S == 1)),
+    Q = as.matrix(data.frame(Q$A1, Q$A0)),
+    Delta = delta,
+    g.Delta.SL.library = c("SL.glm"),
+    family = family
+  )
   psi_est <- Q_star$estimates$ATE$psi
   psi_eic <- Q_star$estimates$IC$IC.ATE
-  psi_se <- sqrt(var(psi_eic, na.rm = TRUE)/n)
-  psi_ci_lower <- psi_est-1.96*psi_se
-  psi_ci_upper <- psi_est+1.96*psi_se
+  psi_se <- sqrt(var(psi_eic, na.rm = TRUE) / n)
+  psi_ci_lower <- psi_est - 1.96 * psi_se
+  psi_ci_upper <- psi_est + 1.96 * psi_se
 
-  return(list(est = psi_est,
-              lower = psi_ci_lower,
-              upper = psi_ci_upper))
+  return(list(
+    est = psi_est,
+    lower = psi_ci_lower,
+    upper = psi_ci_upper
+  ))
 }

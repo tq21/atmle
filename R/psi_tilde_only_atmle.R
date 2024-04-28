@@ -4,11 +4,11 @@ psi_tilde_only_atmle <- function(data,
                                  W_node,
                                  A_node,
                                  Y_node,
-                                 nuisance_method="lasso",
-                                 working_model="lasso",
-                                 p_rct=0.5,
-                                 verbose=TRUE,
-                                 transform=TRUE) {
+                                 nuisance_method = "lasso",
+                                 working_model = "lasso",
+                                 p_rct = 0.5,
+                                 verbose = TRUE,
+                                 transform = TRUE) {
 
   # define nodes
   S <- data[, S_node]
@@ -36,11 +36,13 @@ psi_tilde_only_atmle <- function(data,
   psi_tilde_est <- mean(psi_tilde$pred)
   psi_tilde_eic <- get_eic_psi_tilde(psi_tilde, g, theta_tilde, Y, A, n)
 
-  psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE)/n)
-  psi_tilde_ci_lower <- psi_tilde_est-1.96*psi_tilde_se
-  psi_tilde_ci_upper <- psi_tilde_est+1.96*psi_tilde_se
+  psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE) / n)
+  psi_tilde_ci_lower <- psi_tilde_est - 1.96 * psi_tilde_se
+  psi_tilde_ci_upper <- psi_tilde_est + 1.96 * psi_tilde_se
 
-  return(list(est = psi_tilde_est,
-              lower = psi_tilde_ci_lower,
-              upper = psi_tilde_ci_upper))
+  return(list(
+    est = psi_tilde_est,
+    lower = psi_tilde_ci_lower,
+    upper = psi_tilde_ci_upper
+  ))
 }
