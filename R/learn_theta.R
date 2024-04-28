@@ -35,6 +35,8 @@
 #' The first element is the lower bound, and the second element is the upper
 #' bound.
 #'
+#' @export
+#'
 #' @returns A numeric vector of the estimated values.
 #'
 #' @examples
@@ -91,7 +93,7 @@ learn_theta <- function(W,
           data = data.table(W, Y = 0)[A == 0],
           covariates = colnames(W), outcome = "Y", outcome_type = "continuous")
         fit_theta <- lrnr_theta$train(task_train)
-        pred[A == 0] <- fit_theta$predict(task_pred)
+        pred[A == 0] <- .bound(fit_theta$predict(task_pred), theta_bounds)
 
       } else {
 
@@ -104,7 +106,7 @@ learn_theta <- function(W,
           covariates = c(colnames(W), "A"),
           outcome = "Y", outcome_type = "continuous")
         fit_theta <- lrnr_theta$train(task_train)
-        pred <- fit_theta$predict(task_pred)
+        pred <- .bound(fit_theta$predict(task_pred), theta_bounds)
       }
 
     } else if (family == "binomial") {
@@ -122,7 +124,7 @@ learn_theta <- function(W,
           data = data.table(W, Y = 0)[A == 0],
           covariates = colnames(W), outcome = "Y", outcome_type = "binomial")
         fit_theta <- lrnr_theta$train(task_train)
-        pred[A == 0] <- fit_theta$predict(task_pred)
+        pred[A == 0] <- .bound(fit_theta$predict(task_pred), theta_bounds)
 
       } else {
 
@@ -135,7 +137,7 @@ learn_theta <- function(W,
           covariates = c(colnames(W), "A"),
           outcome = "Y", outcome_type = "binomial")
         fit_theta <- lrnr_theta$train(task_train)
-        pred <- fit_theta$predict(task_pred)
+        pred <- .bound(fit_theta$predict(task_pred), theta_bounds)
       }
     } else {
       stop("Invalid family. Must be either 'gaussian' or 'binomial'.")
@@ -157,14 +159,14 @@ learn_theta <- function(W,
           fit <- glm(Y[train_idx][delta[train_idx] == 1] ~.,
                      data = X[train_idx,][delta[train_idx] == 1,],
                      family = family)
-          pred[valid_idx] <<- as.numeric(predict(
-            fit, newdata = X_A0[valid_idx,], type = "response"))
+          pred[valid_idx] <<- .bound(as.numeric(predict(
+            fit, newdata = X_A0[valid_idx,], type = "response")), theta_bounds)
         })
 
       } else {
         # no cross fit
         fit <- glm(Y[delta == 1] ~., data = X[delta == 1,], family = family)
-        pred <- as.numeric(predict(fit, newdata = X_A0, type = "response"))
+        pred <- .bound(as.numeric(predict(fit, newdata = X_A0, type = "response")), theta_bounds)
       }
 
     } else {
@@ -180,14 +182,14 @@ learn_theta <- function(W,
           fit <- glm(Y[train_idx][delta[train_idx] == 1] ~.,
                      data = X[train_idx,][delta[train_idx] == 1,],
                      family = family)
-          pred[valid_idx] <<- as.numeric(predict(
-            fit, newdata = X[valid_idx,], type = "response"))
+          pred[valid_idx] <<- .bound(as.numeric(predict(
+            fit, newdata = X[valid_idx,], type = "response")), theta_bounds)
         })
 
       } else {
         # no cross fit
         fit <- glm(Y[delta == 1] ~., data = X[delta == 1,], family = family)
-        pred <- as.numeric(predict(fit, newdata = X, type = "response"))
+        pred <- .bound(as.numeric(predict(fit, newdata = X, type = "response")), theta_bounds)
       }
     }
 
@@ -206,8 +208,8 @@ learn_theta <- function(W,
                            y = Y[train_idx][delta[train_idx] == 1],
                            keep = TRUE, alpha = 1, nfolds = length(folds),
                            family = family)
-          pred[valid_idx] <<- as.numeric(predict(
-            fit, newx = X_A0[valid_idx,], s = "lambda.min", type = "response"))
+          pred[valid_idx] <<- .bound(as.numeric(predict(
+            fit, newx = X_A0[valid_idx,], s = "lambda.min", type = "response")), theta_bounds)
         })
 
       } else {
@@ -231,8 +233,8 @@ learn_theta <- function(W,
                            y = Y[train_idx][delta[train_idx] == 1],
                            keep = TRUE, alpha = 1, nfolds = length(folds),
                            family = family)
-          pred[valid_idx] <<- as.numeric(predict(
-            fit, newx = X[valid_idx,], s = "lambda.min", type = "response"))
+          pred[valid_idx] <<- .bound(as.numeric(predict(
+            fit, newx = X[valid_idx,], s = "lambda.min", type = "response")), theta_bounds)
         })
 
       } else {
@@ -240,8 +242,8 @@ learn_theta <- function(W,
         fit <- cv.glmnet(x = X[delta == 1,], y = Y[delta == 1],
                          keep = TRUE, alpha = 1, nfolds = length(folds),
                          family = family)
-        pred <- as.numeric(predict(
-          fit, newx = X, s = "lambda.min", type = "response"))
+        pred <- .bound(as.numeric(predict(
+          fit, newx = X, s = "lambda.min", type = "response")), theta_bounds)
       }
     }
 

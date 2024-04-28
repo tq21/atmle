@@ -18,7 +18,7 @@ nuisance_method <- "glm"
 working_model <- "HAL"
 g_rct <- 0.67
 f_name <- bias %+% "_bias"
-date_name <- "0328"
+date_name <- "0422"
 
 # make data
 data_list <- make_data(B = B,
@@ -39,7 +39,7 @@ data_list <- make_data(B = B,
 # saveRDS(atmle_both_res,
 #         file = "out/atmle_both_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
 #
-# # 2. ESCVTMLE
+# 2. ESCVTMLE
 # escvtmle_res <- run_sim(data_list = data_list,
 #                         ate = ate,
 #                         controls_only = controls_only,
@@ -49,28 +49,39 @@ data_list <- make_data(B = B,
 #                         method = "escvtmle")
 # saveRDS(escvtmle_res,
 #         file = "out/escvtmle_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
+#
+# # 3. Nonparametric TMLE
+# tmle_res <- run_sim(data_list = data_list,
+#                     ate = ate,
+#                     controls_only = controls_only,
+#                     nuisance_method = nuisance_method,
+#                     working_model = working_model,
+#                     g_rct = g_rct,
+#                     method = "tmle")
+# saveRDS(tmle_res,
+#         file = "out/tmle_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
+#
+# # 4. RCT only
+# rct_only_res <- run_sim(data_list = data_list,
+#                         ate = ate,
+#                         controls_only = controls_only,
+#                         nuisance_method = nuisance_method,
+#                         working_model = working_model,
+#                         g_rct = g_rct,
+#                         method = "rct_only")
+# saveRDS(rct_only_res,
+#         file = "out/rct_only_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
 
-# 3. Nonparametric TMLE
-tmle_res <- run_sim(data_list = data_list,
-                    ate = ate,
-                    controls_only = controls_only,
-                    nuisance_method = nuisance_method,
-                    working_model = working_model,
-                    g_rct = g_rct,
-                    method = "tmle")
-saveRDS(tmle_res,
-        file = "out/tmle_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
+procova_res <- run_sim(data_list = data_list,
+                       ate = ate,
+                       controls_only = controls_only,
+                       nuisance_method = nuisance_method,
+                       working_model = working_model,
+                       g_rct = g_rct,
+                       method = "procova")
+saveRDS(procova_res,
+        file = "out/procova_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
 
-# 4. RCT only
-rct_only_res <- run_sim(data_list = data_list,
-                        ate = ate,
-                        controls_only = controls_only,
-                        nuisance_method = nuisance_method,
-                        working_model = working_model,
-                        g_rct = g_rct,
-                        method = "rct_only")
-saveRDS(rct_only_res,
-        file = "out/rct_only_" %+% f_name %+% "_" %+% date_name %+% ".RDS")
-
-# save all environment variables
-save.image(file = "out/env_" %+% f_name %+% "_" %+% date_name %+% ".RData")
+#
+# # save all environment variables
+# save.image(file = "out/env_" %+% f_name %+% "_" %+% date_name %+% ".RData")

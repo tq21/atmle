@@ -22,6 +22,7 @@ ate <- get_truth()
 
 # MSE
 plt_mse_a <- get_mse_plot("No bias",
+                          "(e)",
                           c("A-TMLE", "ES-CVTMLE", "TMLE"),
                           atmle_both_res, escvtmle_res, tmle_res)
 

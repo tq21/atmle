@@ -6,8 +6,8 @@ source("sim_data.R")
 g_rct <- 0.67
 bias <- "b"
 ate <- 1.5
-n_rct <- 1000
-n_rwd <- 5000
+n_rct <- 500
+n_rwd <- 2000
 controls_only <- TRUE
 data_rct <- sim_data(ate = ate,
                      n = n_rct,
@@ -53,6 +53,20 @@ atmle_res <- atmle(data = data,
                    g_rct = g_rct,
                    family = family,
                    verbose = FALSE)
+
+procova_est <- procova(data = data,
+                       S_node = S_node,
+                       W_node = W_node,
+                       A_node = A_node,
+                       Y_node = Y_node,
+                       controls_only = controls_only,
+                       family = family,
+                       g_rct = g_rct,
+                       Q_method = Q_method,
+                       g_method = g_method,
+                       v_folds = 5,
+                       verbose = FALSE)
+
 
 escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,

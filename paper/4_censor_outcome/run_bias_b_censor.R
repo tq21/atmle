@@ -19,7 +19,7 @@ nuisance_method <- "glm"
 working_model <- "glmnet"
 g_rct <- 0.67
 f_name <- bias %+% "_bias_" %+% censor %+% "_censor"
-date_name <- "0417"
+date_name <- "0421"
 
 # make data
 data_list <- make_data(B = B,

@@ -123,12 +123,12 @@ learn_Pi <- function(S,
           valid_idx <- .x$validation_set
           fit <- glm(S[train_idx] ~., data = X[train_idx, ],
                      family = "binomial")
-          pred[valid_idx] <<- as.numeric(predict(
-            fit, newdata = X[valid_idx,], type = "response"))
-          A0[valid_idx] <<- as.numeric(predict(
-            fit, newdata = X_A0[valid_idx,], type = "response"))
-          A1[valid_idx] <<- as.numeric(predict(
-            fit, newdata = X_A1[valid_idx,], type = "response"))
+          pred[valid_idx] <<- .bound(as.numeric(predict(
+            fit, newdata = X[valid_idx,], type = "response")), Pi_bounds)
+          A0[valid_idx] <<- .bound(as.numeric(predict(
+            fit, newdata = X_A0[valid_idx,], type = "response")), Pi_bounds)
+          A1[valid_idx] <<- .bound(as.numeric(predict(
+            fit, newdata = X_A1[valid_idx,], type = "response")), Pi_bounds)
         })
 
       } else {

@@ -46,8 +46,8 @@ sim_data <- function(n) {
   n_rwd <- n - n_rct
   
   # covariates for all participants
-  Age <- rnorm(n, mean=50, sd=12) # Mean age of 50 with sd of 12
-  BMI <- rnorm(n, mean=28, sd=5)  # Mean BMI of 28 with sd of 5
+  Age <- round(rnorm(n, mean=50, sd=12)) # Mean age of 50 with sd of 12
+  BMI <- round(rnorm(n, mean=28, sd=5), 2)  # Mean BMI of 28 with sd of 5
   Smoking <- rbinom(n, 1, 0.2)    # 20% smokers in the population
   
   # unmeasured confounders for RWD
@@ -81,15 +81,16 @@ sim_data <- function(n) {
   S <- c(rep(1, n_rct), rep(0, n_rwd))
   
   # Assemble the dataframe without the unmeasured confounders (as they are not observed)
-  data.frame(Age = Age, BMI = BMI, Smoking = Smoking, A = A, Y = Y, S = S)
+  data.frame(Age = Age, BMI = BMI, Smoking = Smoking, A = A, Y = round(Y, 2), S = S)
 }
-
-# Example usage:
-set.seed(123) # For reproducibility
-simulated_data <- sim_data(1000)
-head(simulated_data)
-
 ```
+
+```{r}
+set.seed(123) # reproducibility
+simulated_data <- sim_data(n=3000)
+head(simulated_data)
+```
+
 
 ```{r}
 library(atmle)
@@ -97,42 +98,29 @@ library(atmle)
 ```
 
 ```{r}
-set.seed(143)
-data <- sim_data(3000)
-atmle_res <- atmle(data = data,
+atmle_res <- atmle(data = simulated_data,
                    S_node = 6,
                    W_node = c(1, 2, 3),
                    A_node = 4,
                    Y_node = 5,
                    controls_only = FALSE,
                    family = "gaussian",
-                   atmle_pooled = TRUE,
-                   theta_method = "glm",
-                   Pi_method = "glm",
-                   g_method = "glm",
-                   g_delta_method = "glm",
-                   theta_tilde_method = "glm",
-                   bias_working_model = "glmnet",
-                   pooled_working_model = "glmnet",
+                   theta_method = "sl3",
+                   Pi_method = "sl3",
+                   g_method = "sl3",
+                   theta_tilde_method = "sl3",
+                   bias_working_model = "HAL",
+                   pooled_working_model = "HAL",
+                   min_working_model = TRUE,
                    g_rct = 0.5,
-                   var_method = "ic",
-                   v_folds = 5,
-                   g_bounds = c(0.01, 0.99),
-                   Pi_bounds = c(0.01, 0.99),
-                   theta_bounds = c(-Inf, Inf),
-                   target_gwt = TRUE)
-```
-
-
-```{r}
-atmle_res$lower
-atmle_res$upper
+                   verbose = FALSE)
 ```
 
 ```{r}
 library(EScvtmle)
+set.seed(123)
 escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
-                          data = data,
+                          data = simulated_data,
                           study = "S",
                           covariates = c("Age", "BMI", "Smoking"),
                           treatment_var = "A",
@@ -140,21 +128,20 @@ escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
                           outcome = "Y",
                           pRCT = 0.5,
                           family = "gaussian",
-                          Q.SL.library = c("SL.glm"),
-                          g.SL.library = c("SL.glm"),
+                          Q.SL.library = c("SL.glm", "SL.earth", "SL.gam", "SL.xgboost"),
+                          g.SL.library = c("SL.glm", "SL.earth", "SL.gam", "SL.xgboost"),
                           Q.discreteSL = TRUE,
                           g.discreteSL = TRUE,
                           V = 5)
 ```
 
-
 ```{r}
-atmle_res$lower
-atmle_res$upper
+"A-TMLE Point Estimate: " %+% round(atmle_res$est, 3)
+"A-TMLE Lower 95% CI: " %+% round(atmle_res$lower, 3)
+"A-TMLE Upper 95% CI: " %+% round(atmle_res$upper, 3)
+"A-TMLE CI width: " %+% round(atmle_res$upper - atmle_res$lower, 3)
+"ES-CVTMLE Point Estimate: " %+% round(escvtmle_res$ATE$b2v, 3)
+"ES-CVTMLE Lower 95% CI: " %+% round(escvtmle_res$CI$b2v[1], 3)
+"ES-CVTMLE Upper 95% CI: " %+% round(escvtmle_res$CI$b2v[2], 3)
+"ES-CVTMLE CI width: " %+% round(escvtmle_res$CI$b2v[2] - escvtmle_res$CI$b2v[1], 3)
 ```
-
-```{r}
-escvtmle_res
-```
-
-

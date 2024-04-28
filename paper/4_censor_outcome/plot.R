@@ -12,7 +12,7 @@ total_sample_sizes <- n_rct_seq + n_rwd_seq
 ate <- 1.5
 
 # bias a -----------------------------------------------------------------------
-atmle_both_res <- readRDS("out/atmle_both_a_bias_2.3_censor_0418.RDS")
+atmle_both_res <- readRDS("out/atmle_both_a_bias_2.3_censor_0421.RDS")
 escvtmle_res <- readRDS("out/escvtmle_a_bias_2.3_censor_0418.RDS")
 tmle_res <- readRDS("out/tmle_a_bias_2.3_censor_0418.RDS")
 rct_only_res <- readRDS("out/rct_only_a_bias_2.3_censor_0418.RDS")
@@ -49,7 +49,7 @@ print("A-TMLE vs. TMLE = " %+% (round(atmle_ci_length / tmle_ci_length, 3)))
 print("A-TMLE vs. RCT ONLY = " %+% (round(atmle_ci_length / rct_only_ci_length, 3)))
 
 # bias b -----------------------------------------------------------------------
-atmle_both_res <- readRDS("out/atmle_both_b_bias_2.3_censor_0417.RDS")
+atmle_both_res <- readRDS("out/atmle_both_b_bias_2.3_censor_0421.RDS")
 escvtmle_res <- readRDS("out/escvtmle_b_bias_2.3_censor_0417.RDS")
 tmle_res <- readRDS("out/tmle_b_bias_2.3_censor_0417.RDS")
 rct_only_res <- readRDS("out/rct_only_b_bias_2.3_censor_0417.RDS")

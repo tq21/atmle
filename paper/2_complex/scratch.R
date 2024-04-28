@@ -34,7 +34,7 @@ g_method <- "glm"
 theta_tilde_method <- "glm"
 Q_method <- "glm"
 bias_working_model <- "HAL"
-pooled_working_model <- "glmnet"
+pooled_working_model <- "HAL"
 family <- "gaussian"
 
 atmle_res <- atmle(data = data,
@@ -53,14 +53,7 @@ atmle_res <- atmle(data = data,
                    pooled_working_model = pooled_working_model,
                    g_rct = g_rct,
                    family = family,
-                   verbose = FALSE,
-                   #enumerate_basis_args = list(num_knots = 10, screen_knots = TRUE))
-                   enumerate_basis_args = list(
-                     num_knots = hal9001:::num_knots_generator(
-                       smoothness_orders = 1,
-                       max_degree = 3,
-                       base_num_knots_0 = 200,
-                       base_num_knots_1 = 20)))
+                   verbose = FALSE)
 
 escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,

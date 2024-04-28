@@ -88,15 +88,9 @@ run_sim <- function(data_list,
                      theta_tilde_method = nuisance_method,
                      Q_method = nuisance_method,
                      bias_working_model = working_model,
-                     pooled_working_model = "glmnet",
+                     pooled_working_model = working_model,
                      g_rct = g_rct,
-                     verbose = FALSE,
-                     enumerate_basis_args = list(
-                       num_knots = hal9001:::num_knots_generator(
-                         max_degree = 3,
-                         smoothness_orders = 1,
-                         base_num_knots_0 = 200,
-                         base_num_knots_1 = 20)))
+                     verbose = FALSE)
       } else if (method == "atmle_tmle") {
         res <- atmle(data = data,
                      S_node = S_node,
@@ -163,6 +157,18 @@ run_sim <- function(data_list,
                         family = "gaussian",
                         g_rct = g_rct,
                         verbose = FALSE)
+      } else if (method == "procova") {
+        res <- procova(data = data,
+                       S_node = S_node,
+                       W_node = W_node,
+                       A_node = A_node,
+                       Y_node = Y_node,
+                       controls_only = controls_only,
+                       family = "gaussian",
+                       g_rct = g_rct,
+                       Q_method = nuisance_method,
+                       g_method = nuisance_method,
+                       g_delta_method = nuisance_method)
       }
 
       if (res$lower <= ate & res$upper >= ate) {

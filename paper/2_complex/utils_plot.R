@@ -1,3 +1,5 @@
+`%+%` <- function(a, b) paste0(a, b)
+
 get_bias <- function(res, ate) {
   return(unlist(map(res$all_psi_est, function(.x) mean(.x-ate))))
 }
@@ -30,7 +32,7 @@ get_res <- function(res, ate, estimator_name) {
                     cover = cover))
 }
 
-get_mse_plot <- function(title, names, ...) {
+get_mse_plot <- function(title, label, names, ...) {
   res_list <- list(...)
   dt_res <- map_dfr(1:length(res_list), function(i) {
     return(get_res(res_list[[i]], ate, names[i]))
@@ -40,12 +42,9 @@ get_mse_plot <- function(title, names, ...) {
   p_mse <- ggplot(dt_res, aes(x = n, y = mse, color = Estimator)) +
     geom_point(size = 1.5) +
     geom_line(linewidth = 1) +
-    scale_x_continuous(breaks = n_rct_seq+n_rwd_seq,
-                       limits = c(min(n_rct_seq+n_rwd_seq),
-                                  max(n_rct_seq+n_rwd_seq))) +
     labs(title = "",
          x = "n",
-         y = "MSE") +
+         y = (label %+% "\nMSE")) +
     theme_minimal() +
     theme(text = element_text(size = 16),
           legend.position = "none")
@@ -65,9 +64,6 @@ get_cover_plot <- function(title, names, ...) {
     geom_line(linewidth = 1) +
     geom_hline(yintercept = 0.95, color = "red", linetype = "dashed", linewidth = 1) +
     scale_y_continuous(breaks = seq(0, 1.0, 0.1), limits = c(0, 1.0)) +
-    scale_x_continuous(breaks = n_rct_seq+n_rwd_seq,
-                       limits = c(min(n_rct_seq+n_rwd_seq),
-                                  max(n_rct_seq+n_rwd_seq))) +
     labs(title = "",
          x = "n",
          y = "Coverage") +
@@ -135,11 +131,9 @@ get_plot_prop_selected <- function(escvtmle_res, name) {
   df <- data.frame(n = total_sample_sizes,
                    prop = map_vec(escvtmle_res$all_escvtmle_prop_selected, mean))
   p <- ggplot(df, aes(x = n, y = prop)) +
-    geom_point(size = 1.5, color = "#17B02B") +
-    geom_line(linewidth = 1, color = "#17B02B") +
-    scale_x_continuous(breaks = n_rct_seq+n_rwd_seq,
-                       limits = c(min(n_rct_seq+n_rwd_seq),
-                                  max(n_rct_seq+n_rwd_seq))) +
+    geom_point(size = 1.5, color = "#7CAE00") +
+    geom_line(linewidth = 1, color = "#7CAE00") +
+    #scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
     labs(title = "",
          x = "n",
          y = "Avg. prop. folds selected") +
@@ -173,9 +167,7 @@ get_relative_mse_plot <- function(title, estimator_names, comparisons, ...) {
     geom_point(size = 1.5) +
     geom_line(linewidth = 1) +
     geom_hline(yintercept = 1, color = "red", linetype = "dashed", linewidth = 1) +
-    scale_x_continuous(breaks = n_rct_seq+n_rwd_seq,
-                       limits = c(min(n_rct_seq+n_rwd_seq),
-                                  max(n_rct_seq+n_rwd_seq))) +
+    #scale_y_continuous(breaks = seq(0.8, 2, 0.2), limits = c(0.8, 2)) +
     labs(title = title,
          x = "n",
          y = "Relative MSE") +
@@ -183,6 +175,13 @@ get_relative_mse_plot <- function(title, estimator_names, comparisons, ...) {
     theme(text = element_text(size = 16),
           legend.position = "none")
 }
+
+# gg_color_hue <- function(n) {
+#   hues = seq(15, 375, length = n + 1)
+#   hcl(h = hues, l = 65, c = 100)[1:n]
+# }
+# n = 4
+# cols = gg_color_hue(n)
 
 get_avg_ci_length <- function(obj) {
   return(mean(unlist(obj$all_psi_ci_upper) - unlist(obj$all_psi_ci_lower)))

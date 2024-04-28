@@ -61,7 +61,7 @@ learn_T <- function(W,
     X <- as.matrix(W)
 
     if (min_working_model) {
-      X_unpenalized <- cbind(1, W)
+      X_unpenalized <- as.matrix(cbind(1, W))
     } else {
       X_unpenalized <- NULL
     }
