@@ -1,26 +1,22 @@
+library(devtools)
 library(EScvtmle)
-library(hal9001)
+load_all()
 source("sim_data.R")
-`%+%` <- function(a, b) paste0(a, b)
-devtools::load_all()
 
 g_rct <- 0.67
-bias <- "HAL_1"
-ate <- 4.2
-n_rct <- 300
-n_rwd <- n_rct*8
+ate <- 1.5
+n_rct <- 500
+n_rwd <- 5000
 controls_only <- FALSE
 data_rct <- sim_data(ate = ate,
                      n = n_rct,
                      rct = TRUE,
                      g_rct = g_rct,
-                     bias = bias,
                      controls_only = controls_only)
 data_rwd <- sim_data(ate = ate,
                      n = n_rwd,
                      rct = FALSE,
                      g_rct = g_rct,
-                     bias = bias,
                      controls_only = controls_only)
 data <- rbind(data_rct, data_rwd)
 
@@ -33,8 +29,8 @@ Pi_method <- "glm"
 g_method <- "glm"
 theta_tilde_method <- "glm"
 Q_method <- "glm"
-bias_working_model <- "HAL"
-pooled_working_model <- "HAL"
+bias_working_model <- "glmnet"
+pooled_working_model <- "glmnet"
 family <- "gaussian"
 
 atmle_res <- atmle(data = data,

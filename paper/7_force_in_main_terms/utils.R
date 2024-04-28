@@ -1,10 +1,10 @@
 library(ggplot2)
+library(devtools)
 library(EScvtmle)
 library(sl3)
 library(purrr)
-library(atmle)
-devtools::load_all()
 
+load_all()
 `%+%` <- function(a, b) paste0(a, b)
 source("sim_data.R")
 
@@ -90,6 +90,7 @@ run_sim <- function(data_list,
                      bias_working_model = working_model,
                      pooled_working_model = working_model,
                      g_rct = g_rct,
+                     min_working_model = TRUE,
                      verbose = FALSE)
       } else if (method == "atmle_tmle") {
         res <- atmle(data = data,
@@ -106,7 +107,7 @@ run_sim <- function(data_list,
                      theta_tilde_method = nuisance_method,
                      Q_method = nuisance_method,
                      bias_working_model = working_model,
-                     pooled_working_model = "glmnet",
+                     pooled_working_model = working_model,
                      g_rct = g_rct,
                      verbose = FALSE)
       } else if (method == "escvtmle") {
@@ -157,18 +158,6 @@ run_sim <- function(data_list,
                         family = "gaussian",
                         g_rct = g_rct,
                         verbose = FALSE)
-      } else if (method == "procova") {
-        res <- procova(data = data,
-                       S_node = S_node,
-                       W_node = W_node,
-                       A_node = A_node,
-                       Y_node = Y_node,
-                       controls_only = controls_only,
-                       family = "gaussian",
-                       g_rct = g_rct,
-                       Q_method = nuisance_method,
-                       g_method = nuisance_method,
-                       g_delta_method = nuisance_method)
       }
 
       if (res$lower <= ate & res$upper >= ate) {

@@ -1,5 +1,3 @@
-`%+%` <- function(a, b) paste0(a, b)
-
 get_bias <- function(res, ate) {
   return(unlist(map(res$all_psi_est, function(.x) mean(.x-ate))))
 }
@@ -25,26 +23,26 @@ get_res <- function(res, ate, estimator_name) {
   cover <- get_cover(res)
 
   return(data.frame(n = total_sample_sizes,
-                    Estimator = estimator_name,
+                    estimator = estimator_name,
                     bias = bias,
                     se = se,
                     mse = mse,
                     cover = cover))
 }
 
-get_mse_plot <- function(title, label, names, ...) {
+get_mse_plot <- function(title, names, ...) {
   res_list <- list(...)
   dt_res <- map_dfr(1:length(res_list), function(i) {
     return(get_res(res_list[[i]], ate, names[i]))
   })
   dt_res <- dt_res[order(dt_res$n), ]
 
-  p_mse <- ggplot(dt_res, aes(x = n, y = mse, color = Estimator)) +
+  p_mse <- ggplot(dt_res, aes(x = n, y = mse, color = estimator)) +
     geom_point(size = 1.5) +
     geom_line(linewidth = 1) +
     labs(title = "",
          x = "n",
-         y = (label %+% "\nMSE")) +
+         y = "mse") +
     theme_minimal() +
     theme(text = element_text(size = 16),
           legend.position = "none")
@@ -59,7 +57,7 @@ get_cover_plot <- function(title, names, ...) {
   })
   dt_res <- dt_res[order(dt_res$n), ]
 
-  p_cover <- ggplot(dt_res, aes(x = n, y = cover, color = Estimator)) +
+  p_cover <- ggplot(dt_res, aes(x = n, y = cover, color = estimator)) +
     geom_point(size = 1.5) +
     geom_line(linewidth = 1) +
     geom_hline(yintercept = 0.95, color = "red", linetype = "dashed", linewidth = 1) +
@@ -81,7 +79,7 @@ get_plot <- function(title, names, ...) {
   })
   dt_res <- dt_res[order(dt_res$n), ]
 
-  p_bias <- ggplot(dt_res, aes(x = n, y = abs(bias), color = Estimator)) +
+  p_bias <- ggplot(dt_res, aes(x = n, y = abs(bias), color = estimator)) +
     geom_point() +
     geom_line() +
     labs(title = "",
@@ -90,7 +88,7 @@ get_plot <- function(title, names, ...) {
     theme_minimal() +
     theme(text = element_text(size = 16))
 
-  p_se <- ggplot(dt_res, aes(x = n, y = se, color = Estimator)) +
+  p_se <- ggplot(dt_res, aes(x = n, y = se, color = estimator)) +
     geom_point() +
     geom_line() +
     labs(title = "",
@@ -99,7 +97,7 @@ get_plot <- function(title, names, ...) {
     theme_minimal() +
     theme(text = element_text(size = 16))
 
-  p_mse <- ggplot(dt_res, aes(x = n, y = mse, color = Estimator)) +
+  p_mse <- ggplot(dt_res, aes(x = n, y = mse, color = estimator)) +
     geom_point() +
     geom_line() +
     labs(title = "",
@@ -108,7 +106,7 @@ get_plot <- function(title, names, ...) {
     theme_minimal() +
     theme(text = element_text(size = 16))
 
-  p_cover <- ggplot(dt_res, aes(x = n, y = cover, color = Estimator)) +
+  p_cover <- ggplot(dt_res, aes(x = n, y = cover, color = estimator)) +
     geom_point() +
     geom_line() +
     geom_hline(yintercept = 0.95, color = "red", linetype = "dashed", linewidth = 1) +
@@ -133,7 +131,7 @@ get_plot_prop_selected <- function(escvtmle_res, name) {
   p <- ggplot(df, aes(x = n, y = prop)) +
     geom_point(size = 1.5, color = "#7CAE00") +
     geom_line(linewidth = 1, color = "#7CAE00") +
-    #scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
+    scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
     labs(title = "",
          x = "n",
          y = "Avg. prop. folds selected") +
@@ -160,14 +158,14 @@ get_relative_mse_plot <- function(title, estimator_names, comparisons, ...) {
   for (i in 1:length(comparisons)) {
     comparator <- comparisons[[i]][1]
     reference <- comparisons[[i]][2]
-    dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$Estimator == reference] / dt_res$mse[dt_res$Estimator == comparator]
+    dt_relative$ratio[dt_relative$names == comparator] <- dt_res$mse[dt_res$estimator == reference] / dt_res$mse[dt_res$estimator == comparator]
   }
 
   relative_mse_plot <- ggplot(dt_relative, aes(x = n, y = ratio, color = names)) +
     geom_point(size = 1.5) +
     geom_line(linewidth = 1) +
     geom_hline(yintercept = 1, color = "red", linetype = "dashed", linewidth = 1) +
-    #scale_y_continuous(breaks = seq(0.8, 2, 0.2), limits = c(0.8, 2)) +
+    scale_y_continuous(breaks = seq(0.8, 2, 0.2), limits = c(0.8, 2)) +
     labs(title = title,
          x = "n",
          y = "Relative MSE") +
@@ -182,7 +180,3 @@ get_relative_mse_plot <- function(title, estimator_names, comparisons, ...) {
 # }
 # n = 4
 # cols = gg_color_hue(n)
-
-get_avg_ci_length <- function(obj) {
-  return(mean(unlist(obj$all_psi_ci_upper) - unlist(obj$all_psi_ci_lower)))
-}

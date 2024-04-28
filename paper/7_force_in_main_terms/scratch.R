@@ -1,14 +1,13 @@
+library(devtools)
 library(EScvtmle)
-library(hal9001)
+load_all()
 source("sim_data.R")
-`%+%` <- function(a, b) paste0(a, b)
-devtools::load_all()
 
 g_rct <- 0.67
-bias <- "HAL_1"
-ate <- 4.2
-n_rct <- 300
-n_rwd <- n_rct*8
+bias <- "b"
+ate <- 1.5
+n_rct <- 800
+n_rwd <- 4000
 controls_only <- FALSE
 data_rct <- sim_data(ate = ate,
                      n = n_rct,
@@ -53,6 +52,7 @@ atmle_res <- atmle(data = data,
                    pooled_working_model = pooled_working_model,
                    g_rct = g_rct,
                    family = family,
+                   min_working_model = TRUE,
                    verbose = FALSE)
 
 escvtmle_res <- ES.cvtmle(txinrwd = !controls_only,

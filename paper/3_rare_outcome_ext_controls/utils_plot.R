@@ -30,7 +30,7 @@ get_res <- function(res, ate, estimator_name) {
                     cover = cover))
 }
 
-get_mse_plot <- function(title, names, ...) {
+get_mse_plot <- function(title, label, names, ...) {
   res_list <- list(...)
   dt_res <- map_dfr(1:length(res_list), function(i) {
     return(get_res(res_list[[i]], ate, names[i]))
@@ -45,7 +45,7 @@ get_mse_plot <- function(title, names, ...) {
                                   max(n_rct_seq+n_rwd_seq))) +
     labs(title = "",
          x = "n",
-         y = "MSE") +
+         y = (label %+% "\nMSE")) +
     theme_minimal() +
     theme(text = element_text(size = 16),
           legend.position = "none")

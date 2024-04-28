@@ -157,6 +157,18 @@ run_sim <- function(data_list,
                         family = "gaussian",
                         g_rct = g_rct,
                         verbose = FALSE)
+      } else if (method == "procova") {
+        res <- procova(data = data,
+                       S_node = S_node,
+                       W_node = W_node,
+                       A_node = A_node,
+                       Y_node = Y_node,
+                       controls_only = controls_only,
+                       family = "gaussian",
+                       g_rct = g_rct,
+                       Q_method = nuisance_method,
+                       g_method = nuisance_method,
+                       g_delta_method = nuisance_method)
       }
 
       if (res$lower <= ate & res$upper >= ate) {

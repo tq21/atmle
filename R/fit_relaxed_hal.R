@@ -38,8 +38,8 @@ fit_relaxed_hal <- function(X,
   # make basis list
   enumerate_basis_default_args <- list(max_degree = ifelse(ncol(X) >= 20, 2, 3),
                                        smoothness_orders = rep(1, ncol(X)),
-                                       num_knots = 20, # SUBJECT TO CHANGE
-                                       screen_knots = TRUE)
+                                       #num_knots = 25,
+                                       num_knots = 20)
   enumerate_basis_args <- modifyList(enumerate_basis_default_args,
                                      enumerate_basis_args)
   enumerate_basis_args$x <- X
@@ -77,6 +77,7 @@ fit_relaxed_hal <- function(X,
   fit_hal_args$family <- family
   fit_hal_args$basis_list <- basis_list
   fit_hal_args$return_x_basis <- TRUE
+  fit_hal_args$X_unpenalized <- X_unpenalized
   hal_fit <- do.call(fit_hal, fit_hal_args)
 
   if (!is.null(X_unpenalized)) {
@@ -131,7 +132,7 @@ fit_relaxed_hal <- function(X,
                     type = "response")
   }
 
-  #print("number of non-zero coefficients: " %+% length(beta))
+  print("number of non-zero coefficients: " %+% length(beta))
 
   return(list(beta = beta,
               hal_basis_list = hal_basis_list,

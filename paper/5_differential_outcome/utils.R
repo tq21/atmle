@@ -1,10 +1,10 @@
 library(ggplot2)
+library(devtools)
 library(EScvtmle)
 library(sl3)
 library(purrr)
-library(atmle)
-devtools::load_all()
 
+load_all()
 `%+%` <- function(a, b) paste0(a, b)
 source("sim_data.R")
 
@@ -12,7 +12,6 @@ make_data <- function(B,
                       n_rct_seq,
                       n_rwd_seq,
                       ate,
-                      bias,
                       controls_only) {
 
   data_list <- map2(n_rct_seq, n_rwd_seq, function(n_rct, n_rwd) {
@@ -21,13 +20,11 @@ make_data <- function(B,
                            n = n_rct,
                            rct = TRUE,
                            g_rct = g_rct,
-                           bias = bias,
                            controls_only = controls_only)
       rwd_data <- sim_data(ate = ate,
                            n = n_rwd,
                            rct = FALSE,
                            g_rct = g_rct,
-                           bias = bias,
                            controls_only = controls_only)
       rbind(rct_data, rwd_data)
     })
@@ -37,7 +34,7 @@ make_data <- function(B,
 }
 
 run_sim <- function(data_list,
-                    ate = ate,
+                    ate,
                     controls_only,
                     nuisance_method,
                     working_model,
@@ -106,7 +103,7 @@ run_sim <- function(data_list,
                      theta_tilde_method = nuisance_method,
                      Q_method = nuisance_method,
                      bias_working_model = working_model,
-                     pooled_working_model = "glmnet",
+                     pooled_working_model = working_model,
                      g_rct = g_rct,
                      verbose = FALSE)
       } else if (method == "escvtmle") {
@@ -157,18 +154,6 @@ run_sim <- function(data_list,
                         family = "gaussian",
                         g_rct = g_rct,
                         verbose = FALSE)
-      } else if (method == "procova") {
-        res <- procova(data = data,
-                       S_node = S_node,
-                       W_node = W_node,
-                       A_node = A_node,
-                       Y_node = Y_node,
-                       controls_only = controls_only,
-                       family = "gaussian",
-                       g_rct = g_rct,
-                       Q_method = nuisance_method,
-                       g_method = nuisance_method,
-                       g_delta_method = nuisance_method)
       }
 
       if (res$lower <= ate & res$upper >= ate) {

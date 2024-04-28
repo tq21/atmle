@@ -1,6 +1,61 @@
 
 `%+%` <- function(a, b) paste0(a, b)
 
+learn_procova_score <- function(S,
+                                W,
+                                A,
+                                Y,
+                                delta,
+                                family,
+                                controls_only,
+                                v_folds,
+                                method) {
+
+  if (method == "glmnet") {
+
+    if (controls_only) {
+
+      X_train <- as.matrix(W[S == 0 & delta == 1,,drop=FALSE])
+      X_eval <- as.matrix(W[S == 1,,drop=FALSE])
+      fit <- cv.glmnet(x = X_train,
+                       y = Y[S == 0 & delta == 1],
+                       keep = TRUE, alpha = 1, nfolds = v_folds, family = family)
+      pred <- as.numeric(predict(
+        fit, newx = X_eval, s = "lambda.min", type = "response"))
+
+    } else {
+
+      X_train <- as.matrix(data.frame(W, A = A)[S == 0 & delta == 1,])
+      X_eval <- as.matrix(data.frame(W, A = A)[S == 1,])
+      fit <- cv.glmnet(x = X_train,
+                       y = Y[S == 0 & delta == 1],
+                       keep = TRUE, alpha = 1, nfolds = v_folds, family = family)
+      pred <- as.numeric(predict(
+        fit, newx = X_eval, s = "lambda.min", type = "response"))
+
+    }
+  } else if (method == "glm") {
+
+    if (controls_only) {
+
+      X_train <- W[S == 0 & delta == 1,,drop=FALSE]
+      X_eval <- W[S == 1,,drop=FALSE]
+      fit <- glm(Y[S == 0 & delta == 1] ~ ., data = X_train, family = family)
+      pred <- as.numeric(predict(fit, newdata = X_eval, type = "response"))
+
+    } else {
+
+      X_train <- data.frame(W, A = A)[S == 0 & delta == 1,]
+      X_eval <- data.frame(W, A = A)[S == 1,]
+      fit <- glm(Y[S == 0 & delta == 1] ~ ., data = X_train, family = family)
+      pred <- as.numeric(predict(fit, newdata = X_eval, type = "response"))
+
+    }
+  }
+
+  return(pred)
+}
+
 learn_Q_S1 <- function(S, W, A, Y, delta, method = "glm") {
   pred <- numeric(length = length(A))
   S1A1 <- numeric(length = length(A))
