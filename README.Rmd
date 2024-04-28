@@ -18,6 +18,7 @@ knitr::opts_chunk$set(
 
 <!-- badges: start -->
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Codecov test coverage](https://codecov.io/gh/tq21/atmle/branch/main/graph/badge.svg)](https://app.codecov.io/gh/tq21/atmle?branch=main)
 <!-- badges: end -->
 
 > This package uses adaptive targeted minimum loss-based estimation to estimate the average treatment effect from combined randomized trial and real-world data.
