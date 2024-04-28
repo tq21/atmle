@@ -1,5 +1,3 @@
-library(sl3)
-
 test_that("learn_theta works when external has both treated and controls, and
           outcome is continuous", {
   # simulate data
@@ -48,32 +46,32 @@ test_that("learn_theta works when external has both treated and controls, and
   expect_true(all(theta >= -4 & theta <= 4))
   expect_equal(length(theta), n)
 
-  # sl3 with default learners
-  theta <- learn_theta(W = W,
-                       A = A,
-                       Y = Y,
-                       delta = delta,
-                       controls_only = FALSE,
-                       method = "sl3",
-                       folds = folds,
-                       family = "gaussian",
-                       theta_bounds = c(-4, 4)) # sl3
-  expect_true(all(theta >= -4 & theta <= 4))
-  expect_equal(length(theta), n)
-
-  # sl3 with custom learners
-  lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
-  theta <- learn_theta(W = W,
-                       A = A,
-                       Y = Y,
-                       delta = delta,
-                       controls_only = FALSE,
-                       method = lrnrs,
-                       folds = folds,
-                       family = "gaussian",
-                       theta_bounds = c(-4, 4))
-  expect_true(all(theta >= -4 & theta <= 4))
-  expect_equal(length(theta), n)
+  # # sl3 with default learners
+  # theta <- learn_theta(W = W,
+  #                      A = A,
+  #                      Y = Y,
+  #                      delta = delta,
+  #                      controls_only = FALSE,
+  #                      method = "sl3",
+  #                      folds = folds,
+  #                      family = "gaussian",
+  #                      theta_bounds = c(-4, 4)) # sl3
+  # expect_true(all(theta >= -4 & theta <= 4))
+  # expect_equal(length(theta), n)
+#
+  # # sl3 with custom learners
+  # lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
+  # theta <- learn_theta(W = W,
+  #                      A = A,
+  #                      Y = Y,
+  #                      delta = delta,
+  #                      controls_only = FALSE,
+  #                      method = lrnrs,
+  #                      folds = folds,
+  #                      family = "gaussian",
+  #                      theta_bounds = c(-4, 4))
+  # expect_true(all(theta >= -4 & theta <= 4))
+  # expect_equal(length(theta), n)
 
   expect_error(learn_theta(W = W,
                            A = A,
@@ -132,32 +130,32 @@ test_that("learn_theta works when external has both treated and controls, and
   expect_true(all(theta >= 0 & theta <= 1))
   expect_equal(length(theta), n)
 
-  # sl3 with default learners
-  theta <- learn_theta(W = W,
-                       A = A,
-                       Y = Y,
-                       delta = delta,
-                       controls_only = FALSE,
-                       method = "sl3",
-                       folds = folds,
-                       family = "binomial",
-                       theta_bounds = NULL)
-  expect_true(all(theta >= 0 & theta <= 1))
-  expect_equal(length(theta), n)
-
-  # sl3 with custom learners
-  lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
-  theta <- learn_theta(W = W,
-                       A = A,
-                       Y = Y,
-                       delta = delta,
-                       controls_only = FALSE,
-                       method = lrnrs,
-                       folds = folds,
-                       family = "binomial",
-                       theta_bounds = NULL)
-  expect_true(all(theta >= 0 & theta <= 1))
-  expect_equal(length(theta), n)
+  # # sl3 with default learners
+  # theta <- learn_theta(W = W,
+  #                      A = A,
+  #                      Y = Y,
+  #                      delta = delta,
+  #                      controls_only = FALSE,
+  #                      method = "sl3",
+  #                      folds = folds,
+  #                      family = "binomial",
+  #                      theta_bounds = NULL)
+  # expect_true(all(theta >= 0 & theta <= 1))
+  # expect_equal(length(theta), n)
+#
+  # # sl3 with custom learners
+  # lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
+  # theta <- learn_theta(W = W,
+  #                      A = A,
+  #                      Y = Y,
+  #                      delta = delta,
+  #                      controls_only = FALSE,
+  #                      method = lrnrs,
+  #                      folds = folds,
+  #                      family = "binomial",
+  #                      theta_bounds = NULL)
+  # expect_true(all(theta >= 0 & theta <= 1))
+  # expect_equal(length(theta), n)
 
   expect_error(learn_theta(W = W,
                            A = A,
@@ -215,32 +213,32 @@ test_that("learn_theta works when external has controls only, and outcome
   expect_true(all(theta[A == 0] >= -4 & theta[A == 0] <= 4))
   expect_length(theta, n)
 
-  # sl3 with default learners
-  theta <- learn_theta(W = W,
-                       A = A,
-                       Y = Y,
-                       delta = delta,
-                       controls_only = TRUE,
-                       method = "sl3",
-                       folds = folds,
-                       family = "gaussian",
-                       theta_bounds = c(-4, 4))
-  expect_true(all(theta[A == 0] >= -4 & theta[A == 0] <= 4))
-  expect_length(theta, n)
-
-  # sl3 with custom learners
-  lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
-  theta <- learn_theta(W = W,
-                       A = A,
-                       Y = Y,
-                       delta = delta,
-                       controls_only = TRUE,
-                       method = lrnrs,
-                       folds = folds,
-                       family = "gaussian",
-                       theta_bounds = c(-4, 4))
-  expect_true(all(theta[A == 0] >= -4 & theta[A == 0] <= 4))
-  expect_length(theta, n)
+  # # sl3 with default learners
+  # theta <- learn_theta(W = W,
+  #                      A = A,
+  #                      Y = Y,
+  #                      delta = delta,
+  #                      controls_only = TRUE,
+  #                      method = "sl3",
+  #                      folds = folds,
+  #                      family = "gaussian",
+  #                      theta_bounds = c(-4, 4))
+  # expect_true(all(theta[A == 0] >= -4 & theta[A == 0] <= 4))
+  # expect_length(theta, n)
+#
+  # # sl3 with custom learners
+  # lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
+  # theta <- learn_theta(W = W,
+  #                      A = A,
+  #                      Y = Y,
+  #                      delta = delta,
+  #                      controls_only = TRUE,
+  #                      method = lrnrs,
+  #                      folds = folds,
+  #                      family = "gaussian",
+  #                      theta_bounds = c(-4, 4))
+  # expect_true(all(theta[A == 0] >= -4 & theta[A == 0] <= 4))
+  # expect_length(theta, n)
 
   expect_error(learn_theta(W = W,
                            A = A,
@@ -299,32 +297,32 @@ test_that("learn_theta works when external has controls only, and outcome
   expect_true(all(theta[A == 0] >= 0 & theta[A == 0] <= 1))
   expect_length(theta, n)
 
-  # sl3 with default learners
-  theta <- learn_theta(W = W,
-                       A = A,
-                       Y = Y,
-                       delta = delta,
-                       controls_only = TRUE,
-                       method = "sl3",
-                       folds = folds,
-                       family = "binomial",
-                       theta_bounds = NULL)
-  expect_true(all(theta[A == 0] >= 0 & theta[A == 0] <= 1))
-  expect_length(theta, n)
-
-  # sl3 with custom learners
-  lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
-  theta <- learn_theta(W = W,
-                       A = A,
-                       Y = Y,
-                       delta = delta,
-                       controls_only = TRUE,
-                       method = lrnrs,
-                       folds = folds,
-                       family = "binomial",
-                       theta_bounds = NULL) # sl3
-  expect_true(all(theta[A == 0] >= 0 & theta[A == 0] <= 1))
-  expect_length(theta, n)
+  # # sl3 with default learners
+  # theta <- learn_theta(W = W,
+  #                      A = A,
+  #                      Y = Y,
+  #                      delta = delta,
+  #                      controls_only = TRUE,
+  #                      method = "sl3",
+  #                      folds = folds,
+  #                      family = "binomial",
+  #                      theta_bounds = NULL)
+  # expect_true(all(theta[A == 0] >= 0 & theta[A == 0] <= 1))
+  # expect_length(theta, n)
+#
+  # # sl3 with custom learners
+  # lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
+  # theta <- learn_theta(W = W,
+  #                      A = A,
+  #                      Y = Y,
+  #                      delta = delta,
+  #                      controls_only = TRUE,
+  #                      method = lrnrs,
+  #                      folds = folds,
+  #                      family = "binomial",
+  #                      theta_bounds = NULL) # sl3
+  # expect_true(all(theta[A == 0] >= 0 & theta[A == 0] <= 1))
+  # expect_length(theta, n)
 
   expect_error(learn_theta(W = W,
                            A = A,

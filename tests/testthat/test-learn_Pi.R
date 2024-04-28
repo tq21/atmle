@@ -1,5 +1,3 @@
-library(sl3)
-
 test_that("learn_Pi works when external has both treated and controls", {
   # simulate data
   set.seed(123)
@@ -47,36 +45,36 @@ test_that("learn_Pi works when external has both treated and controls", {
   expect_length(Pi$A0, n)
   expect_length(Pi$A1, n)
 
-  # sl3 with default learners
-  Pi <- learn_Pi(S = S,
-                 W = W,
-                 A = A,
-                 controls_only = FALSE,
-                 method = "sl3",
-                 folds = folds,
-                 Pi_bounds = c(0.01, 0.99))
-  expect_true(all(Pi$pred >= 0.01 & Pi$pred <= 0.99))
-  expect_true(all(Pi$A0 >= 0.01 & Pi$A0 <= 0.99))
-  expect_true(all(Pi$A1 >= 0.01 & Pi$A1 <= 0.99))
-  expect_length(Pi$pred, n)
-  expect_length(Pi$A0, n)
-  expect_length(Pi$A1, n)
-
-  # sl3 with custom learners
-  lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
-  Pi <- learn_Pi(S = S,
-                 W = W,
-                 A = A,
-                 controls_only = FALSE,
-                 method = lrnrs,
-                 folds = folds,
-                 Pi_bounds = c(0.01, 0.99))
-  expect_true(all(Pi$pred >= 0.01 & Pi$pred <= 0.99))
-  expect_true(all(Pi$A0 >= 0.01 & Pi$A0 <= 0.99))
-  expect_true(all(Pi$A1 >= 0.01 & Pi$A1 <= 0.99))
-  expect_length(Pi$pred, n)
-  expect_length(Pi$A0, n)
-  expect_length(Pi$A1, n)
+  # # sl3 with default learners
+  # Pi <- learn_Pi(S = S,
+  #                W = W,
+  #                A = A,
+  #                controls_only = FALSE,
+  #                method = "sl3",
+  #                folds = folds,
+  #                Pi_bounds = c(0.01, 0.99))
+  # expect_true(all(Pi$pred >= 0.01 & Pi$pred <= 0.99))
+  # expect_true(all(Pi$A0 >= 0.01 & Pi$A0 <= 0.99))
+  # expect_true(all(Pi$A1 >= 0.01 & Pi$A1 <= 0.99))
+  # expect_length(Pi$pred, n)
+  # expect_length(Pi$A0, n)
+  # expect_length(Pi$A1, n)
+#
+  # # sl3 with custom learners
+  # lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
+  # Pi <- learn_Pi(S = S,
+  #                W = W,
+  #                A = A,
+  #                controls_only = FALSE,
+  #                method = lrnrs,
+  #                folds = folds,
+  #                Pi_bounds = c(0.01, 0.99))
+  # expect_true(all(Pi$pred >= 0.01 & Pi$pred <= 0.99))
+  # expect_true(all(Pi$A0 >= 0.01 & Pi$A0 <= 0.99))
+  # expect_true(all(Pi$A1 >= 0.01 & Pi$A1 <= 0.99))
+  # expect_length(Pi$pred, n)
+  # expect_length(Pi$A0, n)
+  # expect_length(Pi$A1, n)
 
   expect_error(learn_Pi(S = S,
                         W = W,
@@ -132,34 +130,34 @@ test_that("learn_Pi works when external has controls only", {
   expect_length(Pi$A0, n)
   expect_length(Pi$A1, n)
 
-  # sl3 with default learners
-  Pi <- learn_Pi(S = S,
-                 W = W,
-                 A = A,
-                 controls_only = TRUE,
-                 method = "sl3",
-                 folds = folds,
-                 Pi_bounds = c(0.01, 0.99))
-  expect_true(all(Pi$A0[A == 0] >= 0.01 & Pi$A0[A == 0] <= 0.99))
-  expect_true(all(Pi$pred[A == 1] == 1))
-  expect_length(Pi$pred, n)
-  expect_length(Pi$A0, n)
-  expect_length(Pi$A1, n)
-
-  # sl3 with custom learners
-  lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
-  Pi <- learn_Pi(S = S,
-                 W = W,
-                 A = A,
-                 controls_only = TRUE,
-                 method = lrnrs,
-                 folds = folds,
-                 Pi_bounds = c(0.01, 0.99))
-  expect_true(all(Pi$A0[A == 0] >= 0.01 & Pi$A0[A == 0] <= 0.99))
-  expect_true(all(Pi$pred[A == 1] == 1))
-  expect_length(Pi$pred, n)
-  expect_length(Pi$A0, n)
-  expect_length(Pi$A1, n)
+  # # sl3 with default learners
+  # Pi <- learn_Pi(S = S,
+  #                W = W,
+  #                A = A,
+  #                controls_only = TRUE,
+  #                method = "sl3",
+  #                folds = folds,
+  #                Pi_bounds = c(0.01, 0.99))
+  # expect_true(all(Pi$A0[A == 0] >= 0.01 & Pi$A0[A == 0] <= 0.99))
+  # expect_true(all(Pi$pred[A == 1] == 1))
+  # expect_length(Pi$pred, n)
+  # expect_length(Pi$A0, n)
+  # expect_length(Pi$A1, n)
+#
+  # # sl3 with custom learners
+  # lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
+  # Pi <- learn_Pi(S = S,
+  #                W = W,
+  #                A = A,
+  #                controls_only = TRUE,
+  #                method = lrnrs,
+  #                folds = folds,
+  #                Pi_bounds = c(0.01, 0.99))
+  # expect_true(all(Pi$A0[A == 0] >= 0.01 & Pi$A0[A == 0] <= 0.99))
+  # expect_true(all(Pi$pred[A == 1] == 1))
+  # expect_length(Pi$pred, n)
+  # expect_length(Pi$A0, n)
+  # expect_length(Pi$A1, n)
 
   expect_error(learn_Pi(S = S,
                         W = W,

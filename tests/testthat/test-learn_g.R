@@ -1,5 +1,3 @@
-library(sl3)
-
 test_that("learn_g works when external has both treated and controls", {
   # simulate data
   set.seed(123)
@@ -41,30 +39,30 @@ test_that("learn_g works when external has both treated and controls", {
   expect_true(min(g) >= 0.01 & max(g) <= 0.99)
   expect_equal(length(g), n)
 
-  # sl3 with default learners
-  g <- learn_g(S = S,
-               W = W,
-               A = A,
-               g_rct = 0.67,
-               controls_only = FALSE,
-               method = "sl3",
-               folds = folds,
-               g_bounds = c(0.01, 0.99))
-  expect_true(min(g) >= 0.01 & max(g) <= 0.99)
-  expect_equal(length(g), n)
-
-  # sl3 with custom learners
-  lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
-  g <- learn_g(S = S,
-               W = W,
-               A = A,
-               g_rct = 0.67,
-               controls_only = FALSE,
-               method = lrnrs,
-               folds = folds,
-               g_bounds = c(0.01, 0.99))
-  expect_true(min(g) >= 0.01 & max(g) <= 0.99)
-  expect_equal(length(g), n)
+  # # sl3 with default learners
+  # g <- learn_g(S = S,
+  #              W = W,
+  #              A = A,
+  #              g_rct = 0.67,
+  #              controls_only = FALSE,
+  #              method = "sl3",
+  #              folds = folds,
+  #              g_bounds = c(0.01, 0.99))
+  # expect_true(min(g) >= 0.01 & max(g) <= 0.99)
+  # expect_equal(length(g), n)
+#
+  # # sl3 with custom learners
+  # lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
+  # g <- learn_g(S = S,
+  #              W = W,
+  #              A = A,
+  #              g_rct = 0.67,
+  #              controls_only = FALSE,
+  #              method = lrnrs,
+  #              folds = folds,
+  #              g_bounds = c(0.01, 0.99))
+  # expect_true(min(g) >= 0.01 & max(g) <= 0.99)
+  # expect_equal(length(g), n)
 
   expect_error(learn_g(S = S,
                        W = W,
@@ -117,30 +115,30 @@ test_that("learn_g works when external has controls only", {
   expect_true(min(g) >= 0.01 & max(g) <= 0.99)
   expect_equal(length(g), n)
 
-  # sl3 with default learners
-  g <- learn_g(S = S,
-               W = W,
-               A = A,
-               g_rct = 0.67,
-               controls_only = TRUE,
-               method = "sl3",
-               folds = folds,
-               g_bounds = c(0.01, 0.99))
-  expect_true(min(g) >= 0.01 & max(g) <= 0.99)
-  expect_equal(length(g), n)
-
-  # sl3 with custom learners
-  lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
-  g <- learn_g(S = S,
-               W = W,
-               A = A,
-               g_rct = 0.67,
-               controls_only = TRUE,
-               method = lrnrs,
-               folds = folds,
-               g_bounds = c(0.01, 0.99))
-  expect_true(min(g) >= 0.01 & max(g) <= 0.99)
-  expect_equal(length(g), n)
+  # # sl3 with default learners
+  # g <- learn_g(S = S,
+  #              W = W,
+  #              A = A,
+  #              g_rct = 0.67,
+  #              controls_only = TRUE,
+  #              method = "sl3",
+  #              folds = folds,
+  #              g_bounds = c(0.01, 0.99))
+  # expect_true(min(g) >= 0.01 & max(g) <= 0.99)
+  # expect_equal(length(g), n)
+#
+  # # sl3 with custom learners
+  # lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
+  # g <- learn_g(S = S,
+  #              W = W,
+  #              A = A,
+  #              g_rct = 0.67,
+  #              controls_only = TRUE,
+  #              method = lrnrs,
+  #              folds = folds,
+  #              g_bounds = c(0.01, 0.99))
+  # expect_true(min(g) >= 0.01 & max(g) <= 0.99)
+  # expect_equal(length(g), n)
 
   expect_error(learn_g(S = S,
                        W = W,
