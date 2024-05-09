@@ -24,7 +24,6 @@ atmle(
   min_working_model = FALSE,
   undersmooth = FALSE,
   g_rct,
-  var_method = "ic",
   max_degree = 1,
   v_folds = 5,
   g_bounds = c(0.01, 0.99),
@@ -153,24 +152,27 @@ set.seed(123)
 
 n <- 2000
 S <- rbinom(n, 1, 0.2)
-W1 <- rnorm(n); W2 <- rnorm(n); W3 <- rnorm(n)
+W1 <- rnorm(n)
+W2 <- rnorm(n)
+W3 <- rnorm(n)
 A <- numeric(n)
 g_rct <- 0.67
 A[S == 1] <- rbinom(sum(S), 1, g_rct)
-A[S == 0] <- rbinom(n-sum(S), 1, plogis(0.5*W1[S == 0]))
+A[S == 0] <- rbinom(n - sum(S), 1, plogis(0.5 * W1[S == 0]))
 UY <- rnorm(n, 0, 1)
-Y <- 2.5+0.9*W1+1.1*W2+2.7*W3+1.5*A+UY+(1-S)*(0.2+0.1*W1*(1-A))
+Y <- 2.5 + 0.9 * W1 + 1.1 * W2 + 2.7 * W3 + 1.5 * A + UY + (1 - S) * (0.2 + 0.1 * W1 * (1 - A))
 data <- data.frame(S, W1, W2, A, Y)
 true_ate <- 1.5
 
 res <- atmle(data,
-             S_node = c(1),
-             W_node = c(2, 3),
-             A_node = 4,
-             Y_node = 5,
-             controls_only = FALSE,
-             family = "gaussian",
-             atmle_pooled = TRUE,
-             g_rct = g_rct,
-             verbose = FALSE)
+  S_node = c(1),
+  W_node = c(2, 3),
+  A_node = 4,
+  Y_node = 5,
+  controls_only = FALSE,
+  family = "gaussian",
+  atmle_pooled = TRUE,
+  g_rct = g_rct,
+  verbose = FALSE
+)
 }

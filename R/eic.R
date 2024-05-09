@@ -40,7 +40,8 @@ get_eic_psi_pound <- function(Pi,
   if (controls_only) {
     W_comp <- (1 - Pi$A0) * tau$A0 - psi_pound_est
     Pi_comp <- -1 / (1 - g) * tau$A0 * (S - Pi$pred)
-    IM <- solve(t(tau$x_basis) %*% diag((Pi$pred * (1 - Pi$pred))) %*% tau$x_basis / n)
+    IM <- solve(t(tau$x_basis) %*% diag((S - Pi$pred)^2) %*% tau$x_basis / n)
+    #IM <- solve(t(tau$x_basis) %*% diag((Pi$pred * (1 - Pi$pred))) %*% tau$x_basis / n)
     IM_A0 <- IM %*% colMeans(tau$x_basis_A0 * (1 - Pi$A0))
     beta_comp <- as.numeric(tau$x_basis %*% IM_A0) * (S - Pi$pred) * (Y_tmp - theta - (S - Pi$pred) * tau$A0) * weights
   } else {
@@ -94,7 +95,8 @@ get_eic_psi_tilde <- function(psi_tilde,
   Y_tmp <- Y
   Y_tmp[is.na(Y)] <- 0
 
-  IM <- t(psi_tilde$x_basis) %*% diag(g * (1 - g)) %*% psi_tilde$x_basis / n
+  IM <- t(psi_tilde$x_basis) %*% diag((A - g)^2) %*% psi_tilde$x_basis / n
+  #IM <- t(psi_tilde$x_basis) %*% diag(g * (1 - g)) %*% psi_tilde$x_basis / n
   D_beta <- weights * as.vector(psi_tilde$x_basis %*% solve(IM) %*% colMeans(psi_tilde$x_basis) * (A - g) * (Y_tmp - theta - (A - g) * psi_tilde$pred))
   W_comp <- psi_tilde$pred - mean(psi_tilde$pred)
 

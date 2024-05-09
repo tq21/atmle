@@ -1,9 +1,9 @@
 #' @title Learn nuisance function: conditional probability of observing the
-#' outcome given study indicator, baseline covariates and treatment
+#' outcome given baseline covariates and treatment
 #'
 #' @description Function to learn the conditional probability of observing the
 #' outcome given baseline covariates and treatment,
-#' \eqn{g_\Delta(1\mid S,W,A)=\mathbb{P}(\Delta=1\mid S,W,A)}. Only applicable when
+#' \eqn{\tilde{g}_\Delta(1\mid W,A)=\mathbb{P}(\Delta=1\mid W,A)}. Only applicable when
 #' the outcome is subject to missingness.
 #'
 #' @keywords nuisance
@@ -30,19 +30,18 @@
 #' element is the upper bound.
 #'
 #' @returns A numeric vector of the estimated values.
-learn_g_delta <- function(S,
-                          W,
-                          A,
-                          delta,
-                          method,
-                          folds,
-                          g_bounds,
-                          cross_fit_nuisance = TRUE) {
+learn_g_delta_tilde <- function(W,
+                                A,
+                                delta,
+                                method,
+                                folds,
+                                g_bounds,
+                                cross_fit_nuisance = TRUE) {
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners("binomial")
   }
 
-  pred <- A0 <- A1 <- numeric(length(S))
+  pred <- A0 <- A1 <- numeric(length(A))
 
   if (is.list(method)) {
     lrnr_stack <- Stack$new(method)
@@ -51,18 +50,18 @@ learn_g_delta <- function(S,
       Lrnr_cv_selector$new(loss_loglik_binomial)
     )
     task_train <- sl3_Task$new(
-      data = data.table(S = S, W, A = A, delta = delta),
-      covariates = c("S", colnames(W), "A"),
+      data = data.table(W, delta = delta, A = A),
+      covariates = c(colnames(W), "A"),
       outcome = "delta", outcome_type = "binomial"
     )
     task_A0 <- sl3_Task$new(
-      data = data.table(S = S, W, A = 0, delta = delta),
-      covariates = c("S", colnames(W), "A"),
+      data = data.table(W, delta = delta, A = 0),
+      covariates = c(colnames(W), "A"),
       outcome = "delta", outcome_type = "binomial"
     )
     task_A1 <- sl3_Task$new(
-      data = data.table(S = S, W, A = 1, delta = delta),
-      covariates = c("S", colnames(W), "A"),
+      data = data.table(W, delta = delta, A = 1),
+      covariates = c(colnames(W), "A"),
       outcome = "delta", outcome_type = "binomial"
     )
     fit_delta <- lrnr_delta$train(task_train)
@@ -72,15 +71,15 @@ learn_g_delta <- function(S,
   } else if (method == "glm") {
     X <- as.data.frame(model.matrix(
       as.formula("~-1+.+A:."),
-      data = data.frame(S = S, W, A = A)
+      data = data.frame(W, A = A)
     ))
     X_A0 <- as.data.frame(model.matrix(
       as.formula("~-1+.+A:."),
-      data = data.frame(S = S, W, A = 0)
+      data = data.frame(W, A = 0)
     ))
     X_A1 <- as.data.frame(model.matrix(
       as.formula("~-1+.+A:."),
-      data = data.frame(S = S, W, A = 1)
+      data = data.frame(W, A = 1)
     ))
 
     if (cross_fit_nuisance) {
@@ -110,12 +109,14 @@ learn_g_delta <- function(S,
       A1 <- as.numeric(predict(fit, newdata = X_A1, type = "response"))
     }
 
+
   } else if (method == "glmnet") {
-    X <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(S = S, W, A = A))
-    X_A0 <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(S = S, W, A = 0))
-    X_A1 <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(S = S, W, A = 1))
+    X <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A))
+    X_A0 <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = 0))
+    X_A1 <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = 1))
 
     if (cross_fit_nuisance) {
+
       walk(folds, function(.x) {
         train_idx <- .x$training_set
         valid_idx <- .x$validation_set

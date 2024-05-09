@@ -39,8 +39,8 @@ fit_relaxed_hal <- function(X,
   enumerate_basis_default_args <- list(
     max_degree = ifelse(ncol(X) >= 20, 2, 3),
     smoothness_orders = rep(1, ncol(X)),
-    # num_knots = 25,
-    num_knots = 20
+    # num_knots = 20,
+    num_knots = 25
   )
   enumerate_basis_args <- modifyList(
     enumerate_basis_default_args,
@@ -147,7 +147,7 @@ fit_relaxed_hal <- function(X,
     )
   }
 
-  print("number of non-zero coefficients: " %+% length(beta))
+  #print("number of non-zero coefficients: " %+% length(beta))
 
   return(list(
     beta = beta,

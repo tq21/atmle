@@ -90,7 +90,7 @@ learn_theta_tilde <- function(W,
     fit_theta_tilde <- lrnr_theta_tilde$train(task_train)
     pred <- .bound(fit_theta_tilde$predict(task_pred), theta_bounds)
   } else if (method == "glm") {
-    X <- data.frame(W)
+    X <- data.frame(W) # USE MODEL MATRIX, SOMETIMES CHARACTERS MESS UP
 
     if (cross_fit_nuisance) {
       # cross fit

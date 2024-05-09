@@ -118,8 +118,8 @@ learn_g <- function(S,
           train_idx <- .x$training_set
           valid_idx <- .x$validation_set
           fit_S_W <- glm(S[train_idx] ~ .,
-            data = X_W[train_idx, ],
-            family = "binomial"
+                         data = X_W[train_idx, ],
+                         family = "binomial"
           )
           pred_S_W <- as.numeric(predict(
             fit_S_W,
@@ -137,10 +137,10 @@ learn_g <- function(S,
       # control + treatment
       X_W <- data.frame(W)
       X_SW <- as.data.frame(model.matrix(as.formula("~-1+.+S:."),
-        data = data.frame(S = S, W)
+                                         data = data.frame(S = S, W)
       ))
       X_0W <- as.data.frame(model.matrix(as.formula("~-1+.+S:."),
-        data = data.frame(S = 0, W)
+                                         data = data.frame(S = 0, W)
       ))
 
       if (cross_fit_nuisance) {
@@ -149,12 +149,12 @@ learn_g <- function(S,
           train_idx <- .x$training_set
           valid_idx <- .x$validation_set
           fit_S_W <- glm(S[train_idx] ~ .,
-            data = X_W[train_idx, ],
-            family = "binomial"
+                         data = X_W[train_idx, ],
+                         family = "binomial"
           )
           fit_A_SW <- glm(A[train_idx] ~ .,
-            data = X_SW[train_idx, ],
-            family = "binomial"
+                          data = X_SW[train_idx, ],
+                          family = "binomial"
           )
           pred_S_W <- as.numeric(predict(
             fit_S_W,
@@ -170,13 +170,13 @@ learn_g <- function(S,
         # no cross fit
         fit_S_W <- glm(S ~ ., data = X_W, family = "binomial")
         pred_S_W <- as.numeric(predict(fit_S_W,
-          newdata = X_W,
-          type = "response"
+                                       newdata = X_W,
+                                       type = "response"
         ))
         fit_A_SW <- glm(A ~ ., data = X_SW, family = "binomial")
         pred_A_0W <- as.numeric(predict(fit_A_SW,
-          newdata = X_0W,
-          type = "response"
+                                        newdata = X_0W,
+                                        type = "response"
         ))
         pred <- g_rct * pred_S_W + pred_A_0W * (1 - pred_S_W)
       }
@@ -261,12 +261,12 @@ learn_g <- function(S,
           nfolds = length(folds)
         )
         pred_S_W <- as.numeric(predict(fit_S_W,
-          newx = X_W,
-          s = "lambda.min", type = "response"
+                                       newx = X_W,
+                                       s = "lambda.min", type = "response"
         ))
         pred_A_0W <- as.numeric(predict(fit_A_SW,
-          newx = X_0W,
-          s = "lambda.min", type = "response"
+                                        newx = X_0W,
+                                        s = "lambda.min", type = "response"
         ))
         pred <- g_rct * pred_S_W + pred_A_0W * (1 - pred_S_W)
       }
