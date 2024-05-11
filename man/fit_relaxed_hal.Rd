@@ -8,13 +8,11 @@ fit_relaxed_hal(
   X,
   Y,
   X_unpenalized,
-  X_weak_penalized,
-  X_weak_penalized_level,
   family,
   weights,
   relaxed,
-  enumerate_basis_args = list(),
-  fit_hal_args = list()
+  enumerate_basis_args,
+  fit_hal_args
 )
 }
 \arguments{

@@ -68,8 +68,10 @@ learn_theta_tilde <- function(W,
         data = data.table(W, Y = Y)[delta == 1],
         covariates = colnames(W), outcome = "Y", outcome_type = "continuous"
       )
+      Y_tmp <- Y
+      Y_tmp[delta == 0] <- 0
       task_pred <- sl3_Task$new(
-        data = data.table(W, Y = 0),
+        data = data.table(W, Y = Y_tmp),
         covariates = colnames(W), outcome = "Y", outcome_type = "continuous"
       )
     } else if (family == "binomial") {
@@ -81,8 +83,10 @@ learn_theta_tilde <- function(W,
         data = data.table(W, Y = Y)[delta == 1],
         covariates = colnames(W), outcome = "Y", outcome_type = "binomial"
       )
+      Y_tmp <- Y
+      Y_tmp[delta == 0] <- 0
       task_pred <- sl3_Task$new(
-        data = data.table(W, Y = 0),
+        data = data.table(W, Y = Y_tmp),
         covariates = colnames(W), outcome = "Y", outcome_type = "binomial"
       )
     }
@@ -90,7 +94,7 @@ learn_theta_tilde <- function(W,
     fit_theta_tilde <- lrnr_theta_tilde$train(task_train)
     pred <- .bound(fit_theta_tilde$predict(task_pred), theta_bounds)
   } else if (method == "glm") {
-    X <- data.frame(W)
+    X <- data.frame(W) # USE MODEL MATRIX, SOMETIMES CHARACTERS MESS UP
 
     if (cross_fit_nuisance) {
       # cross fit

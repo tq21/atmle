@@ -51,17 +51,11 @@ learn_tau <- function(S,
                       v_folds,
                       max_degree,
                       min_working_model,
-                      min_working_model_screen,
-                      undersmooth,
                       target_gwt,
                       Pi_bounds,
-                      enumerate_basis_args = list(),
-                      fit_hal_args = list(),
-                      weak_penalize = FALSE,
+                      enumerate_basis_args,
+                      fit_hal_args,
                       weights) {
-  enumerate_basis_args <- list()
-  fit_hal_args <- list()
-
   pred <- NULL
   A1 <- numeric(length = length(A))
   A0 <- numeric(length = length(A))
@@ -87,19 +81,18 @@ learn_tau <- function(S,
     pseudo_outcome <- (Y[A == 0] - theta[A == 0]) / (S[A == 0] - Pi$pred[A == 0])
     pseudo_weights <- (S[A == 0] - Pi$pred[A == 0])^2 * weights[A == 0]
 
-    # design matrix, only controls (X: W)
+    # augment design matrix if needed
     if (max_degree > 1) {
       W_aug <- model.matrix(as.formula(paste0("~ -1+(.)^", max_degree)), data = W)
-      X <- W_aug[A == 0, ]
-
-      # counterfactual design matrices
-      X_A1_counter <- X_A0_counter <- cbind(1, W_aug)
     } else {
-      X <- W[A == 0, ]
-
-      # counterfactual design matrices
-      X_A1_counter <- X_A0_counter <- cbind(1, W)
+      W_aug <- W
     }
+
+    # design matrix
+    X <- W_aug[A == 0, ]
+
+    # counterfactual design matrices
+    X_A1_counter <- X_A0_counter <- cbind(1, W_aug)
   } else {
     pred <- numeric(length = length(A))
 
@@ -107,50 +100,22 @@ learn_tau <- function(S,
     pseudo_outcome <- (Y - theta) / (S - Pi$pred)
     pseudo_weights <- (S - Pi$pred)^2 * weights
 
-    # design matrix
-    # if (max_degree > 1) {
-    #   W_aug <- model.matrix(as.formula(paste0("~ -1+(.)^", max_degree)), data = W)
-    #   X <- cbind(W_aug, A, W_aug*A)
-    # } else {
-    #   X <- cbind(W, A, W*A) # good
-    #   #X <- cbind(W*A, A, W*(1-A))
-    # }
+    # augment design matrix if needed
+    if (max_degree > 1) {
+      W_aug <- model.matrix(as.formula(paste0("~ -1+(.)^", max_degree)), data = W)
+    } else {
+      W_aug <- W
+    }
 
-    X <- cbind(W, A, W * A)
+    # design matrix
+    X <- cbind(W_aug, A, W_aug * A)
 
     # counterfactual design matrices
-    X_A1_counter <- cbind(1, W, 1, W)
-    X_A0_counter <- cbind(1, W, 0, W * 0)
-    # X_A1_counter <- cbind(1, W*1, 1, W*0)
-    # X_A0_counter <- cbind(1, W*0, 0, W*1)
+    X_A1_counter <- cbind(1, W_aug, 1, W_aug)
+    X_A0_counter <- cbind(1, W_aug, 0, W_aug * 0)
   }
 
-  if (method == "binomial loss") {
-    # TODO: testing stage right now. Do not use this.
-    X <- S * cbind(W, A, W * A)
-    fit <- cv.glmnet(
-      x = as.matrix(X[delta == 1, ]), y = Y[delta == 1], offset = theta,
-      intercept = TRUE, family = "binomial", keep = TRUE,
-      nfolds = v_folds, alpha = 1, relax = TRUE
-    )
-    non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
-    coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
-
-    X_A1_counter <- cbind(1, X * as.numeric(A == 1))
-    X_A0_counter <- cbind(1, X * as.numeric(A == 0))
-
-    # TODO: controls only
-    # selected counterfactual bases
-    x_basis <- as.matrix(cbind(1, X)[, non_zero, drop = FALSE])
-    x_basis_A1 <- as.matrix(X_A1_counter[, non_zero, drop = FALSE])
-    x_basis_A0 <- as.matrix(X_A0_counter[, non_zero, drop = FALSE])
-
-    # predictions
-    A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
-    A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
-    pred[A == 1] <- A1[A == 1]
-    pred[A == 0] <- A0[A == 0]
-  } else if (method == "glmnet") {
+  if (method == "glmnet") {
     if (controls_only) {
       fit <- cv.glmnet(
         x = as.matrix(X[delta[A == 0] == 1, , drop = FALSE]),
@@ -169,11 +134,10 @@ learn_tau <- function(S,
 
     non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
     coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
-    # print(non_zero)
 
     if (controls_only) {
       # selected counterfactual bases
-      x_basis <- x_basis_A0 <- as.matrix(cbind(1, W)[, non_zero, drop = FALSE])
+      x_basis <- x_basis_A0 <- as.matrix(cbind(1, W_aug)[, non_zero, drop = FALSE])
 
       # predictions
       pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
@@ -195,8 +159,6 @@ learn_tau <- function(S,
       # external data has only controls
       X <- data.frame(W[A == 0, , drop = FALSE])
 
-      ##########################################################################
-      # EXPERIMENTAL FEATURE, NOT USED RIGHT NOW!
       if (min_working_model) {
         # enforce a minimal (main-term only) working model
         if (max_degree > 1) {
@@ -205,21 +167,6 @@ learn_tau <- function(S,
           aug_formula <- as.formula("~-1+(.)")
         }
         X_aug <- X_unpenalized <- model.matrix(aug_formula, data = data.frame(W))
-
-        if (min_working_model_screen) {
-          # use lasso to screen bases for minimal working model
-          lasso_screen <- cv.glmnet(
-            x = as.matrix(X_aug), y = pseudo_outcome, intercept = TRUE,
-            family = "gaussian", weights = pseudo_weights,
-            keep = TRUE, nfolds = v_folds, alpha = 1
-          )
-          X_unpenalized_idx <- which(as.numeric(coef(lasso_screen, s = "lambda.min"))[-1] != 0)
-          if (length(X_unpenalized_idx) == 0) {
-            X_unpenalized <- X_unpenalized_A0 <- X_unpenalized_A1 <- NULL
-          } else {
-            X_unpenalized <- X_unpenalized_A0 <- X_unpenalized_A1 <- X_aug[, X_unpenalized_idx, drop = FALSE]
-          }
-        }
       } else {
         # no minimal working model
         X_unpenalized <- X_unpenalized_A0 <- X_unpenalized_A1 <- NULL
@@ -229,8 +176,6 @@ learn_tau <- function(S,
       fit <- fit_relaxed_hal(
         X = X[delta == 1, ], Y = pseudo_outcome[delta == 1],
         X_unpenalized = X_unpenalized,
-        X_weak_penalized = NULL,
-        X_weak_penalized_level = 0,
         family = "gaussian", # ALWAYS GAUSSIAN, EVEN FOR BINARIES!
         weights = pseudo_weights[delta == 1],
         relaxed = TRUE
@@ -251,8 +196,6 @@ learn_tau <- function(S,
       X_A0 <- data.frame(W, A = 0)
       X_A1 <- data.frame(W, A = 1)
 
-      ##########################################################################
-      # EXPERIMENTAL FEATURE, NOT USED RIGHT NOW!
       # enforcing a minimal working model --------------------------------------
       if (min_working_model) {
         if (max_degree > 1) {
@@ -263,126 +206,43 @@ learn_tau <- function(S,
         X_aug <- X_unpenalized <- model.matrix(aug_formula, data = data.frame(W, A = A))
         X_A0_aug <- X_unpenalized_A0 <- model.matrix(aug_formula, data = data.frame(W, A = 0))
         X_A1_aug <- X_unpenalized_A1 <- model.matrix(aug_formula, data = data.frame(W, A = 1))
-
-        if (min_working_model_screen) {
-          # use lasso to screen bases for minimal working model
-          lasso_screen <- cv.glmnet(
-            x = as.matrix(X_aug), y = pseudo_outcome, intercept = TRUE,
-            family = "gaussian", weights = pseudo_weights,
-            keep = TRUE, nfolds = v_folds, alpha = 1
-          )
-          X_unpenalized_idx <- which(as.numeric(coef(lasso_screen, s = "lambda.min"))[-1] != 0)
-          if (length(X_unpenalized_idx) == 0) {
-            X_unpenalized <- X_unpenalized_A0 <- X_unpenalized_A1 <- NULL
-          } else {
-            X_unpenalized <- X_aug[, X_unpenalized_idx, drop = FALSE]
-            X_unpenalized_A0 <- X_A0_aug[, X_unpenalized_idx, drop = FALSE]
-            X_unpenalized_A1 <- X_A1_aug[, X_unpenalized_idx, drop = FALSE]
-          }
-        }
       } else {
         # no minimal working model
         X_unpenalized <- X_unpenalized_A0 <- X_unpenalized_A1 <- NULL
       }
 
-      # weakly penalize terms --------------------------------------------------
-      weak_penalize <- FALSE
-      if (weak_penalize) {
-        X_weak_penalized <- model.matrix(as.formula("~-1+.+A:."), data = X)
-      } else {
-        X_weak_penalized <- NULL
-      }
-      # EXPERIMENTAL FEATURE, NOT USED RIGHT NOW!
-      ##########################################################################
+      # fit relaxed HAL
+      fit <- fit_relaxed_hal(
+        X = X[delta == 1, ], Y = pseudo_outcome[delta == 1],
+        X_unpenalized = X_unpenalized,
+        family = "gaussian", # ALWAYS GAUSSIAN, EVEN FOR BINARIES!
+        weights = pseudo_weights[delta == 1],
+        relaxed = TRUE,
+        enumerate_basis_args = enumerate_basis_args,
+        fit_hal_args = fit_hal_args
+      )
 
-      # undersmoothing ---------------------------------------------------------
-      # EXPERIMENTAL FEATURE, NOT USED RIGHT NOW!
-      undersmooth <- 0
-      if (undersmooth == 0) {
+      # selected bases
+      x_basis <- fit$x_basis
+      x_basis_A1 <- make_counter_design_matrix(
+        basis_list = fit$hal_basis_list,
+        X_counterfactual = as.matrix(X_A1),
+        X_unpenalized = X_unpenalized_A1[, fit$selected_unpenalized_idx, drop = FALSE]
+      )
+      x_basis_A0 <- make_counter_design_matrix(
+        basis_list = fit$hal_basis_list,
+        X_counterfactual = as.matrix(X_A0),
+        X_unpenalized = X_unpenalized_A0[, fit$selected_unpenalized_idx, drop = FALSE]
+      )
 
-        # fit relaxed HAL, no undersmoothing at all
-        fit <- fit_relaxed_hal(
-          X = X[delta == 1, ], Y = pseudo_outcome[delta == 1],
-          X_unpenalized = X_unpenalized,
-          X_weak_penalized = X_weak_penalized,
-          X_weak_penalized_level = 0,
-          family = "gaussian", # ALWAYS GAUSSIAN, EVEN FOR BINARIES!
-          weights = pseudo_weights[delta == 1],
-          relaxed = TRUE,
-          enumerate_basis_args = enumerate_basis_args,
-          fit_hal_args = fit_hal_args
-        )
-
-        # selected bases
-        x_basis <- fit$x_basis
-        x_basis_A1 <- make_counter_design_matrix(
-          basis_list = fit$hal_basis_list,
-          X_counterfactual = as.matrix(X_A1),
-          X_unpenalized = X_unpenalized_A1[, fit$selected_unpenalized_idx, drop = FALSE]
-        )
-        x_basis_A0 <- make_counter_design_matrix(
-          basis_list = fit$hal_basis_list,
-          X_counterfactual = as.matrix(X_A0),
-          X_unpenalized = X_unpenalized_A0[, fit$selected_unpenalized_idx, drop = FALSE]
-        )
-
-        # predictions
-        A1 <- as.numeric(x_basis_A1 %*% matrix(fit$beta))
-        A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
-        pred[A == 1] <- A1[A == 1]
-        pred[A == 0] <- A0[A == 0]
-      } else if (undersmooth == 1) {
-        # undersmoothing version 1:
-        # relaxed HAL, undersmooth to increase the model,
-        # get the largest model such that PnD* is still solved
-        tau <- undersmooth_1(
-          S = S, W = W, A = A, X = X, Y = pseudo_outcome,
-          Pi = Pi, theta = theta, g = g,
-          pseudo_weights = pseudo_weights,
-          X_unpenalized = X_unpenalized,
-          controls_only = controls_only,
-          v_folds = v_folds,
-          target_gwt = target_gwt,
-          Pi_bounds = Pi_bounds
-        )
-        return(tau)
-      } else if (undersmooth == 2) {
-        # undersmoothing version 2:
-        # use regular HAL, undersmooth till PnD* is solved
-        tau <- undersmooth_2(
-          S = S, W = W, A = A, X = X, Y = pseudo_outcome,
-          Pi = Pi, theta = theta, g = g,
-          X_A1 = X_A1, X_A0 = X_A0,
-          pseudo_weights = pseudo_weights,
-          X_unpenalized = X_unpenalized,
-          controls_only = controls_only,
-          v_folds = v_folds,
-          target_gwt = target_gwt,
-          Pi_bounds = Pi_bounds
-        )
-        return(tau)
-      } else if (undersmooth == 3 | undersmooth == 4) {
-        # undersmoothing version 3:
-        # use larger model for targeting Pi only,
-        # use CV selected model for point estimation and inference
-
-        # undersmoothing version 4:
-        # the same as version 3, but use the larger model for inference
-
-        # tau objects
-        two_taus <- undersmooth_3(
-          S = S, W = W, A = A, X = X, Y = pseudo_outcome,
-          Pi = Pi, theta = theta, g = g,
-          pseudo_weights = pseudo_weights,
-          X_unpenalized = X_unpenalized,
-          controls_only = controls_only,
-          v_folds = v_folds,
-          target_gwt = target_gwt,
-          Pi_bounds = Pi_bounds
-        )
-        return(two_taus)
-      }
+      # predictions
+      A1 <- as.numeric(x_basis_A1 %*% matrix(fit$beta))
+      A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
+      pred[A == 1] <- A1[A == 1]
+      pred[A == 0] <- A0[A == 0]
     }
+  } else {
+    stop("bias_working_model must be either 'glmnet' or 'HAL'")
   }
 
   return(list(

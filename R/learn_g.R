@@ -71,42 +71,57 @@ learn_g <- function(S,
   pred <- numeric(length(A))
 
   if (is.list(method)) {
-    # P(S=1|W)
     lrnr_stack <- Stack$new(method)
-    lrnr_s_w <- make_learner(
+    lrnr <- make_learner(
       Pipeline, Lrnr_cv$new(lrnr_stack),
       Lrnr_cv_selector$new(loss_loglik_binomial)
     )
-    task_s_w <- sl3_Task$new(
-      data = data.table(W, S = S),
-      covariates = colnames(W),
-      outcome = "S", outcome_type = "binomial"
-    )
-    fit_s_w <- lrnr_s_w$train(task_s_w)
-    pred_s_w <- fit_s_w$predict(task_s_w)
 
-    if (controls_only) {
-      pred <- g_rct * pred_s_w
-    } else {
-      # P(A=1|S=0,W)
-      lrnr_a_ws0 <- make_learner(
-        Pipeline, Lrnr_cv$new(lrnr_stack),
-        Lrnr_cv_selector$new(loss_loglik_binomial)
-      )
-      task_a_ws0 <- sl3_Task$new(
-        data = data.table(W, A = A)[S == 0, ],
-        covariates = colnames(W),
-        outcome = "A", outcome_type = "binomial"
-      )
-      task_a_ws0_pred <- sl3_Task$new(
-        data = data.table(W, A = A),
-        covariates = colnames(W),
-        outcome = "A", outcome_type = "binomial"
-      )
-      fit_a_ws0 <- lrnr_a_ws0$train(task_a_ws0)
-      pred_a_ws0 <- fit_a_ws0$predict(task_a_ws0_pred)
-      pred <- g_rct * pred_s_w + pred_a_ws0 * (1 - pred_s_w)
-    }
+    task <- sl3_Task$new(
+      data = data.table(W, A = A),
+      covariates = colnames(W),
+      outcome = "A", outcome_type = "binomial"
+    )
+
+    fit <- lrnr$train(task)
+    pred <- fit$predict(task)
+
+    # # P(S=1|W)
+    # lrnr_stack <- Stack$new(method)
+    # lrnr_s_w <- make_learner(
+    #   Pipeline, Lrnr_cv$new(lrnr_stack),
+    #   Lrnr_cv_selector$new(loss_loglik_binomial)
+    # )
+    # task_s_w <- sl3_Task$new(
+    #   data = data.table(W, S = S),
+    #   covariates = colnames(W),
+    #   outcome = "S", outcome_type = "binomial"
+    # )
+    # fit_s_w <- lrnr_s_w$train(task_s_w)
+    # pred_s_w <- fit_s_w$predict(task_s_w)
+    #
+    # if (controls_only) {
+    #   pred <- g_rct * pred_s_w
+    # } else {
+    #   # P(A=1|S=0,W)
+    #   lrnr_a_ws0 <- make_learner(
+    #     Pipeline, Lrnr_cv$new(lrnr_stack),
+    #     Lrnr_cv_selector$new(loss_loglik_binomial)
+    #   )
+    #   task_a_ws0 <- sl3_Task$new(
+    #     data = data.table(W, A = A)[S == 0, ],
+    #     covariates = colnames(W),
+    #     outcome = "A", outcome_type = "binomial"
+    #   )
+    #   task_a_ws0_pred <- sl3_Task$new(
+    #     data = data.table(W, A = A),
+    #     covariates = colnames(W),
+    #     outcome = "A", outcome_type = "binomial"
+    #   )
+    #   fit_a_ws0 <- lrnr_a_ws0$train(task_a_ws0)
+    #   pred_a_ws0 <- fit_a_ws0$predict(task_a_ws0_pred)
+    #   pred <- g_rct * pred_s_w + pred_a_ws0 * (1 - pred_s_w)
+    # }
   } else if (method == "glm") {
     if (controls_only) {
       # control

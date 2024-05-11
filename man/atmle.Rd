@@ -12,6 +12,7 @@ atmle(
   Y_node,
   controls_only,
   family,
+  g_rct,
   atmle_pooled = TRUE,
   theta_method = "glmnet",
   Pi_method = "glmnet",
@@ -22,9 +23,6 @@ atmle(
   bias_working_model = "glmnet",
   pooled_working_model = "glmnet",
   min_working_model = FALSE,
-  undersmooth = FALSE,
-  g_rct,
-  var_method = "ic",
   max_degree = 1,
   v_folds = 5,
   g_bounds = c(0.01, 0.99),
@@ -58,6 +56,9 @@ only control-arm or both control-arm and treatment-arm.}
 \item{family}{A character string specifying the family of the outcome
 \eqn{Y}. Currently only \code{"gaussian"} and \code{"binomial"} are
 supported.}
+
+\item{g_rct}{The probability of receiving the active treatment in the
+randomized controlled trial.}
 
 \item{atmle_pooled}{A logical indicating whether to also use A-TMLE for the
 pooled-ATE estimand If set to \code{FALSE}, use a regular TMLE for the
@@ -99,7 +100,8 @@ learners. Default is \code{"glmnet"}.}
 \eqn{Q(A,W)=\mathbb{E}(Y\mid W,A)}.
 \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
 \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
-learners. Default is \code{"glmnet"}.}
+learners. Default is \code{"glmnet"}. Only applicable when \code{atmle_pooled}
+is set to \code{FALSE}.}
 
 \item{bias_working_model}{The working model for the bias estimand.
 Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
@@ -108,9 +110,6 @@ highly adaptive lasso-based working model}
 \item{pooled_working_model}{The working model for the pooled-ATE estimand.
 Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
 highly adaptive lasso-based working model.}
-
-\item{g_rct}{The probability of receiving the active treatment in the
-randomized controlled trial.}
 
 \item{v_folds}{The number of folds for cross-validation (whenever necessary).
 Default is \code{5}.}
@@ -153,24 +152,27 @@ set.seed(123)
 
 n <- 2000
 S <- rbinom(n, 1, 0.2)
-W1 <- rnorm(n); W2 <- rnorm(n); W3 <- rnorm(n)
+W1 <- rnorm(n)
+W2 <- rnorm(n)
+W3 <- rnorm(n)
 A <- numeric(n)
 g_rct <- 0.67
 A[S == 1] <- rbinom(sum(S), 1, g_rct)
-A[S == 0] <- rbinom(n-sum(S), 1, plogis(0.5*W1[S == 0]))
+A[S == 0] <- rbinom(n - sum(S), 1, plogis(0.5 * W1[S == 0]))
 UY <- rnorm(n, 0, 1)
-Y <- 2.5+0.9*W1+1.1*W2+2.7*W3+1.5*A+UY+(1-S)*(0.2+0.1*W1*(1-A))
+Y <- 2.5 + 0.9 * W1 + 1.1 * W2 + 2.7 * W3 + 1.5 * A + UY + (1 - S) * (0.2 + 0.1 * W1 * (1 - A))
 data <- data.frame(S, W1, W2, A, Y)
 true_ate <- 1.5
 
 res <- atmle(data,
-             S_node = c(1),
-             W_node = c(2, 3),
-             A_node = 4,
-             Y_node = 5,
-             controls_only = FALSE,
-             family = "gaussian",
-             atmle_pooled = TRUE,
-             g_rct = g_rct,
-             verbose = FALSE)
+  S_node = c(1),
+  W_node = c(2, 3),
+  A_node = 4,
+  Y_node = 5,
+  controls_only = FALSE,
+  family = "gaussian",
+  atmle_pooled = TRUE,
+  g_rct = g_rct,
+  verbose = FALSE
+)
 }

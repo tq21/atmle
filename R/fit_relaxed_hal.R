@@ -27,20 +27,18 @@
 fit_relaxed_hal <- function(X,
                             Y,
                             X_unpenalized,
-                            X_weak_penalized,
-                            X_weak_penalized_level,
                             family,
                             weights,
                             relaxed,
-                            enumerate_basis_args = list(),
-                            fit_hal_args = list()) {
+                            enumerate_basis_args,
+                            fit_hal_args) {
 
   # make basis list
   enumerate_basis_default_args <- list(
     max_degree = ifelse(ncol(X) >= 20, 2, 3),
     smoothness_orders = rep(1, ncol(X)),
-    # num_knots = 25,
-    num_knots = 20
+    # num_knots = 20,
+    num_knots = 25
   )
   enumerate_basis_args <- modifyList(
     enumerate_basis_default_args,
@@ -48,36 +46,6 @@ fit_relaxed_hal <- function(X,
   )
   enumerate_basis_args$x <- X
   basis_list <- do.call(enumerate_basis, enumerate_basis_args)
-
-  # basis_list <- enumerate_basis(x = X,
-  #                               max_degree = ifelse(ncol(X) >= 20, 2, 3),
-  #                               smoothness_orders = 1,
-  #                               num_knots = hal9001:::num_knots_generator(
-  #                                 max_degree = ifelse(ncol(X) >= 20, 2, 3),
-  #                                 smoothness_orders = 1,
-  #                                 base_num_knots_0 = 200,
-  #                                 base_num_knots_1 = 20))
-  #                                 #base_num_knots_1 = 50))
-  # penalty_factor <- rep(1, length(basis_list))
-
-  if (!is.null(X_weak_penalized)) {
-    # NOT USED RN
-    # make basis list for weakly penalized terms
-    # append to basis list
-    X_min <- apply(X_weak_penalized, 2, min)
-    basis_list_main_terms <- enumerate_basis(
-      x = X_min,
-      max_degree = ifelse(
-        ncol(X) >= 20, 2, 3
-      ),
-      smoothness_orders = 1
-    )
-    basis_list <- c(basis_list, basis_list_main_terms)
-    penalty_factor <- c(penalty_factor, rep(
-      X_weak_penalized_level,
-      length(basis_list_main_terms)
-    ))
-  }
 
   # fit HAL
   fit_hal_args$X <- X
@@ -147,7 +115,7 @@ fit_relaxed_hal <- function(X,
     )
   }
 
-  print("number of non-zero coefficients: " %+% length(beta))
+  # print("number of non-zero coefficients: " %+% length(beta))
 
   return(list(
     beta = beta,

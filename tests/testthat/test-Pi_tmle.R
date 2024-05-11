@@ -68,8 +68,6 @@ test_that("Pi_tmle works when external has both treated and controls", {
     v_folds = 5,
     max_degree = 1,
     min_working_model = FALSE,
-    min_working_model_screen = FALSE,
-    undersmooth = 0,
     target_gwt = TRUE,
     Pi_bounds = c(0.01, 0.99),
     weights = delta
@@ -184,8 +182,6 @@ test_that("Pi_tmle works when external has controls only", {
     v_folds = 5,
     max_degree = 1,
     min_working_model = FALSE,
-    min_working_model_screen = FALSE,
-    undersmooth = 0,
     target_gwt = TRUE,
     Pi_bounds = c(0.01, 0.99),
     weights = delta

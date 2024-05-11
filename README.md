@@ -7,8 +7,6 @@
 
 [![License: GPL
 v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Codecov test
-coverage](https://codecov.io/gh/tq21/atmle/branch/main/graph/badge.svg)](https://app.codecov.io/gh/tq21/atmle?branch=main)
 <!-- badges: end -->
 
 > Adaptive Targeted Minimum Loss-Based Estimation. This package uses
@@ -86,7 +84,7 @@ escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
 print("ES-CVTMLE ATE estimate: " %+% round(escvtmle_res$ATE$b2v, 2) %+% 
         " (" %+% round(escvtmle_res$CI$b2v[1], 2) %+% 
         ", " %+% round(escvtmle_res$CI$b2v[2], 2) %+% ")")
-#> [1] "ES-CVTMLE ATE estimate: 1.34 (0.81, 1.75)"
+#> [1] "ES-CVTMLE ATE estimate: 1.3 (0.82, 1.72)"
 print("True ATE: " %+% true_ate)
 #> [1] "True ATE: 1.5"
 ```
