@@ -29,6 +29,6 @@ Imports:
   purrr,
   tmle
 Suggests: 
-    covr,
-    testthat (>= 3.0.0)
+  covr,
+  testthat (>= 3.0.0)
 Config/testthat/edition: 3

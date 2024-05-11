@@ -83,7 +83,6 @@ learn_g_delta_tilde <- function(W,
     ))
 
     if (cross_fit_nuisance) {
-
       walk(folds, function(.x) {
         train_idx <- .x$training_set
         valid_idx <- .x$validation_set
@@ -102,21 +101,17 @@ learn_g_delta_tilde <- function(W,
         )), g_bounds)
       })
     } else {
-
       fit <- glm(delta ~ ., data = X, family = "binomial")
       pred <- as.numeric(predict(fit, newdata = X, type = "response"))
       A0 <- as.numeric(predict(fit, newdata = X_A0, type = "response"))
       A1 <- as.numeric(predict(fit, newdata = X_A1, type = "response"))
     }
-
-
   } else if (method == "glmnet") {
     X <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = A))
     X_A0 <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = 0))
     X_A1 <- model.matrix(as.formula("~-1+.+A:."), data = data.frame(W, A = 1))
 
     if (cross_fit_nuisance) {
-
       walk(folds, function(.x) {
         train_idx <- .x$training_set
         valid_idx <- .x$validation_set
@@ -140,7 +135,6 @@ learn_g_delta_tilde <- function(W,
         )), g_bounds)
       })
     } else {
-
       fit <- cv.glmnet(
         x = X, y = delta, keep = TRUE, alpha = 1,
         nfolds = length(folds), family = "binomial"
@@ -158,7 +152,6 @@ learn_g_delta_tilde <- function(W,
         newx = X_A1, s = "lambda.min", type = "response"
       ))
     }
-
   } else {
     stop("Invalid method. Must be one of 'glm', 'glmnet', or 'sl3', or a
          list of sl3 learners.")

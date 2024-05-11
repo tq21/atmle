@@ -24,6 +24,8 @@
 #' @param family A character string specifying the family of the outcome
 #' \eqn{Y}. Currently only \code{"gaussian"} and \code{"binomial"} are
 #' supported.
+#' @param g_rct The probability of receiving the active treatment in the
+#' randomized controlled trial.
 #' @param atmle_pooled A logical indicating whether to also use A-TMLE for the
 #' pooled-ATE estimand If set to \code{FALSE}, use a regular TMLE for the
 #' pooled-ATE, but A-TMLE for the bias-estimand.
@@ -58,15 +60,14 @@
 #' \eqn{Q(A,W)=\mathbb{E}(Y\mid W,A)}.
 #' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
 #' \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
-#' learners. Default is \code{"glmnet"}.
+#' learners. Default is \code{"glmnet"}. Only applicable when \code{atmle_pooled}
+#' is set to \code{FALSE}.
 #' @param bias_working_model The working model for the bias estimand.
 #' Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
 #' highly adaptive lasso-based working model
 #' @param pooled_working_model The working model for the pooled-ATE estimand.
 #' Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
 #' highly adaptive lasso-based working model.
-#' @param g_rct The probability of receiving the active treatment in the
-#' randomized controlled trial.
 #' @param v_folds The number of folds for cross-validation (whenever necessary).
 #' Default is \code{5}.
 #' @param g_bounds A numeric vector of lower and upper bounds for the
@@ -126,6 +127,7 @@ atmle <- function(data,
                   Y_node,
                   controls_only,
                   family,
+                  g_rct,
                   atmle_pooled = TRUE,
                   theta_method = "glmnet",
                   Pi_method = "glmnet",
@@ -136,8 +138,6 @@ atmle <- function(data,
                   bias_working_model = "glmnet",
                   pooled_working_model = "glmnet",
                   min_working_model = FALSE,
-                  undersmooth = FALSE,
-                  g_rct,
                   max_degree = 1,
                   v_folds = 5,
                   g_bounds = c(0.01, 0.99),
@@ -147,7 +147,6 @@ atmle <- function(data,
                   verbose = TRUE,
                   enumerate_basis_args = list(),
                   fit_hal_args = list()) {
-
   if (!is.data.frame(data)) {
     data <- as.data.frame(data)
   }
@@ -283,8 +282,6 @@ atmle <- function(data,
     v_folds = v_folds,
     max_degree = max_degree,
     min_working_model = min_working_model,
-    min_working_model_screen = FALSE,
-    undersmooth = undersmooth,
     target_gwt = target_gwt,
     Pi_bounds = Pi_bounds,
     enumerate_basis_args = enumerate_basis_args,
@@ -295,51 +292,18 @@ atmle <- function(data,
 
   # TMLE to target Pi
   if (verbose) cat("targeting \U03A0(S=1|W,A)=P(S=1|W,A)...")
-  if (undersmooth == 3) {
-    # use tau_target for targeting Pi
-    Pi <- Pi_tmle(
-      S = S,
-      W = W,
-      A = A,
-      g = g,
-      tau = tau$tau_target,
-      Pi = Pi,
-      controls_only = controls_only,
-      target_gwt = target_gwt,
-      Pi_bounds = Pi_pounds
-    )
-    tau <- tau$tau
-  } else if (undersmooth == 4) {
-    # use tau_target for targeting Pi
-    Pi <- Pi_tmle(
-      S = S,
-      W = W,
-      A = A,
-      g = g,
-      tau = tau$tau_target,
-      Pi = Pi,
-      controls_only = controls_only,
-      target_gwt = target_gwt,
-      Pi_bounds = Pi_pounds
-    )
-  } else {
-    Pi <- Pi_tmle(
-      S = S,
-      W = W,
-      A = A,
-      g = g,
-      tau = tau,
-      Pi = Pi,
-      controls_only = controls_only,
-      target_gwt = target_gwt,
-      Pi_bounds = Pi_bounds
-    )
-  }
+  Pi <- Pi_tmle(
+    S = S,
+    W = W,
+    A = A,
+    g = g,
+    tau = tau,
+    Pi = Pi,
+    controls_only = controls_only,
+    target_gwt = target_gwt,
+    Pi_bounds = Pi_bounds
+  )
   if (verbose) cat("Done!\n")
-
-  ## LOG
-  tmp_log <- list()
-  tmp_log$epsilon <- Pi$epsilon
 
   psi_pound_est <- NULL
   if (controls_only) {
@@ -377,7 +341,9 @@ atmle <- function(data,
       method = pooled_working_model,
       min_working_model = min_working_model,
       v_folds = v_folds,
-      weights = weights_tilde
+      weights = weights_tilde,
+      enumerate_basis_args = enumerate_basis_args,
+      fit_hal_args = fit_hal_args
     )
     if (verbose) cat("Done!\n\n")
 
@@ -386,14 +352,16 @@ atmle <- function(data,
     psi_tilde_eic <- get_eic_psi_tilde(T_working, g, theta_tilde, Y, A, n, weights_tilde)
   } else {
     # use regular TMLE for pooled-ATE
-    Q <- learn_Q(W = W,
-                 A = A,
-                 Y = Y,
-                 delta = delta,
-                 method = Q_method,
-                 v_folds = v_folds,
-                 family = family,
-                 theta_bounds = theta_bounds)
+    Q <- learn_Q(
+      W = W,
+      A = A,
+      Y = Y,
+      delta = delta,
+      method = Q_method,
+      v_folds = v_folds,
+      family = family,
+      theta_bounds = theta_bounds
+    )
     Q_star <- tmle(
       Y = Y, A = A, W = W, g1W = g,
       Q = as.matrix(data.frame(Q$A1, Q$A0)),

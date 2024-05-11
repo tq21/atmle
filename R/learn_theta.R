@@ -92,8 +92,10 @@ learn_theta <- function(W,
           data = data.table(W, Y = Y)[A == 0 & delta == 1],
           covariates = colnames(W), outcome = "Y", outcome_type = "continuous"
         )
+        Y_tmp <- Y
+        Y_tmp[delta == 0] <- 0
         task_pred <- sl3_Task$new(
-          data = data.table(W, Y = 0)[A == 0],
+          data = data.table(W, Y = Y_tmp)[A == 0],
           covariates = colnames(W), outcome = "Y", outcome_type = "continuous"
         )
         fit_theta <- lrnr_theta$train(task_train)
@@ -104,8 +106,10 @@ learn_theta <- function(W,
           covariates = c(colnames(W), "A"),
           outcome = "Y", outcome_type = "continuous"
         )
+        Y_tmp <- Y
+        Y_tmp[delta == 0] <- 0
         task_pred <- sl3_Task$new(
-          data = data.table(W, Y = 0, A = A),
+          data = data.table(W, Y = Y_tmp, A = A),
           covariates = c(colnames(W), "A"),
           outcome = "Y", outcome_type = "continuous"
         )
@@ -124,8 +128,10 @@ learn_theta <- function(W,
           data = data.table(W, Y = Y)[A == 0 & delta == 1],
           covariates = colnames(W), outcome = "Y", outcome_type = "binomial"
         )
+        Y_tmp <- Y
+        Y_tmp[delta == 0] <- 0
         task_pred <- sl3_Task$new(
-          data = data.table(W, Y = 0)[A == 0],
+          data = data.table(W, Y = Y_tmp)[A == 0],
           covariates = colnames(W), outcome = "Y", outcome_type = "binomial"
         )
         fit_theta <- lrnr_theta$train(task_train)
@@ -136,8 +142,10 @@ learn_theta <- function(W,
           covariates = c(colnames(W), "A"),
           outcome = "Y", outcome_type = "binomial"
         )
+        Y_tmp <- Y
+        Y_tmp[delta == 0] <- 0
         task_pred <- sl3_Task$new(
-          data = data.table(W, Y = 0, A = A),
+          data = data.table(W, Y = Y_tmp, A = A),
           covariates = c(colnames(W), "A"),
           outcome = "Y", outcome_type = "binomial"
         )

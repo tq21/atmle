@@ -12,6 +12,7 @@ atmle(
   Y_node,
   controls_only,
   family,
+  g_rct,
   atmle_pooled = TRUE,
   theta_method = "glmnet",
   Pi_method = "glmnet",
@@ -22,8 +23,6 @@ atmle(
   bias_working_model = "glmnet",
   pooled_working_model = "glmnet",
   min_working_model = FALSE,
-  undersmooth = FALSE,
-  g_rct,
   max_degree = 1,
   v_folds = 5,
   g_bounds = c(0.01, 0.99),
@@ -57,6 +56,9 @@ only control-arm or both control-arm and treatment-arm.}
 \item{family}{A character string specifying the family of the outcome
 \eqn{Y}. Currently only \code{"gaussian"} and \code{"binomial"} are
 supported.}
+
+\item{g_rct}{The probability of receiving the active treatment in the
+randomized controlled trial.}
 
 \item{atmle_pooled}{A logical indicating whether to also use A-TMLE for the
 pooled-ATE estimand If set to \code{FALSE}, use a regular TMLE for the
@@ -98,7 +100,8 @@ learners. Default is \code{"glmnet"}.}
 \eqn{Q(A,W)=\mathbb{E}(Y\mid W,A)}.
 \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
 \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
-learners. Default is \code{"glmnet"}.}
+learners. Default is \code{"glmnet"}. Only applicable when \code{atmle_pooled}
+is set to \code{FALSE}.}
 
 \item{bias_working_model}{The working model for the bias estimand.
 Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
@@ -107,9 +110,6 @@ highly adaptive lasso-based working model}
 \item{pooled_working_model}{The working model for the pooled-ATE estimand.
 Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
 highly adaptive lasso-based working model.}
-
-\item{g_rct}{The probability of receiving the active treatment in the
-randomized controlled trial.}
 
 \item{v_folds}{The number of folds for cross-validation (whenever necessary).
 Default is \code{5}.}

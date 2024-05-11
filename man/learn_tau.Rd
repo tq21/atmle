@@ -19,13 +19,10 @@ learn_tau(
   v_folds,
   max_degree,
   min_working_model,
-  min_working_model_screen,
-  undersmooth,
   target_gwt,
   Pi_bounds,
-  enumerate_basis_args = list(),
-  fit_hal_args = list(),
-  weak_penalize = FALSE,
+  enumerate_basis_args,
+  fit_hal_args,
   weights
 )
 }

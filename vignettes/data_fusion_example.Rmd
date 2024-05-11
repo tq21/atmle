@@ -1,5 +1,5 @@
 ---
-title: "A-TMLE Package Tutorial: An Example of Data Fusion"
+title: "A-TMLE Package Tutorial: Basic Functionalities"
 author: "Sky Qiu"
 date: "2024-04-17"
 output: html_document
@@ -11,19 +11,35 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 In this vignette, we will demonstrate an application of the A-TMLE R package
-for estimating the average treatment effect in a setting where data from both an
-RCT and real-world are available.
+for estimating the average treatment effect in a setting where we would like to
+integrate data from both a randomized controlled trial (RCT) and real-world data
+(RWD). The `atmle` R package implements the adaptive targeted minimum loss-based
+estimation (A-TMLE) for estimating the average treatment effect (ATE) in the 
+data fusion/data integration setting.
+
+## Installation
+In this vignette, we will be using the `atmle` package to construct an A-TMLE
+for the ATE integrating both RCT and RWD. We will also use the `tmle` package
+to construct a regular TMLE on the RCT data as a comparison. In addition, we will 
+use the `ggplot2` package for visualization.
+Note that the `atmle` and `sl3` packages are not on CRAN yet, so you need to 
+install them from GitHub. The code to install the packages is provided in the code 
+chunk below.
+
+```{r, message=FALSE, warning=FALSE}
+#install.packages("remotes", "origami", "purrr", "data.table", "tmle", "ggplot2")
+#remotes::install_github("tq21/atmle")
+#remotes::install_github("tlverse/sl3")
+#remotes::install_github("tq21/hal9001@kmeans-knot-screen")
+library(atmle)
+library(tmle)
+library(ggplot2)
+```
 
 ## Data Generating Process
-In this section, we write a function `sim_data()` to generate an RCT, in which
-the treatment assignment is randomized, and real-world data, in which the
-treatment assignment depends on patient characteristics. We will mimic the
-realistic scenario where the real-world data is subject to unmeasured
-confounding.
-
 Suppose we have conducted a randomized trial where we would like to evaluate
 the effect of some hypertension medication on patients' systolic blood pressure.
-We have the following baseline covariates:
+We have the following baseline covariates measured:
 - Age: patient age (mean = 50, sd = 12);
 - BMI: patient body mass index (mean = 28, sd = 5);
 - Smoking: patient smoking status (20% smokers in the population).
@@ -31,74 +47,81 @@ Suppose the true effect of the medication on systolic blood pressure is -10mmHg.
 That is, if the patient took the medication, their systolic blood pressure would
 be 10mmHg lower than if they did not take the medication.
 
-- `A`: treatment assignment
-- `Y`: outcome
-- `Age`: age
-- `BMI`: body mass index
-- `Smoking`: smoking status
+In addition to the RCT, we also have access to some RWD where the treatment is
+assigned based on patient characteristics. In particular, we have two unmeasured 
+confounders that affect both the treatment assignment and systolic blood pressure:
+health literacy and socioeconomic status.
 
-TODO: write down the SCM
+In the next code chunk, we have a function `sim_data()` to generate the combined 
+data set (~30% RCT, ~70% RWD).
 
 ```{r}
 sim_data <- function(n) {
   pct_rct <- 0.3 # the proportion of RCT in the total sample
   n_rct <- round(n * pct_rct)
   n_rwd <- n - n_rct
-  
+
   # covariates for all participants
-  Age <- round(rnorm(n, mean=50, sd=12)) # Mean age of 50 with sd of 12
-  BMI <- round(rnorm(n, mean=28, sd=5), 2)  # Mean BMI of 28 with sd of 5
-  Smoking <- rbinom(n, 1, 0.2)    # 20% smokers in the population
-  
+  Age <- round(rnorm(n, mean = 50, sd = 12))
+  BMI <- round(rnorm(n, mean = 28, sd = 5), 2)
+  Smoking <- rbinom(n, 1, 0.2)
+
   # unmeasured confounders for RWD
-  Health_Literacy <- rnorm(n_rwd, mean=50, sd=10)
-  Socioeconomic_Status <- rnorm(n_rwd, mean=50, sd=10)
+  Health_Literacy <- rnorm(n, mean = 50, sd = 10)
+  Socioeconomic_Status <- rnorm(n, mean = 50, sd = 10)
 
   # treatment assignment
   # RCT: randomized treatment
   A_rct <- rbinom(n_rct, 1, 0.5)
-  
+
   # RWD: treatment assignment based on observed and unobserved covariates
-  logit_p_rwd <- -1 + 0.05 * Age[(n_rct+1):n] + 
-    0.04 * BMI[(n_rct+1):n] + 
-    0.8 * Smoking[(n_rct+1):n] + 
-    0.03 * Health_Literacy + 0.02 * Socioeconomic_Status
+  logit_p_rwd <- -1.5 + 0.05 * Age[(n_rct+1):n] +
+    0.04 * BMI[(n_rct+1):n] +
+    0.8 * Smoking[(n_rct+1):n] +
+    0.03 * Health_Literacy[(n_rct+1):n] + 0.02 * Socioeconomic_Status[(n_rct+1):n]
   prob_treatment_rwd <- plogis(logit_p_rwd)
   A_rwd <- rbinom(n_rwd, 1, prob_treatment_rwd)
-  
+
   A <- c(A_rct, A_rwd)
-  
-  # Outcome model with non-linear and interaction effects
-  base_effect <- 120 - 0.1 * Age + 0.05 * BMI^2 - 5 * Smoking
+
+  # outcome regression with non-linearity
+  base_effect <- 120 - 0.1 * Age + 0.05 * BMI^2 - 5 * Smoking +
+    0.04 * Health_Literacy + 0.03 * Socioeconomic_Status
   treatment_effect <- -10 * A
   random_effect <- rnorm(n)
   Y <- base_effect + treatment_effect + random_effect
-  
-  # Add effects of unmeasured confounders to RWD outcomes
-  Y[(n_rct+1):n] <- Y[(n_rct+1):n] + 0.04 * Health_Literacy + 0.03 * Socioeconomic_Status
-  
-  # Study indicator
+
+  # study indicator
   S <- c(rep(1, n_rct), rep(0, n_rwd))
-  
-  # Assemble the dataframe without the unmeasured confounders (as they are not observed)
-  data.frame(Age = Age, BMI = BMI, Smoking = Smoking, A = A, Y = round(Y, 2), S = S)
+
+  return(data.frame(Age = Age,
+                    BMI = BMI,
+                    Smoking = Smoking,
+                    A = A,
+                    Y = round(Y, 2),
+                    S = S))
 }
 ```
 
+We can simulate 1000 patients from the DGP. Make sure that the data has study 
+indicator $S$, baseline covariates $W$, treatment $A$, and outcome $Y$.
 ```{r}
-set.seed(123) # reproducibility
-simulated_data <- sim_data(n=3000)
-head(simulated_data)
+set.seed(128947)
+data <- sim_data(n = 1000)
+head(data)
 ```
 
-
+Now, we will estimate the ATE using A-TMLE. We need to specify the column indices
+for the nodes and the learners for the nuisance parameters and working models.
+We also need to set the `controls_only` argument to `FALSE`, because we have both
+treatment and control arm in the RWD. For estimating the nuisance parameters,
+we will use `sl3`, the super learner package in `tlverse`, to estimate the nuisance 
+parameters. The default learner library can be found in `R/get_default_sl3_learners.R` 
+script. One could also specify their own learner library following the documentation of `atmle()` function.
+We will use highly adaptive lasso (HAL) to learn the bias working model and the
+conditional treatment effect working model.
 ```{r}
-library(atmle)
-`%+%` <- function(a, b) paste0(a, b)
-```
-
-```{r}
-atmle_res <- atmle(data = simulated_data,
+atmle_res <- atmle(data = data,
                    S_node = 6,
                    W_node = c(1, 2, 3),
                    A_node = 4,
@@ -111,37 +134,52 @@ atmle_res <- atmle(data = simulated_data,
                    theta_tilde_method = "sl3",
                    bias_working_model = "HAL",
                    pooled_working_model = "HAL",
-                   min_working_model = TRUE,
                    g_rct = 0.5,
-                   verbose = FALSE)
+                   enumerate_basis_args = list(num_knots = 50),
+                   verbose = TRUE)
 ```
 
+Now, let's estimate the ATE using a regular TMLE on the RCT data only.
 ```{r}
-library(EScvtmle)
-set.seed(123)
-escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
-                          data = simulated_data,
-                          study = "S",
-                          covariates = c("Age", "BMI", "Smoking"),
-                          treatment_var = "A",
-                          treatment = 1,
-                          outcome = "Y",
-                          pRCT = 0.5,
-                          family = "gaussian",
-                          Q.SL.library = c("SL.glm", "SL.earth", "SL.gam", "SL.xgboost"),
-                          g.SL.library = c("SL.glm", "SL.earth", "SL.gam", "SL.xgboost"),
-                          Q.discreteSL = TRUE,
-                          g.discreteSL = TRUE,
-                          V = 5)
+# TMLE on the RCT data only
+data_rct <- data[data$S == 1,]
+tmle_res <- tmle(
+  Y = data_rct$Y, A = data_rct$A, W = data_rct[, c("Age", "BMI", "Smoking")], 
+  g1W = rep(0.5, nrow(data_rct)),
+  Q.SL.library = c("SL.glm"),
+  family = "gaussian"
+)
+print(tmle_res)
 ```
 
+Now, we will visually compare the results of the two estimators using the `ggplot2` package.
+Note that because of how we defined our target parameter, we need to add a minus
+sign to the estimates if we would like to interpret them as reductions in systolic blood pressure.
+The true average treatment effect is marked with a red dashed line.
 ```{r}
-"A-TMLE Point Estimate: " %+% round(atmle_res$est, 3)
-"A-TMLE Lower 95% CI: " %+% round(atmle_res$lower, 3)
-"A-TMLE Upper 95% CI: " %+% round(atmle_res$upper, 3)
-"A-TMLE CI width: " %+% round(atmle_res$upper - atmle_res$lower, 3)
-"ES-CVTMLE Point Estimate: " %+% round(escvtmle_res$ATE$b2v, 3)
-"ES-CVTMLE Lower 95% CI: " %+% round(escvtmle_res$CI$b2v[1], 3)
-"ES-CVTMLE Upper 95% CI: " %+% round(escvtmle_res$CI$b2v[2], 3)
-"ES-CVTMLE CI width: " %+% round(escvtmle_res$CI$b2v[2] - escvtmle_res$CI$b2v[1], 3)
+# plot results
+res_df <- data.frame(
+  Estimator = c("RCT-only", "A-TMLE"),
+  est = c(-tmle_res$estimates$ATE$psi, -atmle_res$est),
+  lower = c(-tmle_res$estimates$ATE$CI[1], -atmle_res$lower),
+  upper = c(-tmle_res$estimates$ATE$CI[2], -atmle_res$upper))
+
+plt <- ggplot(res_df, aes(x = est, y = Estimator)) +
+  geom_point(position = position_dodge(width = 0.5), size = 3.5) +
+  geom_errorbar(aes(xmin = lower, xmax = upper),
+                position = position_dodge(width = 0.5), width = 0.3, linewidth = 1.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 1.5) +
+  geom_vline(xintercept = 10, linetype = "dashed", linewidth = 1.5, color = "red") +
+  labs(title = "Estimated Reduction in Systolic Blood Pressure",
+       x = "", y = "", color = "") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold"),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 14))
+plt
 ```
+
+From the plot, we can see that the 95% confidence interval produced by A-TMLE 
+is much narrower than that of the RCT-only TMLE estimator.

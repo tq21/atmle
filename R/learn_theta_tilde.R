@@ -68,8 +68,10 @@ learn_theta_tilde <- function(W,
         data = data.table(W, Y = Y)[delta == 1],
         covariates = colnames(W), outcome = "Y", outcome_type = "continuous"
       )
+      Y_tmp <- Y
+      Y_tmp[delta == 0] <- 0
       task_pred <- sl3_Task$new(
-        data = data.table(W, Y = 0),
+        data = data.table(W, Y = Y_tmp),
         covariates = colnames(W), outcome = "Y", outcome_type = "continuous"
       )
     } else if (family == "binomial") {
@@ -81,8 +83,10 @@ learn_theta_tilde <- function(W,
         data = data.table(W, Y = Y)[delta == 1],
         covariates = colnames(W), outcome = "Y", outcome_type = "binomial"
       )
+      Y_tmp <- Y
+      Y_tmp[delta == 0] <- 0
       task_pred <- sl3_Task$new(
-        data = data.table(W, Y = 0),
+        data = data.table(W, Y = Y_tmp),
         covariates = colnames(W), outcome = "Y", outcome_type = "binomial"
       )
     }

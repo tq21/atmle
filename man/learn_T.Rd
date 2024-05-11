@@ -15,7 +15,9 @@ learn_T(
   method,
   min_working_model,
   v_folds,
-  weights
+  weights,
+  enumerate_basis_args,
+  fit_hal_args
 )
 }
 \arguments{
