@@ -124,3 +124,11 @@ get_eic_psi_nonparametric <- function(Q, Pi, g, S, A, Y, psi_est, weights) {
   Q_comp <- (S / Pi$pred) * (A / g - (1 - A) / (1 - g)) * weights * (Y_tmp - Q$pred)
   return(W_comp + Q_comp)
 }
+
+
+
+# get_eic_psi_tilde_surv <- function() {
+#   weights <- g*(1-g)*G_bar
+#   W_comp <- weights*()
+# }
+

@@ -55,20 +55,18 @@
 #'
 #' # learn treatment mechanism
 #' g <- learn_g(S, W, A, 0.67, FALSE, "glm", 5, c(0.01, 0.99))
-learn_g <- function(S,
-                    W,
+learn_g <- function(W,
                     A,
-                    g_rct,
-                    controls_only,
                     method,
                     folds,
                     g_bounds,
                     cross_fit_nuisance = TRUE) {
+
+  pred <- numeric(length(A))
+
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners("binomial")
   }
-
-  pred <- numeric(length(A))
 
   if (is.list(method)) {
     lrnr_stack <- Stack$new(method)
@@ -86,205 +84,40 @@ learn_g <- function(S,
     fit <- lrnr$train(task)
     pred <- fit$predict(task)
 
-    # # P(S=1|W)
-    # lrnr_stack <- Stack$new(method)
-    # lrnr_s_w <- make_learner(
-    #   Pipeline, Lrnr_cv$new(lrnr_stack),
-    #   Lrnr_cv_selector$new(loss_loglik_binomial)
-    # )
-    # task_s_w <- sl3_Task$new(
-    #   data = data.table(W, S = S),
-    #   covariates = colnames(W),
-    #   outcome = "S", outcome_type = "binomial"
-    # )
-    # fit_s_w <- lrnr_s_w$train(task_s_w)
-    # pred_s_w <- fit_s_w$predict(task_s_w)
-    #
-    # if (controls_only) {
-    #   pred <- g_rct * pred_s_w
-    # } else {
-    #   # P(A=1|S=0,W)
-    #   lrnr_a_ws0 <- make_learner(
-    #     Pipeline, Lrnr_cv$new(lrnr_stack),
-    #     Lrnr_cv_selector$new(loss_loglik_binomial)
-    #   )
-    #   task_a_ws0 <- sl3_Task$new(
-    #     data = data.table(W, A = A)[S == 0, ],
-    #     covariates = colnames(W),
-    #     outcome = "A", outcome_type = "binomial"
-    #   )
-    #   task_a_ws0_pred <- sl3_Task$new(
-    #     data = data.table(W, A = A),
-    #     covariates = colnames(W),
-    #     outcome = "A", outcome_type = "binomial"
-    #   )
-    #   fit_a_ws0 <- lrnr_a_ws0$train(task_a_ws0)
-    #   pred_a_ws0 <- fit_a_ws0$predict(task_a_ws0_pred)
-    #   pred <- g_rct * pred_s_w + pred_a_ws0 * (1 - pred_s_w)
-    # }
   } else if (method == "glm") {
-    if (controls_only) {
-      # control
-      X_W <- data.frame(W)
+    X <- data.frame(W)
 
-      if (cross_fit_nuisance) {
-        # cross fit
-        walk(folds, function(.x) {
-          train_idx <- .x$training_set
-          valid_idx <- .x$validation_set
-          fit_S_W <- glm(S[train_idx] ~ .,
-            data = X_W[train_idx, ],
-            family = "binomial"
-          )
-          pred_S_W <- as.numeric(predict(
-            fit_S_W,
-            newdata = X_W[valid_idx, ], type = "response"
-          ))
-          pred[valid_idx] <<- g_rct * pred_S_W
-        })
-      } else {
-        # no cross fit
-        fit <- glm(S ~ ., data = X_W, family = "binomial")
-        pred_S_W <- as.numeric(predict(fit, newdata = X_W, type = "response"))
-        pred <- g_rct * pred_S_W
-      }
+    if (cross_fit_nuisance) {
+      # cross fit
+      walk(folds, function(.x) {
+        train_idx <- .x$training_set
+        valid_idx <- .x$validation_set
+        fit <- glm(A[train_idx] ~ .,data = X[train_idx, ], family = "binomial")
+        pred[valid_idx] <<- as.numeric(predict(fit, newdata = X[valid_idx, ], type = "response"))
+      })
     } else {
-      # control + treatment
-      X_W <- data.frame(W)
-      X_SW <- as.data.frame(model.matrix(as.formula("~-1+.+S:."),
-        data = data.frame(S = S, W)
-      ))
-      X_0W <- as.data.frame(model.matrix(as.formula("~-1+.+S:."),
-        data = data.frame(S = 0, W)
-      ))
-
-      if (cross_fit_nuisance) {
-        # cross fit
-        walk(folds, function(.x) {
-          train_idx <- .x$training_set
-          valid_idx <- .x$validation_set
-          fit_S_W <- glm(S[train_idx] ~ .,
-            data = X_W[train_idx, ],
-            family = "binomial"
-          )
-          fit_A_SW <- glm(A[train_idx] ~ .,
-            data = X_SW[train_idx, ],
-            family = "binomial"
-          )
-          pred_S_W <- as.numeric(predict(
-            fit_S_W,
-            newdata = X_W[valid_idx, ], type = "response"
-          ))
-          pred_A_0W <- as.numeric(predict(
-            fit_A_SW,
-            newdata = X_0W[valid_idx, ], type = "response"
-          ))
-          pred[valid_idx] <<- g_rct * pred_S_W + pred_A_0W * (1 - pred_S_W)
-        })
-      } else {
-        # no cross fit
-        fit_S_W <- glm(S ~ ., data = X_W, family = "binomial")
-        pred_S_W <- as.numeric(predict(fit_S_W,
-          newdata = X_W,
-          type = "response"
-        ))
-        fit_A_SW <- glm(A ~ ., data = X_SW, family = "binomial")
-        pred_A_0W <- as.numeric(predict(fit_A_SW,
-          newdata = X_0W,
-          type = "response"
-        ))
-        pred <- g_rct * pred_S_W + pred_A_0W * (1 - pred_S_W)
-      }
+      # no cross fit
+      fit <- glm(A ~ ., data = X, family = "binomial")
+      pred <- as.numeric(predict(fit, newdata = X, type = "response"))
     }
   } else if (method == "glmnet") {
-    if (controls_only) {
-      # control
-      X_W <- as.matrix(W)
+    X <- as.matrix(W)
 
-      if (cross_fit_nuisance) {
-        # cross fit
-        walk(folds, function(.x) {
-          train_idx <- .x$training_set
-          valid_idx <- .x$validation_set
-          fit_S_W <- cv.glmnet(
-            x = X_W[train_idx, ], y = S[train_idx],
-            family = "binomial", keep = TRUE, alpha = 1,
-            nfolds = length(folds)
-          )
-          pred_S_W <- as.numeric(predict(
-            fit_S_W,
-            newx = X_W[valid_idx, ], s = "lambda.min",
-            type = "response"
-          ))
-          pred[valid_idx] <<- g_rct * pred_S_W
-        })
-      } else {
-        # no cross fit
-        fit_S_W <- cv.glmnet(
-          x = X_W, y = S, family = "binomial", keep = TRUE,
-          alpha = 1, nfolds = length(folds)
-        )
-        pred_S_W <- as.numeric(predict(
-          fit_S_W,
-          newx = X_W, s = "lambda.min", type = "response"
-        ))
-        pred <- g_rct * pred_S_W
-      }
+    if (cross_fit_nuisance) {
+      # cross fit
+      walk(folds, function(.x) {
+        train_idx <- .x$training_set
+        valid_idx <- .x$validation_set
+        fit <- cv.glmnet(x = X[train_idx, ], y = A[train_idx],
+                         family = "binomial", keep = TRUE, alpha = 1,
+                         nfolds = length(folds))
+        pred[valid_idx] <<- as.numeric(predict(fit, newx = X[valid_idx, ], s = "lambda.min", type = "response"))
+      })
     } else {
-      # control + treatment
-      X_W <- as.matrix(W)
-      X_SW <- model.matrix(as.formula("~-1+.+S:."), data = data.frame(S = S, W))
-      X_0W <- model.matrix(as.formula("~-1+.+S:."), data = data.frame(S = 0, W))
-
-      if (cross_fit_nuisance) {
-        # cross fit
-        walk(folds, function(.x) {
-          train_idx <- .x$training_set
-          valid_idx <- .x$validation_set
-          fit_S_W <- cv.glmnet(
-            x = X_W[train_idx, ], y = S[train_idx],
-            family = "binomial", keep = TRUE, alpha = 1,
-            nfolds = length(folds)
-          )
-          fit_A_SW <- cv.glmnet(
-            x = X_SW[train_idx, ], y = A[train_idx],
-            family = "binomial", keep = TRUE, alpha = 1,
-            nfolds = length(folds)
-          )
-          pred_S_W <- as.numeric(predict(
-            fit_S_W,
-            newx = X_W[valid_idx, ], s = "lambda.min",
-            type = "response"
-          ))
-          pred_A_0W <- as.numeric(predict(
-            fit_A_SW,
-            newx = X_0W[valid_idx, ], s = "lambda.min",
-            type = "response"
-          ))
-          pred[valid_idx] <<- g_rct * pred_S_W + pred_A_0W * (1 - pred_S_W)
-        })
-      } else {
-        # no cross fit
-        fit_S_W <- cv.glmnet(
-          x = X_W, y = S,
-          family = "binomial", keep = TRUE, alpha = 1,
-          nfolds = length(folds)
-        )
-        fit_A_SW <- cv.glmnet(
-          x = X_SW, y = A,
-          family = "binomial", keep = TRUE, alpha = 1,
-          nfolds = length(folds)
-        )
-        pred_S_W <- as.numeric(predict(fit_S_W,
-          newx = X_W,
-          s = "lambda.min", type = "response"
-        ))
-        pred_A_0W <- as.numeric(predict(fit_A_SW,
-          newx = X_0W,
-          s = "lambda.min", type = "response"
-        ))
-        pred <- g_rct * pred_S_W + pred_A_0W * (1 - pred_S_W)
-      }
+      # no cross fit
+      fit <- cv.glmnet(x = X, y = A, family = "binomial", keep = TRUE,
+                       alpha = 1, nfolds = length(folds))
+      pred <- as.numeric(predict(fit, newx = X, s = "lambda.min", type = "response"))
     }
   } else {
     stop("Invalid method. Must be one of 'glm', 'glmnet', or 'sl3', or a

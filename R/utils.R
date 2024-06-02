@@ -101,3 +101,24 @@ bound <- function(X) {
 
   return((X - X_min) / (X_max - X_min))
 }
+
+hazard_to_density <- function(hal_fit, Wi, T_tilde_i, max_T_tilde) {
+  # get hazards up to T_tilde_i
+  Wi_exp <- make_rep_data(W = Wi, T_tilde = T_tilde_i)$data
+  hazard_preds <- predict(hal_fit, new_data = Wi_exp, s = "lambda.min", type = "response")
+
+  if (T_tilde_i == max_T_tilde) {
+    hazard_preds[T_tilde_i] <- 1
+  }
+
+  # get density
+  if (T_tilde_i == 1) {
+    return(hazard_preds[1])
+  } else {
+    return(hazard_preds[T_tilde_i] * prod(1 - hazard_preds[1:(T_tilde_i - 1)]))
+  }
+
+  return(density_pred)
+}
+
+
