@@ -39,8 +39,8 @@ learn_lambda <- function(W,
     T_tilde_i <- data_pred$T_tilde_i
   }
 
-  return(list(A1 = A1,
-              A0 = A0,
-              id = id,
-              T_tilde_i = T_tilde_i))
+  return(data.table(id = id,
+                    t = T_tilde_i,
+                    lambda_A1 = A1,
+                    lambda_A0 = A0))
 }

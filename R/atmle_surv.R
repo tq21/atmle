@@ -75,8 +75,28 @@ atmle_surv <- function(data,
                          method = lambda_method,
                          folds = folds)
 
-  #
+  # compute survival probabilities from hazard
+  lambda[, `:=` (surv_A1 = cumprod(1 - lambda_A1),
+                 surv_A0 = cumprod(1 - lambda_A0)), by = id]
 
+  # compute CATE=S(t0|A=1,W)-S(t0|A=0,W)
+  Q_bar_r <- lambda[t == t0, surv_A1] - lambda[t == t0, surv_A0]
+
+  # learn working model for conditional effect of A
+  Q_bar_r_working_model <- learn_Q_bar_r_working(W = W,
+                                                 Q_bar_r = Q_bar_r,
+                                                 G_bar = G_bar)
+
+  # tmle targeting of lambda (this requires a working model for Q_bar_r)
+  lambda <- lambda_tmle(A = A,
+                        T_tilde = T_tilde,
+                        t0 = t0,
+                        g = g,
+                        G_bar = G_bar,
+                        lambda = lambda,
+                        Q_bar_r_working_model = Q_bar_r_working_model)
+
+  # compute efficient influence curve
 
 
 }

@@ -126,9 +126,8 @@ get_eic_psi_nonparametric <- function(Q, Pi, g, S, A, Y, psi_est, weights) {
 }
 
 
-
-# get_eic_psi_tilde_surv <- function() {
-#   weights <- g*(1-g)*G_bar
-#   W_comp <- weights*()
-# }
+get_eic_psi_tilde_surv <- function(lambda,
+                                   t_seq) {
+  lambda[, D_tilde_2 := ]
+}
 
