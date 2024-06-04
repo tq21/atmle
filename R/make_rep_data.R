@@ -5,27 +5,21 @@
 #' @param T_tilde A vector of time-points.
 #'
 #' @export
-make_rep_data <- function(W, T_tilde) {
+make_rep_data <- function(W, T_tilde, Delta) {
 
-  # make id
-  id <- seq(length(T_tilde))
+  tau <- length(unique(T_tilde))
 
   # make repeated data for pooled logistic regression
-  rep_data <- map_dfr(id, function(i) {
-    Wi <- W[i, , drop = FALSE]
-    T_tilde_i <- T_tilde[i]
-    id <- id[i]
-    idi_exp <- rep(id, T_tilde_i)
-    T_tilde_i_exp <- seq(T_tilde_i)
-    wi_exp <- do.call(rbind, replicate(T_tilde_i, Wi, simplify = FALSE))
-    ind <- c(rep(0, T_tilde_i - 1), 1)
+  rep_data <- data.table(W)
+  rep_data <- rep_data[rep(1:.N, each = tau)]
+  rep_data <- rep_data[, `:=` (id = rep(seq(length(T_tilde)), each = tau),
+                               t = rep(seq(tau), n),
+                               T_tilde = rep(T_tilde, each = tau),
+                               Delta = rep(Delta, each = tau))]
+  rep_data <- rep_data[, T_tilde_t := as.numeric(T_tilde == t & Delta == 1)]
+  rep_data_small <- copy(rep_data)
+  rep_data_small <- rep_data_small[, filter_rows(.SD, "T_tilde_t"), by = id]
 
-    return(data.frame(id = idi_exp, T_tilde_i = T_tilde_i_exp, wi_exp, ind = ind))
-  })
-
-  rownames(rep_data) <- NULL
-
-  return(list(id = rep_data$id,
-              ind = rep_data$ind,
-              data = rep_data[, !names(rep_data) %in% c("id", "ind"), drop = FALSE]))
+  return(list(rep_data = rep_data,
+              rep_data_small = rep_data_small))
 }

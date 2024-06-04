@@ -1,6 +1,6 @@
 learn_G_bar <- function(W,
                         A,
-                        cens_after_t0,
+                        Delta_G,
                         g,
                         method,
                         folds,
@@ -11,7 +11,7 @@ learn_G_bar <- function(W,
     X_A1 <- cbind(W, A = 1)
     X_A0 <- cbind(W, A = 0)
 
-    fit <- glm(cens_after_t0 ~ ., data = X, family = "binomial")
+    fit <- glm(Delta_G ~ ., data = X, family = "binomial")
     A1 <- as.numeric(predict(fit, newdata = X_A1, type = "response"))
     A0 <- as.numeric(predict(fit, newdata = X_A0, type = "response"))
   }

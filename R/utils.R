@@ -121,4 +121,12 @@ hazard_to_density <- function(hal_fit, Wi, T_tilde_i, max_T_tilde) {
   return(density_pred)
 }
 
+# function to filter rows based on the indicator
+filter_rows <- function(x, var) {
+  first_one <- which(x[[var]] == 1)[1]
+  if (!is.na(first_one)) {
+    x <- x[1:first_one]
+  }
+  return(x)
+}
 

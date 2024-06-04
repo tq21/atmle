@@ -49,9 +49,7 @@ lambda_tmle <- function(A,
     lambda[t == cur_t, lambda_pred := plogis(
       qlogis(sub_lambda$lambda_pred) + epsilons[1] * clever_cov_A1 + epsilons[2] * clever_cov_A0)]
 
-    # TODO: need to recompute H_A1 and H_A0 using updated S
-
-    # make sure keys are id and t
+    # TODO: make sure keys are id and t
   }
 
   return(lambda)

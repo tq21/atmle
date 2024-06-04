@@ -9,38 +9,46 @@
 learn_lambda <- function(W,
                          A,
                          T_tilde,
+                         Delta,
                          method,
                          folds) {
 
+  # prepare repeated data for pooled logistic regression
+  rep_data_both <- make_rep_data(W = cbind(W, A = A), T_tilde = T_tilde, Delta = Delta)
+  cov_names <- c(names(W), "A")
+
+  # prepare data for predictions
+  data_pred <- rep_data_both$rep_data
+  data_A1 <- copy(data_pred); data_A1 <- data_A1[, A := 1]
+  data_A0 <- copy(data_pred); data_A0 <- data_A0[, A := 0]
+
   if (method == "HAL") {
 
-    # prepare repeated data for pooled logistic regression
-    rep_data <- make_rep_data(W = cbind(W, A = A), T_tilde = T_tilde)
-
     # fit hazard regression
-    fit <- fit_hal(X = rep_data$data,
-                   Y = rep_data$ind,
-                   id = rep_data$id,
+    fit <- fit_hal(X = rep_data_both$rep_data_small[, ..cov_names],
+                   Y = rep_data_both$rep_data_small$T_tilde_t,
+                   id = rep_data_both$rep_data_small$id,
                    smoothness_orders = 0,
                    family = "binomial",
                    return_x_basis = TRUE)
 
-    # make data for predictions
-    unique_T_tilde <- sort(unique(T_tilde))
-    data_pred <- do.call(rbind, replicate(length(unique_T_tilde), cbind(W, A = A), simplify = FALSE))
-    data_pred <- cbind(T_tilde_i = rep(unique_T_tilde, each = length(A)), data_pred)
-    data_A1 <- data_pred; data_A1$A <- 1
-    data_A0 <- data_pred; data_A0$A <- 0
-
     # hazard predictions
     A1 <- predict(fit, new_data = data_A1, type = "response")
     A0 <- predict(fit, new_data = data_A0, type = "response")
-    id <- rep(seq(length(A)), length(unique_T_tilde))
-    T_tilde_i <- data_pred$T_tilde_i
+  } else if (method == "glm") {
+
+    # fit logistic regression
+    var_names <- c(cov_names, "T_tilde_t")
+    fit <- glm(T_tilde_t ~ .,
+               data = rep_data_both$rep_data_small[, ..var_names],
+               family = "binomial")
+
+    # hazard predictions
+    A1 <- as.numeric(predict(fit, newdata = data_A1, type = "response"))
+    A0 <- as.numeric(predict(fit, newdata = data_A0, type = "response"))
   }
 
-  return(data.table(id = id,
-                    t = T_tilde_i,
-                    lambda_A1 = A1,
-                    lambda_A0 = A0))
+  data_pred <- data_pred[, `:=` (lambda_A1 = A1, lambda_A0 = A0)]
+
+  return(data_pred)
 }
