@@ -6,49 +6,51 @@
 #' @param folds A list of folds for cross-fitting.
 #'
 #' @export
-learn_lambda <- function(W,
+learn_lambda <- function(data_failure_long,
+                         data_long,
+                         W,
                          A,
                          T_tilde,
-                         Delta,
                          method,
                          folds) {
 
-  # prepare repeated data for pooled logistic regression
-  rep_data_both <- make_rep_data(W = cbind(W, A = A), T_tilde = T_tilde, Delta = Delta)
-  cov_names <- c(names(W), "A")
+  # make counterfactual prediction data
+  data_long_A1 <- copy(data_long)
+  data_long_A1 <- data_long_A1[, A := 1]
+  data_long_A0 <- copy(data_long)
+  data_long_A0 <- data_long_A0[, A := 0]
 
-  # prepare data for predictions
-  data_pred <- rep_data_both$rep_data
-  data_A1 <- copy(data_pred); data_A1 <- data_A1[, A := 1]
-  data_A0 <- copy(data_pred); data_A0 <- data_A0[, A := 0]
+  # make training data
+  data_train <- copy(data_failure_long)
+  data_train <- data_train[t <= ..T_tilde]
+  cov_names <- c(W, A, "t")
 
-  if (method == "HAL") {
-
-    # fit hazard regression
-    fit <- fit_hal(X = rep_data_both$rep_data_small[, ..cov_names],
-                   Y = rep_data_both$rep_data_small$T_tilde_t,
-                   id = rep_data_both$rep_data_small$id,
-                   smoothness_orders = 0,
-                   family = "binomial",
-                   return_x_basis = TRUE)
-
-    # hazard predictions
-    A1 <- predict(fit, new_data = data_A1, type = "response")
-    A0 <- predict(fit, new_data = data_A0, type = "response")
-  } else if (method == "glm") {
-
-    # fit logistic regression
-    var_names <- c(cov_names, "T_tilde_t")
-    fit <- glm(T_tilde_t ~ .,
-               data = rep_data_both$rep_data_small[, ..var_names],
+  if (method == "glm") {
+    # fit hazard regression using glm
+    fit <- glm(data_train[["T_tilde_t"]] ~ .,
+               data = data_train[, ..cov_names],
                family = "binomial")
+    pred <- predict(fit, new_data = data_long[, ..cov_names], type = "response")
+    A1 <- predict(fit, new_data = data_long_A1[, ..cov_names], type = "response")
+    A0 <- predict(fit, new_data = data_long_A0[, ..cov_names], type = "response")
 
-    # hazard predictions
-    A1 <- as.numeric(predict(fit, newdata = data_A1, type = "response"))
-    A0 <- as.numeric(predict(fit, newdata = data_A0, type = "response"))
+  } else if (method == "HAL") {
+    # fit hazard regression using HAL
+    fit <- fit_hal(X = data_train[, ..cov_names],
+                   Y = data_train[["T_tilde_t"]],
+                   id = data_train[["id"]],
+                   smoothness_orders = 1,
+                   max_degree = 3,
+                   family = "binomial",
+                   return_x_basis = FALSE)
+
+    # predict hazard
+    pred <- predict(fit, new_data = data_long[, ..cov_names], type = "response")
+    A1 <- predict(fit, new_data = data_long_A1[, ..cov_names], type = "response")
+    A0 <- predict(fit, new_data = data_long_A0[, ..cov_names], type = "response")
   }
 
-  data_pred <- data_pred[, `:=` (lambda_A1 = A1, lambda_A0 = A0)]
-
-  return(data_pred)
+  return(list(pred = as.numeric(pred),
+              A1 = as.numeric(A1),
+              A0 = as.numeric(A0)))
 }

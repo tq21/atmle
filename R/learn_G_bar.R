@@ -1,22 +1,21 @@
-learn_G_bar <- function(W,
+learn_G_bar <- function(data,
+                        W,
                         A,
-                        Delta_G,
                         g,
                         method,
                         folds,
                         G_bar_bounds) {
 
   if (method == "glm") {
-    X <- cbind(W, A = A)
-    X_A1 <- cbind(W, A = 1)
-    X_A0 <- cbind(W, A = 0)
+    data_A1 <- copy(data); data_A1[, A := 1]
+    data_A0 <- copy(data); data_A0[, A := 0]
 
-    fit <- glm(Delta_G ~ ., data = X, family = "binomial")
-    A1 <- as.numeric(predict(fit, newdata = X_A1, type = "response"))
-    A0 <- as.numeric(predict(fit, newdata = X_A0, type = "response"))
+    fit <- glm(data[["Delta_G"]] ~ ., data = data, family = "binomial")
+    A1 <- predict(fit, newdata = data_A1, type = "response")
+    A0 <- predict(fit, newdata = data_A0, type = "response")
   }
 
-  return(list(A1 = A1,
-              A0 = A0,
-              integrate_A = A1*g+A0*(1-g)))
+  return(list(A1 = .bound(as.numeric(A1), G_bar_bounds),
+              A0 = .bound(as.numeric(A0), G_bar_bounds),
+              integrate_A = as.numeric(A1)*g+as.numeric(A0)*(1-g)))
 }

@@ -27,72 +27,49 @@
 #' \item{pred}{A numeric vector of the estimated conditional effects;}
 #' \item{x_basis}{A numeric matrix of the working model bases;}
 #' \item{coefs}{A numeric vector of the working model coefficients.}
-learn_T <- function(W,
+learn_T <- function(data,
+                    W,
                     A,
                     Y,
-                    g,
                     delta,
+                    g,
                     theta_tilde,
-                    method,
-                    min_working_model,
-                    v_folds,
                     weights,
+                    method,
+                    folds,
                     enumerate_basis_args,
                     fit_hal_args) {
 
   # R-transformations
-  pseudo_outcome <- ifelse(abs(A - g) < 1e-10, 0, (Y - theta_tilde) / (A - g))
-  pseudo_weights <- (A - g)^2 * weights
-
-  pred <- NULL
-  x_basis <- NULL
-  coefs <- NULL
-  non_zero <- NULL
+  pseudo_outcome <- ifelse(abs(data[[A]] - g) < 1e-10, 0, (data[[Y]] - theta_tilde) / (data[[A]] - g))
+  pseudo_weights <- (data[[A]] - g)^2 * weights
 
   if (method == "glmnet") {
-    fit <- cv.glmnet(
-      x = as.matrix(W[delta == 1, ]), y = pseudo_outcome[delta == 1],
-      family = "gaussian", weights = pseudo_weights[delta == 1],
-      keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE
-    )
+    # learn working model using main-term glmnet
+    fit <- cv.glmnet(x = as.matrix(data[delta == 1, ..W]),
+                     y = pseudo_outcome[delta == 1],
+                     family = "gaussian",
+                     weights = pseudo_weights[delta == 1], keep = TRUE,
+                     nfolds = length(folds), alpha = 1, relax = TRUE)
     non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
     coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
-    x_basis <- as.matrix(cbind(1, W)[, non_zero, drop = FALSE])
+    x_basis <- as.matrix(as.data.frame(cbind(1, data[, ..W]))[, non_zero, drop = FALSE])
     pred <- as.numeric(x_basis %*% matrix(coefs))
+
   } else if (method == "HAL") {
-    X <- as.matrix(W)
-
-    if (min_working_model) {
-      X_unpenalized <- as.matrix(cbind(1, W))
-    } else {
-      X_unpenalized <- NULL
-    }
-
-    # fit HAL
-    fit <- fit_relaxed_hal(
-      X = X[delta == 1, ], Y = pseudo_outcome[delta == 1],
-      X_unpenalized = X_unpenalized,
-      family = "gaussian",
-      weights = pseudo_weights[delta == 1],
-      relaxed = TRUE,
-      enumerate_basis_args = enumerate_basis_args,
-      fit_hal_args = fit_hal_args
-    )
-
-    # design matrices
+    # learn working model using HAL
+    fit <- fit_relaxed_hal(X = data[delta == 1, ..W],
+                           Y = pseudo_outcome[delta == 1],
+                           family = "gaussian",
+                           weights = pseudo_weights[delta == 1],
+                           enumerate_basis_args = enumerate_basis_args,
+                           fit_hal_args = fit_hal_args)
     x_basis <- fit$x_basis
-
-    # predictions
-    pred <- as.numeric(x_basis %*% matrix(fit$beta))
     coefs <- fit$beta
+    pred <- as.numeric(x_basis %*% matrix(coefs))
   }
 
-  return(list(
-    pred = pred,
-    x_basis = x_basis,
-    coefs = coefs,
-    non_zero = non_zero,
-    pseudo_outcome = pseudo_outcome,
-    pseudo_weights = pseudo_weights
-  ))
+  return(list(pred = pred,
+              x_basis = x_basis,
+              coefs = coefs))
 }
