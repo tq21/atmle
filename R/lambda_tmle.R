@@ -1,56 +1,51 @@
-lambda_tmle <- function(A,
+lambda_tmle <- function(data_long,
+                        n,
+                        A,
                         T_tilde,
                         t0,
                         g,
                         G_bar,
                         lambda,
-                        Q_bar_r_working_model) {
+                        stablize_weights,
+                        cate_surv) {
 
-  unique_T_tilde <- sort(unique(T_tilde))
-  t0_idx <- which(t0 == unique_T_tilde)
-  t_idx_grid <- seq(t0_idx)
+  unique_t <- sort(unique(data_long[[T_tilde]]))
 
   # clever covariate
-  lambda[, surv_t0_A1 := surv_A1[t == t0], by = id]
-  lambda[, surv_t0_A0 := surv_A0[t == t0], by = id]
+  data_long[, surv_t0_A1 := surv_A1[t == t0], by = id]
+  data_long[, surv_t0_A0 := surv_A0[t == t0], by = id]
+  data_long[, H_A1 := ((A)/(g*G_bar$A1)*(surv_t0_A1/surv_A1))*(t<=t0)]
+  data_long[, H_A0 := (-(1-(A))/((1-g)*G_bar$A0)*(surv_t0_A0/surv_A0))*(t<=t0)]
+  IM <- -t(cate_surv$x_basis) %*% diag(g*(1-g)) %*% cate_surv$x_basis / n
+  tmp <- as.numeric(cate_surv$x_basis %*% solve(IM) %*% colMeans(cate_surv$x_basis) * stablize_weights)
+  data_long[, clever_cov_A1 := tmp*as.numeric((T_tilde) >= t)*H_A1]
+  data_long[, clever_cov_A0 := tmp*as.numeric((T_tilde) >= t)*H_A0]
+  data_long[, dN_t := as.numeric((T_tilde) == t & Delta_G == 1)]
 
-  IM <- -t(Q_bar_r_working_model$phi) %*% diag(g*(1-g)) %*% Q_bar_r_working_model$phi / length(A)
-  comp_1 <- as.numeric(Q_bar_r_working_model$phi %*% solve(IM) %*% colMeans(Q_bar_r_working_model$phi) * (g * (1 - g) * G_bar$integrate_A))
-
-  id_to_nuisance <- data.table(id = seq(length(A)),
-                               A = A,
-                               T_tilde = T_tilde,
-                               g = g,
-                               G_bar_A1 = G_bar$A1,
-                               G_bar_A0 = G_bar$A0,
-                               comp_1 = comp_1)
-  lambda <- merge(lambda, id_to_nuisance, by = "id", all.x = TRUE) # TODO: this step sorted the rows in a different way, avoid that
-  lambda[, `:=` (H_A1 = -A/(g*G_bar_A1)*(surv_t0_A1/surv_A1),
-                 H_A0 = -(1-A)/((1-g)*G_bar_A0)*(surv_t0_A0/surv_A0),
-                 T_tilde_geq_t = as.numeric(T_tilde >= t))]
-  lambda[, `:=` (clever_cov_A1 = comp_1 * T_tilde_geq_t * H_A1,
-                 clever_cov_A0 = comp_1 * T_tilde_geq_t * (-H_A0),
-                 dN_t = as.numeric(T_tilde == t))] # TODO: check definition of dN_t
-
-  # TODO: TMLE: local least favorable submodel update, from tau (last time point)
-  all_t_rev <- rev(unique_T_tilde)
-
-  for (j in 1:length(all_t_rev)) {
-    cur_t <- all_t_rev[j]
-    sub_lambda <- lambda[t == cur_t]
-    sub_lambda[, lambda_pred := A * lambda_A1 + (1 - A) * lambda_A0]
-    epsilons <- coef(glm(dN_t ~ -1 + offset(qlogis(lambda_pred)) + clever_cov_A1 + clever_cov_A0,
-                         data = sub_lambda, family = "quasibinomial"))
+  # TMLE: local least favorable submodel update, from tau (last time point)
+  unique_t_rev <- rev(unique_t)
+  for (j in 1:length(unique_t_rev)) {
+    cur_t <- unique_t_rev[j]
+    data_sub <- data_long[t == cur_t]
+    epsilons <- coef(glm(dN_t ~ -1 + offset(qlogis(lambda)) + clever_cov_A1 + clever_cov_A0,
+                         data = data_sub, family = "quasibinomial"))
     epsilons[is.na(epsilons)] <- 0
 
     # tmle update
-    lambda[t == cur_t, lambda_A1 := plogis(qlogis(sub_lambda$lambda_A1) + epsilons[1] * sub_lambda$clever_cov_A1)]
-    lambda[t == cur_t, lambda_A0 := plogis(qlogis(sub_lambda$lambda_A0) + epsilons[2] * sub_lambda$clever_cov_A0)]
-    lambda[t == cur_t, lambda_pred := plogis(
-      qlogis(sub_lambda$lambda_pred) + epsilons[1] * clever_cov_A1 + epsilons[2] * clever_cov_A0)]
-
-    # TODO: make sure keys are id and t
+    data_long[t == cur_t, lambda_A1 := plogis(qlogis(data_sub$lambda_A1) + epsilons[1] * data_sub$clever_cov_A1)]
+    data_long[t == cur_t, lambda_A0 := plogis(qlogis(data_sub$lambda_A0) + epsilons[2] * data_sub$clever_cov_A0)]
+    data_long[t == cur_t, lambda := plogis(qlogis(data_sub$lambda) + epsilons[1] * clever_cov_A1 + epsilons[2] * clever_cov_A0)]
   }
 
-  return(lambda)
+  # recompute relevant parts using updated lambda
+  data_long[, `:=` (surv_A1 = cumprod(1 - lambda_A1),
+                    surv_A0 = cumprod(1 - lambda_A0)), by = id]
+  data_long[, surv_t0_A1 := surv_A1[t == t0], by = id]
+  data_long[, surv_t0_A0 := surv_A0[t == t0], by = id]
+  data_long[, H_A1 := ((A)/(g*G_bar$A1)*(surv_t0_A1/surv_A1))*(t<=t0)]
+  data_long[, H_A0 := (-(1-(A))/((1-g)*G_bar$A0)*(surv_t0_A0/surv_A0))*(t<=t0)]
+  data_long[, clever_cov_A1 := tmp*as.numeric((T_tilde) >= t)*H_A1]
+  data_long[, clever_cov_A0 := tmp*as.numeric((T_tilde) >= t)*H_A0]
+
+  return(data_long)
 }

@@ -14,7 +14,7 @@ sim_data <- function(n, A_counter = NULL) {
     if (t == 9) {
       return(1)
     } else if (t %in% 1:8) {
-      return(plogis(-5-0.75*A+0.3*W1+0.25*W2))
+      return(plogis(-8-0.75*A+0.3*W1+0.25*W2))
     }
   }
   lambda_fun <- Vectorize(lambda_fun)
@@ -65,45 +65,30 @@ sim_data <- function(n, A_counter = NULL) {
   return(as.data.frame(dt[t == 1, .(W1, W2, A, T_tilde, Delta)]))
 }
 
-
-# data <- sim_data(2000)
-# summary(as.factor(data$T_tilde))
-
 library(devtools)
 library(data.table)
 load_all()
 library(hal9001)
 library(glmnet)
 library(purrr)
-set.seed(982347)
 
-t0 <- 3
-data_A1 <- sim_data(100000, A_counter = 1)
-data_A0 <- sim_data(100000, A_counter = 0)
-truth <- mean(data_A1$T_tilde >= t0)-mean(data_A0$T_tilde >= t0)
+t0 <- 6
+data_A1 <- sim_data(10000, A_counter = 1)
+data_A0 <- sim_data(10000, A_counter = 0)
+mean(data_A1$T_tilde >= t0)-mean(data_A0$T_tilde >= t0)
 
 n <- 2000
-
-B <- 500
-psi_tilde <- numeric(B)
-
-for (b in 1:B) {
-  print(b)
-  data <- sim_data(n)
-  res <- atmle_surv(data = data,
-                    S = "T_tilde",
-                    W = c("W1", "W2"),
-                    A = "A",
-                    T_tilde = "T_tilde",
-                    Delta = "Delta",
-                    t0 = t0,
-                    g_rct = 0.5,
-                    controls_only = FALSE,
-                    g_method = "glm",
-                    G_bar_method = "glm",
-                    lambda_method = "glm",
-                    theta_method = "glm")
-  psi_tilde[b] <- res$psi_tilde_est
-}
-hist(psi_tilde)
-abline(v = truth, col = "red")
+data <- sim_data(n)
+res <- atmle_surv(data = data,
+                  S = "T_tilde",
+                  W = c("W1", "W2"),
+                  A = "A",
+                  T_tilde = "T_tilde",
+                  Delta = "Delta",
+                  t0 = t0,
+                  g_rct = 0.5,
+                  controls_only = FALSE,
+                  g_method = "glm",
+                  G_bar_method = "glm",
+                  lambda_method = "glm",
+                  theta_method = "glm")

@@ -50,7 +50,7 @@ learn_theta_tilde <- function(data,
     method <- get_default_sl3_learners(family)
   }
 
-  pred <- numeric(length(Y))
+  pred <- numeric(length(data[, .N]))
 
   if (is.null(theta_bounds)) {
     if (family == "gaussian") {

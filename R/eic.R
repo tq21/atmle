@@ -125,35 +125,31 @@ get_eic_psi_nonparametric <- function(Q, Pi, g, S, A, Y, psi_est, weights) {
   return(W_comp + Q_comp)
 }
 
-get_eic_psi_tilde_surv <- function(g,
-                                   G_bar,
-                                   Q_bar_r_working_model,
-                                   Q_bar_r,
-                                   lambda,
-                                   t_seq) {
+get_eic_psi_tilde_surv <- function(data,
+                                   data_long,
+                                   g,
+                                   stablize_weight,
+                                   cate_surv,
+                                   unique_t,
+                                   Y,
+                                   n) {
 
   # TODO: write this up
 
-  tmp_1 <- g*(1-g)*G_bar$integrate_A*Q_bar_r_working_model$phi
-  D_tilde_W_1 <- tmp_1*(Q_bar_r-Q_bar_r_working_model$pred)
-  D_tilde_W_2 <- -1/length(g)*tmp_1*Q_bar_r
+  tmp_1 <- stablize_weight*cate_surv$x_basis
+  D_tilde_W_1 <- tmp_1*(data[[Y]]-cate_surv$pred)
+  D_tilde_W_2 <- -1/n*tmp_1*data[[Y]]
   D_tilde_W <- D_tilde_W_1+D_tilde_W_2
 
-  D_tilde_Q <- map(t_seq, function(cur_t) {
-    lambda[t == cur_t, `:=` (H_A1_A0 = H_A1 - H_A0,
-                             tmp_2 = T_tilde_geq_t * (dN_t - lambda_pred))]
-    H_tilde_t <- tmp_1*lambda[t == cur_t, H_A1_A0]
-    D_tilde_Q_t <- H_tilde_t * lambda[t == cur_t, tmp_2]
-
-    return(D_tilde_Q_t)
+  data_long[, D_tilde_Q := (clever_cov_A1-clever_cov_A0)*(dN_t-lambda)]
+  D_tilde_Q <- map(unique_t, function(cur_t) {
+    return(data_long[t == cur_t]$D_tilde_Q)
   })
   D_tilde_Q <- Reduce(`+`, D_tilde_Q)
 
-  D_tilde <- D_tilde_W + D_tilde_Q
-
-  IM <- t(Q_bar_r_working_model$phi) %*% diag(g * (1 - g)) %*% Q_bar_r_working_model$phi / length(g)
-  D_star_beta <- solve(IM) %*% t(D_tilde)
-  D_star <- Q_bar_r_working_model$pred - mean(Q_bar_r_working_model$pred) + as.numeric(t(D_star_beta) %*% colMeans(Q_bar_r_working_model$phi))
+  IM <- t(cate_surv$x_basis) %*% diag(g*(1-g)) %*% cate_surv$x_basis / n
+  D_star_beta <- D_tilde_W %*% solve(IM) %*% colMeans(cate_surv$x_basis) + D_tilde_Q
+  D_star <- cate_surv$pred - mean(cate_surv$pred) + as.numeric(D_star_beta)
 
   return(D_star)
 }
