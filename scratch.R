@@ -107,3 +107,5 @@ for (b in 1:B) {
 }
 hist(psi_tilde)
 abline(v = truth, col = "red")
+
+var(psi_tilde)

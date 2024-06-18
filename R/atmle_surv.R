@@ -112,11 +112,7 @@ atmle_surv <- function(data,
   data_long[, `:=` (surv_A1 = cumprod(1 - lambda_A1),
                     surv_A0 = cumprod(1 - lambda_A0)), by = id]
 
-  # psi_tilde_est <- mean((data$Delta_G/G_bar$A1*data_long[t == t0-1, surv_A1] - data$Delta_G/G_bar$A0*data_long[t == t0-1, surv_A0]))
-
-  # psi_tilde_est <- mean(data_long[t == t0-1, surv_A1] - data_long[t == t0-1, surv_A0])
-
-  # TODO: target lambda
+  # TMLE targeting of lambda
   data_long <- lambda_tmle(data_long = data_long,
                            n = data[, .N],
                            A = A,
@@ -126,24 +122,36 @@ atmle_surv <- function(data,
                            G_bar = G_bar,
                            lambda = lambda,
                            stablize_weights = stablize_weights,
-                           cate_surv = cate_surv)
+                           cate_surv = cate_surv) # GOOD!
+
+  return(list(psi_tilde_est = mean(cate_surv$pred)))
+
+  # Re-learn beta under the survival mapped from the targeted lambda
+  data_long[t == t0-1, `:=` (targeted_diff = surv_A1 - surv_A0)]
+  targeted_diff <- data_long[t == t0-1, targeted_diff]
+  targeted_working_model <- glm(targeted_diff ~ -1+.,
+                                data = as.data.frame(cate_surv$x_basis),
+                                family = "gaussian") # TODO: can bound this using logistic
+  cate_surv$coefs <- as.numeric(coef(targeted_working_model))
+  cate_surv$coefs[is.na(cate_surv$coefs)] <- 0
+  cate_surv$pred <- as.numeric(cate_surv$x_basis %*% cate_surv$coefs)
 
   # unique_t <- sort(unique(data[[T_tilde]]))
 
-  # psi_tilde_est <- mean(cate_surv$pred)
+  psi_tilde_est <- mean(cate_surv$pred)
 
-  psi_tilde_est <- mean(data_long[t == t0-1, surv_A1] - data_long[t == t0-1, surv_A0])
+  # psi_tilde_est <- mean(data_long[t == t0-1, surv_A1] - data_long[t == t0-1, surv_A0])
   return(list(psi_tilde_est = psi_tilde_est))
 
   # compute efficient influence curve
-  # psi_tilde_eic <- get_eic_psi_tilde_surv(data = data,
-  #                                         data_long = data_long,
-  #                                         g = g,
-  #                                         stablize_weight = stablize_weights,
-  #                                         cate_surv = cate_surv,
-  #                                         unique_t = unique_t,
-  #                                         Y = "Y",
-  #                                         n = data[, .N])
+  psi_tilde_eic <- get_eic_psi_tilde_surv(data = data,
+                                          data_long = data_long,
+                                          g = g,
+                                          stablize_weight = stablize_weights,
+                                          cate_surv = cate_surv,
+                                          unique_t = unique_t,
+                                          Y = "Y",
+                                          n = data[, .N])
 
   # psi_tilde_est <- mean(Q_bar_r)
   # psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE) / n)
