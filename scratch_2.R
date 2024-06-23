@@ -14,7 +14,7 @@ sim_data <- function(n, A_counter = NULL) {
     if (t == 9) {
       return(1)
     } else if (t %in% 1:8) {
-      return(plogis(-8-0.75*A+0.3*W1+0.25*W2))
+      return(plogis(-5+2.1*A+0.3*W1+0.25*W2))
     }
   }
   lambda_fun <- Vectorize(lambda_fun)
@@ -37,7 +37,9 @@ sim_data <- function(n, A_counter = NULL) {
       return(0.05)
     }
   }
-  #lambda_c_fun <- function(t, A, W1, W2) return(0)
+  if (!is.null(A_counter)) {
+    lambda_c_fun <- function(t, A, W1, W2) return(0)
+  }
   lambda_c_fun <- Vectorize(lambda_c_fun)
 
   dt <- data.table(id = rep(seq(n), each = 9),
@@ -65,6 +67,7 @@ sim_data <- function(n, A_counter = NULL) {
   return(as.data.frame(dt[t == 1, .(W1, W2, A, T_tilde, Delta)]))
 }
 
+
 library(devtools)
 library(data.table)
 load_all()
@@ -72,10 +75,10 @@ library(hal9001)
 library(glmnet)
 library(purrr)
 
-t0 <- 6
-data_A1 <- sim_data(10000, A_counter = 1)
-data_A0 <- sim_data(10000, A_counter = 0)
-mean(data_A1$T_tilde >= t0)-mean(data_A0$T_tilde >= t0)
+t0 <- 3
+data_A1 <- sim_data(100000, A_counter = 1)
+data_A0 <- sim_data(100000, A_counter = 0)
+mean(data_A1$T_tilde > t0)-mean(data_A0$T_tilde > t0)
 
 n <- 2000
 data <- sim_data(n)
@@ -91,4 +94,5 @@ res <- atmle_surv(data = data,
                   g_method = "glm",
                   G_bar_method = "glm",
                   lambda_method = "glm",
-                  theta_method = "glm")
+                  theta_method = "glmnet")
+res$psi_tilde_r_learner

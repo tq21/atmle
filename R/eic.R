@@ -128,6 +128,7 @@ get_eic_psi_nonparametric <- function(Q, Pi, g, S, A, Y, psi_est, weights) {
 get_eic_psi_tilde_surv <- function(data,
                                    data_long,
                                    g,
+                                   Q_bar_r,
                                    stablize_weight,
                                    cate_surv,
                                    unique_t,
@@ -137,8 +138,8 @@ get_eic_psi_tilde_surv <- function(data,
   # TODO: write this up
 
   tmp_1 <- stablize_weight*cate_surv$x_basis
-  D_tilde_W_1 <- tmp_1*(data[[Y]]-cate_surv$pred)
-  D_tilde_W_2 <- -1/n*tmp_1*data[[Y]]
+  D_tilde_W_1 <- tmp_1*(Q_bar_r-cate_surv$pred)
+  D_tilde_W_2 <- -1/n*tmp_1*Q_bar_r
   D_tilde_W <- D_tilde_W_1+D_tilde_W_2
 
   data_long[, D_tilde_Q := (clever_cov_A1-clever_cov_A0)*(dN_t-lambda)]

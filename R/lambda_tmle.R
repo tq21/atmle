@@ -14,8 +14,14 @@ lambda_tmle <- function(data_long,
   # clever covariate
   data_long[, surv_t0_A1 := surv_A1[t == t0], by = id]
   data_long[, surv_t0_A0 := surv_A0[t == t0], by = id]
-  data_long[, H_A1 := ((A)/(g*G_bar$A1)*(surv_t0_A1/surv_A1))*(t<=t0)]
-  data_long[, H_A0 := (-(1-(A))/((1-g)*G_bar$A0)*(surv_t0_A0/surv_A0))*(t<=t0)]
+  data_long[, H_A1 := ((A)/(g*surv_c_A1)*(surv_t0_A1/surv_A1))*(t<=t0)]
+  tmp <- (data_long[[A]]/(g*data_long$surv_c_A1)*(data_long$surv_t0_A1/data_long$surv_A1))*(data_long$t<=t0)
+  if (any(tmp != data_long$H_A1)) stop("H_A1 is not computed correctly")
+
+  data_long[, H_A0 := (-(1-(A))/((1-g)*surv_c_A0)*(surv_t0_A0/surv_A0))*(t<=t0)]
+  tmp <- (-(1-(data_long[[A]]))/((1-g)*data_long$surv_c_A0)*(data_long$surv_t0_A0/data_long$surv_A0))*(data_long$t<=t0)
+  if (any(tmp != data_long$H_A0)) stop("H_A0 is not computed correctly")
+
   IM <- -t(cate_surv$x_basis) %*% diag(g*(1-g)) %*% cate_surv$x_basis / n
   tmp <- as.numeric(cate_surv$x_basis %*% solve(IM) %*% colMeans(cate_surv$x_basis) * stablize_weights)
   data_long[, clever_cov_A1 := tmp*as.numeric((T_tilde) >= t)*H_A1]
@@ -38,8 +44,8 @@ lambda_tmle <- function(data_long,
   }
 
   # recompute relevant parts using updated lambda
-  data_long[, `:=` (surv_A1 = cumprod(1 - lambda_A1),
-                    surv_A0 = cumprod(1 - lambda_A0)), by = id]
+  data_long[, `:=` (surv_A1 = shift(cumprod(1 - lambda_A1), fill = 1),
+                    surv_A0 = shift(cumprod(1 - lambda_A0), fill = 1)), by = id]
   data_long[, surv_t0_A1 := surv_A1[t == t0], by = id]
   data_long[, surv_t0_A0 := surv_A0[t == t0], by = id]
   data_long[, H_A1 := ((A)/(g*G_bar$A1)*(surv_t0_A1/surv_A1))*(t<=t0)]

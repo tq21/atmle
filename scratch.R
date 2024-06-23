@@ -14,7 +14,7 @@ sim_data <- function(n, A_counter = NULL) {
     if (t == 9) {
       return(1)
     } else if (t %in% 1:8) {
-      return(plogis(-5-0.75*A+0.3*W1+0.25*W2))
+      return(plogis(-5+2.1*A+0.3*W1+0.25*W2))
     }
   }
   lambda_fun <- Vectorize(lambda_fun)
@@ -37,7 +37,9 @@ sim_data <- function(n, A_counter = NULL) {
       return(0.05)
     }
   }
-  #lambda_c_fun <- function(t, A, W1, W2) return(0)
+  if (!is.null(A_counter)) {
+    lambda_c_fun <- function(t, A, W1, W2) return(0)
+  }
   lambda_c_fun <- Vectorize(lambda_c_fun)
 
   dt <- data.table(id = rep(seq(n), each = 9),
@@ -65,9 +67,8 @@ sim_data <- function(n, A_counter = NULL) {
   return(as.data.frame(dt[t == 1, .(W1, W2, A, T_tilde, Delta)]))
 }
 
-
-# data <- sim_data(2000)
-# summary(as.factor(data$T_tilde))
+data <- sim_data(2000)
+summary(as.factor(data$T_tilde))
 
 library(devtools)
 library(data.table)
@@ -75,17 +76,20 @@ load_all()
 library(hal9001)
 library(glmnet)
 library(purrr)
-set.seed(982347)
+set.seed(213)
 
 t0 <- 3
 data_A1 <- sim_data(100000, A_counter = 1)
 data_A0 <- sim_data(100000, A_counter = 0)
-truth <- mean(data_A1$T_tilde >= t0)-mean(data_A0$T_tilde >= t0)
+truth <- mean(data_A1$T_tilde > t0)-mean(data_A0$T_tilde > t0)
 
-n <- 2000
+n <- 1000
+B <- 1000
 
-B <- 500
-psi_tilde <- numeric(B)
+all_psi_tilde_r_learner <- numeric(B)
+all_psi_tilde_no_tmle_lambda <- numeric(B)
+all_psi_tilde_tmle_lambda <- numeric(B)
+all_psi_tilde_r_learner_tmle_beta <- numeric(B)
 
 for (b in 1:B) {
   print(b)
@@ -103,9 +107,18 @@ for (b in 1:B) {
                     G_bar_method = "glm",
                     lambda_method = "glm",
                     theta_method = "glm")
-  psi_tilde[b] <- res$psi_tilde_est
+  all_psi_tilde_r_learner[b] <- res$psi_tilde_r_learner
+  all_psi_tilde_no_tmle_lambda[b] <- res$psi_tilde_no_tmle_lambda
+  all_psi_tilde_tmle_lambda[b] <- res$psi_tilde_tmle_lambda
+  all_psi_tilde_r_learner_tmle_beta[b] <- res$psi_tilde_r_learner_tmle_beta
 }
-hist(psi_tilde)
-abline(v = truth, col = "red")
 
-var(psi_tilde)
+par(mfrow = c(2, 2))
+hist(all_psi_tilde_r_learner, main = "IPCW R-learner")
+abline(v = truth, col = "red")
+hist(all_psi_tilde_no_tmle_lambda, main = "No TMLE lambda")
+abline(v = truth, col = "red")
+hist(all_psi_tilde_tmle_lambda, main = "TMLE lambda")
+abline(v = truth, col = "red")
+hist(all_psi_tilde_r_learner_tmle_beta, main = "IPCW R-learner TMLE beta")
+abline(v = truth, col = "red")

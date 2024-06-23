@@ -1,8 +1,8 @@
-#' @title Estimate the conditional failure-time hazard function
+#' @title Estimate the conditional hazard function for event (failure/censoring)
 #'
 #' @param W A matrix of covariates.
 #' @param A A vector of treatment assignments.
-#' @param T_tilde A vector of observed failure times.
+#' @param T_tilde A vector of observed failure/censored times.
 #' @param folds A list of folds for cross-fitting.
 #'
 #' @export
@@ -10,6 +10,7 @@ learn_lambda <- function(data_long,
                          W,
                          A,
                          T_tilde,
+                         event,
                          method,
                          folds) {
 
@@ -26,7 +27,7 @@ learn_lambda <- function(data_long,
 
   if (method == "glm") {
     # fit hazard regression using glm
-    fit <- glm(data_train[["T_t"]] ~ .,
+    fit <- glm(data_train[[event]] ~ .,
                data = data_train[, ..cov_names],
                family = "binomial")
     pred <- predict(fit, newdata = data_long[, ..cov_names], type = "response")
@@ -36,7 +37,7 @@ learn_lambda <- function(data_long,
   } else if (method == "HAL") {
     # fit hazard regression using HAL
     fit <- fit_hal(X = data_train[, ..cov_names],
-                   Y = data_train[["T_t"]],
+                   Y = data_train[[event]],
                    id = data_train[["id"]],
                    smoothness_orders = 1,
                    max_degree = 3,
