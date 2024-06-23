@@ -25,7 +25,7 @@ atmle_surv <- function(data,
   tau <- max(data[[T_tilde]])
 
   # define Delta_G=I(C>=t0), Y=I(T>=t0)
-  set(data, j = "Delta_G", value = as.numeric(data[[Delta]] == 1 | (data[[Delta]] == 0 & data[[T_tilde]] > t0)))
+  set(data, j = "Delta_G", value = as.numeric(data[[Delta]] == 1))
   set(data, j = "Y", value = as.numeric(data[[T_tilde]] > t0))
 
   # cv.glmnet only works when design matrix has at least 2 columns
@@ -83,7 +83,7 @@ atmle_surv <- function(data,
                                    W = W,
                                    Y = "Y",
                                    delta = data[["Delta_G"]],
-                                   weights = 1/G_bar$pred,
+                                   weights = rep(1, data[, .N]), # 1/G_bar$pred,
                                    method = theta_method,
                                    family = "binomial",
                                    theta_bounds = theta_bounds,

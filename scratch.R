@@ -57,7 +57,7 @@ sim_data <- function(n, A_counter = NULL) {
              C = rbinom(.N, 1, prob_c))]
   dt[, `:=` (T_t = T * t,
              C_t = C * t)]
-  dt[T_t == 0, T_t := 999]
+  dt[T_t == 0, T_t := 9]
   dt[C_t == 0, C_t := 9]
   dt[, T_t := min(T_t), by = id]
   dt[, C_t := min(C_t), by = id]
@@ -84,7 +84,7 @@ data_A0 <- sim_data(100000, A_counter = 0)
 truth <- mean(data_A1$T_tilde > t0)-mean(data_A0$T_tilde > t0)
 
 n <- 1000
-B <- 1000
+B <- 500
 
 all_psi_tilde_r_learner <- numeric(B)
 all_psi_tilde_no_tmle_lambda <- numeric(B)

@@ -57,7 +57,7 @@ sim_data <- function(n, A_counter = NULL) {
              C = rbinom(.N, 1, prob_c))]
   dt[, `:=` (T_t = T * t,
              C_t = C * t)]
-  dt[T_t == 0, T_t := 999]
+  dt[T_t == 0, T_t := 9]
   dt[C_t == 0, C_t := 9]
   dt[, T_t := min(T_t), by = id]
   dt[, C_t := min(C_t), by = id]
@@ -66,7 +66,6 @@ sim_data <- function(n, A_counter = NULL) {
 
   return(as.data.frame(dt[t == 1, .(W1, W2, A, T_tilde, Delta)]))
 }
-
 
 library(devtools)
 library(data.table)
