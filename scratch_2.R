@@ -79,7 +79,7 @@ data_A1 <- sim_data(100000, A_counter = 1)
 data_A0 <- sim_data(100000, A_counter = 0)
 mean(data_A1$T_tilde > t0)-mean(data_A0$T_tilde > t0)
 
-n <- 20000
+n <- 2000
 data <- sim_data(n)
 res <- atmle_surv(data = data,
                   S = "T_tilde",
@@ -91,7 +91,5 @@ res <- atmle_surv(data = data,
                   g_rct = 0.5,
                   controls_only = FALSE,
                   g_method = "glm",
-                  G_bar_method = "glm",
-                  lambda_method = "glm",
-                  theta_method = "glmnet")
+                  lambda_method = "glm")
 res$psi_tilde_r_learner

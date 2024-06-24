@@ -9,13 +9,11 @@ atmle_surv <- function(data,
                        g_rct,
                        controls_only,
                        g_method = "glmnet",
-                       G_bar_method = "glmnet",
-                       theta_method = "glmnet",
-                       lambda_method = "glm",
-                       cate_surv_working_model = "glmnet",
+                       lambda_method = "glmnet",
+                       cate_working_model = "glmnet",
+                       cross_fit_nuisance = TRUE,
                        v_folds = 5,
                        g_bounds = c(0.01, 0.99),
-                       G_bar_bounds = c(0.01, 0.99),
                        theta_bounds = c(0.01, 0.99)) {
 
   if (!is.data.table(data)) {
@@ -54,7 +52,8 @@ atmle_surv <- function(data,
                A = A,
                method = g_method,
                folds = folds,
-               g_bounds = g_bounds) # GOOD! 6/23/2024
+               g_bounds = g_bounds,
+               cross_fit_nuisance = cross_fit_nuisance) # GOOD! 6/23/2024
 
   # estimate nuisance: \bar{G}(t|W,A)=P(C>t|W,A)
   lambda_c <- learn_hazard(data_long = data_long,
@@ -63,6 +62,7 @@ atmle_surv <- function(data,
                            event = "C_t",
                            method = lambda_method,
                            folds = folds,
+                           cross_fit_nuisance = cross_fit_nuisance,
                            counter_var = A) # GOOD! 6/23/2024
 
   # compute survival function of censoring from hazard estimates
@@ -85,6 +85,7 @@ atmle_surv <- function(data,
                               event = "T_t",
                               method = lambda_method,
                               folds = folds,
+                              cross_fit_nuisance = cross_fit_nuisance,
                               counter_var = NULL) # GOOD! 6/23/2024
 
   # learn a working model for difference in conditional survival functions
@@ -97,7 +98,7 @@ atmle_surv <- function(data,
                        g = g,
                        theta_tilde = theta_tilde,
                        weights = 1/G_bar$pred,
-                       method = cate_surv_working_model,
+                       method = cate_working_model,
                        folds = folds,
                        enumerate_basis_args = enumerate_basis_args,
                        fit_hal_args = fit_hal_args) # GOOD! 6/23/2024
@@ -111,6 +112,7 @@ atmle_surv <- function(data,
                          event = "T_t",
                          method = lambda_method,
                          folds = folds,
+                         cross_fit_nuisance = cross_fit_nuisance,
                          counter_var = A) # GOOD! 6/23/2024
 
   # compute survival probabilities from hazard

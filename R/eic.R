@@ -135,6 +135,8 @@ get_eic_psi_tilde_surv <- function(data,
                                    Y,
                                    n) {
 
+  browser()
+
   # TODO: write this up
 
   tmp_1 <- stablize_weight*cate_surv$x_basis

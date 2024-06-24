@@ -104,7 +104,6 @@ for (b in 1:B) {
                     g_rct = 0.5,
                     controls_only = FALSE,
                     g_method = "glm",
-                    G_bar_method = "glm",
                     lambda_method = "glm",
                     theta_method = "glm")
   all_psi_tilde_r_learner[b] <- res$psi_tilde_r_learner

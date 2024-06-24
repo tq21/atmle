@@ -28,6 +28,7 @@
 #' @param g_bounds A numeric vector of lower and upper bounds for the
 #' treatment mechanism. The first element is the lower bound, and the second
 #' element is the upper bound.
+#' @param cross_fit_nuisance A `logical` indicating whether to cross-fit.
 #'
 #' @returns A numeric vector of estimated treatment probabilities.
 learn_g <- function(data,
@@ -36,7 +37,7 @@ learn_g <- function(data,
                     method,
                     folds,
                     g_bounds,
-                    cross_fit_nuisance = TRUE) {
+                    cross_fit_nuisance) {
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners("binomial")
   }
