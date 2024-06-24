@@ -24,9 +24,9 @@ atmle_surv <- function(data,
 
   tau <- max(data[[T_tilde]])
 
-  # define Delta_G=I(C>=t0), Y=I(T>=t0)
-  set(data, j = "Delta_G", value = as.numeric(data[[Delta]] == 1))
+  set(data, j = "Delta_t0", value = as.numeric(data[[Delta]] == 1 | data[[T_tilde]] > t0))
   set(data, j = "Y", value = as.numeric(data[[T_tilde]] > t0))
+  set(data, j = "U", value = pmin(data[[T_tilde]], t0))
 
   # cv.glmnet only works when design matrix has at least 2 columns
   # append dummy column of ones if necessary
@@ -56,7 +56,7 @@ atmle_surv <- function(data,
                folds = folds,
                g_bounds = g_bounds) # GOOD!
 
-  # estimate nuisance: \bar{G}(t|W,A=a)=P(I(C>t)|W,A=a)
+  # estimate nuisance: \bar{G}(t|W,A)=P(I(C>t)|W,A)
   lambda_c <- learn_lambda(data_long = data_long,
                            W = W,
                            A = A,
@@ -72,22 +72,20 @@ atmle_surv <- function(data,
   data_long[, `:=` (surv_c_A1 = cumprod(1 - lambda_c_A1),
                     surv_c_A0 = cumprod(1 - lambda_c_A0)), by = id]
 
-  # compute nuisance: \bar{G}(t0|W,A=a)=P(I(C>t0)|W,A=a)
-  G_bar <- list(A1 = data_long[t == t0, ]$surv_c_A1,
-                A0 = data_long[t == t0, ]$surv_c_A0)
+  # compute nuisance: \bar{G}(t0|W,A)=P(C>t0|W,A)
+  G_bar <- list(A1 = data_long[t == U, ]$surv_c_A1,
+                A0 = data_long[t == U, ]$surv_c_A0)
   G_bar$pred <- data[[A]] * G_bar$A1 + (1 - data[[A]]) * G_bar$A0
   G_bar$integrate_A <- as.numeric(G_bar$A1)*g+as.numeric(G_bar$A0)*(1-g)
 
-  # estimate nuisance: \Tilde{\theta}(W)=E(Y|W)
-  theta_tilde <- learn_theta_tilde(data = data,
-                                   W = W,
-                                   Y = "Y",
-                                   delta = data[["Delta_G"]],
-                                   weights = rep(1, data[, .N]), # 1/G_bar$pred,
-                                   method = theta_method,
-                                   family = "binomial",
-                                   theta_bounds = theta_bounds,
-                                   folds = folds) # GOOD!
+  # estimate nuisance: \Tilde{\theta}(W)=P(T>t0|W)
+  theta_tilde <- learn_hazard(data_long = data_long,
+                              X = W,
+                              T_tilde = T_tilde,
+                              event = "T_t",
+                              method = lambda_method,
+                              folds = folds,
+                              counter_var = NULL)
 
   # learn a working model for difference in conditional survival functions
   stablize_weights <- g*(1-g)*G_bar$integrate_A
@@ -95,14 +93,14 @@ atmle_surv <- function(data,
                        W = W,
                        A = A,
                        Y = "Y",
-                       delta = data[["Delta_G"]],
+                       delta = data[["Delta_t0"]],
                        g = g,
                        theta_tilde = theta_tilde,
                        weights = 1/G_bar$pred,
                        method = cate_surv_working_model,
                        folds = folds,
                        enumerate_basis_args = enumerate_basis_args,
-                       fit_hal_args = fit_hal_args) # GOOD!
+                       fit_hal_args = fit_hal_args) # GOOD! 6/23/2024
 
   psi_tilde_r_learner <- mean(cate_surv$pred) # TODO: TESTING PURPOSES
 
@@ -113,7 +111,7 @@ atmle_surv <- function(data,
                          T_tilde = T_tilde,
                          event = "T_t",
                          method = lambda_method,
-                         folds = folds) # GOOD!
+                         folds = folds)
 
   # compute survival probabilities from hazard
   data_long[, `:=` (lambda = lambda$pred,

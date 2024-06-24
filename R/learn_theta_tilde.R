@@ -41,7 +41,6 @@ learn_theta_tilde <- function(data,
                               W,
                               Y,
                               delta,
-                              weights,
                               method,
                               family,
                               theta_bounds,
@@ -103,7 +102,6 @@ learn_theta_tilde <- function(data,
         suppressWarnings({
           fit <- glm(data[train_idx][delta[train_idx] == 1][[Y]] ~ .,
                      data = data[train_idx, ..W][delta[train_idx] == 1],
-                     weights = weights[train_idx][delta[train_idx] == 1],
                      family = family)
         })
         pred[valid_idx] <<- predict(fit, newdata = data[valid_idx, ..W],
@@ -113,7 +111,6 @@ learn_theta_tilde <- function(data,
       # no cross fit
       fit <- glm(data[delta == 1][[Y]] ~ .,
                  data = data[delta == 1, ..W],
-                 weights = weights[delta == 1],
                  family = family)
       pred <- predict(fit, newdata = data[, ..W], type = "response")
     }
@@ -127,7 +124,6 @@ learn_theta_tilde <- function(data,
         valid_idx <- .x$validation_set
         fit <- cv.glmnet(x = as.matrix(data[train_idx, ..W][delta[train_idx] == 1]),
                          y = data[train_idx][delta[train_idx] == 1][[Y]],
-                         weights = weights[train_idx][delta[train_idx] == 1],
                          keep = TRUE, alpha = 1, nfolds = length(folds), family = family)
         pred[valid_idx] <<- predict(fit, newx = as.matrix(data[valid_idx, ..W]),
                                     s = "lambda.min", type = "response")
@@ -137,7 +133,6 @@ learn_theta_tilde <- function(data,
       fit <- cv.glmnet(x = as.matrix(data[delta == 1, ..W]),
                        y = data[delta == 1][[Y]],
                        keep = TRUE, alpha = 1,
-                       weights = weights[delta == 1],
                        nfolds = length(folds), family = family)
       pred <- predict(fit, newx = data[, ..W], s = "lambda.min", type = "response")
     }

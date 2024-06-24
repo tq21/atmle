@@ -10,7 +10,7 @@ learn_G_bar <- function(data,
     data_A1 <- copy(data); data_A1[, A := 1]
     data_A0 <- copy(data); data_A0[, A := 0]
 
-    fit <- glm(data[["Delta_G"]] ~ ., data = data[, c(..W, ..A)], family = "binomial")
+    fit <- glm(data[["Delta_t0"]] ~ ., data = data[, c(..W, ..A)], family = "binomial")
     A1 <- predict(fit, newdata = data_A1[, c(..W, ..A)], type = "response")
     A0 <- predict(fit, newdata = data_A0[, c(..W, ..A)], type = "response")
   }

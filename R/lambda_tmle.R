@@ -26,7 +26,7 @@ lambda_tmle <- function(data_long,
   tmp <- as.numeric(cate_surv$x_basis %*% solve(IM) %*% colMeans(cate_surv$x_basis) * stablize_weights)
   data_long[, clever_cov_A1 := tmp*as.numeric((T_tilde) >= t)*H_A1]
   data_long[, clever_cov_A0 := tmp*as.numeric((T_tilde) >= t)*H_A0]
-  data_long[, dN_t := as.numeric((T_tilde) == t & Delta_G == 1)]
+  data_long[, dN_t := as.numeric((T_tilde) == t & Delta_t0 == 1)]
 
   # TMLE: local least favorable submodel update, from tau (last time point)
   unique_t_rev <- rev(unique_t)
