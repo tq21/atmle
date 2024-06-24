@@ -54,16 +54,16 @@ atmle_surv <- function(data,
                A = A,
                method = g_method,
                folds = folds,
-               g_bounds = g_bounds) # GOOD!
+               g_bounds = g_bounds) # GOOD! 6/23/2024
 
-  # estimate nuisance: \bar{G}(t|W,A)=P(I(C>t)|W,A)
-  lambda_c <- learn_lambda(data_long = data_long,
-                           W = W,
-                           A = A,
+  # estimate nuisance: \bar{G}(t|W,A)=P(C>t|W,A)
+  lambda_c <- learn_hazard(data_long = data_long,
+                           X = c(W, A),
                            T_tilde = "C_tilde",
                            event = "C_t",
                            method = lambda_method,
-                           folds = folds) # GOOD!
+                           folds = folds,
+                           counter_var = A) # GOOD! 6/23/2024
 
   # compute survival function of censoring from hazard estimates
   data_long[, `:=` (lambda_c = lambda_c$pred,
@@ -85,7 +85,7 @@ atmle_surv <- function(data,
                               event = "T_t",
                               method = lambda_method,
                               folds = folds,
-                              counter_var = NULL)
+                              counter_var = NULL) # GOOD! 6/23/2024
 
   # learn a working model for difference in conditional survival functions
   stablize_weights <- g*(1-g)*G_bar$integrate_A
@@ -105,13 +105,13 @@ atmle_surv <- function(data,
   psi_tilde_r_learner <- mean(cate_surv$pred) # TODO: TESTING PURPOSES
 
   # estimate nuisance: lambda(t|W,A)=P(T=t|T>=t,W,A)
-  lambda <- learn_lambda(data_long = data_long,
-                         W = W,
-                         A = A,
+  lambda <- learn_hazard(data_long = data_long,
+                         X = c(W, A),
                          T_tilde = T_tilde,
                          event = "T_t",
                          method = lambda_method,
-                         folds = folds)
+                         folds = folds,
+                         counter_var = A) # GOOD! 6/23/2024
 
   # compute survival probabilities from hazard
   data_long[, `:=` (lambda = lambda$pred,
@@ -131,7 +131,7 @@ atmle_surv <- function(data,
                            G_bar = G_bar,
                            lambda = lambda,
                            stablize_weights = stablize_weights,
-                           cate_surv = cate_surv) # GOOD!
+                           cate_surv = cate_surv)
   psi_tilde_tmle_lambda <- mean(data_long[t == t0, surv_A1]-data_long[t == t0, surv_A0])
 
   # Re-learn beta under the survival mapped from the targeted lambda
