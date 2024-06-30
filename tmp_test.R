@@ -11,11 +11,7 @@ sim_data <- function(n, A_counter = NULL) {
 
   # failure hazard
   lambda_fun <- function(t, A, W1, W2) {
-    if (t == 9) {
-      return(1)
-    } else if (t %in% 1:8) {
-      return(plogis(-1.1*A+0.3*W1+0.25*W2))
-    }
+    return(plogis(-0.5*A+1.1*W1-0.6*W2))
   }
   lambda_fun <- Vectorize(lambda_fun)
 
@@ -32,11 +28,11 @@ sim_data <- function(n, A_counter = NULL) {
   }
   lambda_c_fun <- Vectorize(lambda_c_fun)
 
-  dt <- data.table(id = rep(seq(n), each = 9),
-                   t = rep(1:9, n),
-                   W1 = rep(W1, each = 9),
-                   W2 = rep(W2, each = 9),
-                   A = rep(A, each = 9))
+  dt <- data.table(id = rep(seq(n), each = 5),
+                   t = rep(1:5, n),
+                   W1 = rep(W1, each = 5),
+                   W2 = rep(W2, each = 5),
+                   A = rep(A, each = 5))
   dt[, `:=` (lambda = lambda_fun(t, A, W1, W2),
              lambda_c = lambda_c_fun(t, A, W1, W2))]
   dt[, `:=` (surv = cumprod(1 - lambda),
@@ -47,8 +43,8 @@ sim_data <- function(n, A_counter = NULL) {
              C = rbinom(.N, 1, prob_c))]
   dt[, `:=` (T_t = T * t,
              C_t = C * t)]
-  dt[T_t == 0, T_t := 9]
-  dt[C_t == 0, C_t := 10]
+  dt[T_t == 0, T_t := 6]
+  dt[C_t == 0, C_t := 5]
   dt[, T_t := min(T_t), by = id]
   dt[, C_t := min(C_t), by = id]
   dt[, T_tilde := min(T_t, C_t), by = id]
@@ -64,7 +60,7 @@ library(hal9001)
 library(glmnet)
 library(purrr)
 
-t0 <- 3
+t0 <- 2
 data_A1 <- sim_data(100000, A_counter = 1)
 data_A0 <- sim_data(100000, A_counter = 0)
 truth <- mean(data_A1$T_tilde > t0)-mean(data_A0$T_tilde > t0)
@@ -77,7 +73,7 @@ res_1 <- atmle_surv(data = data,
                     A = "A",
                     T_tilde = "T_tilde",
                     Delta = "Delta",
-                    tau = 9,
+                    tau = 5,
                     t0 = t0,
                     g_rct = 0.5,
                     controls_only = FALSE,
@@ -102,3 +98,4 @@ res_1$psi_tilde_tmle_lambda - truth
 res_1$psi_tilde_r_learner - truth
 # res_2$psi_tilde_tmle_lambda - truth
 # res_2$psi_tilde_r_learner - truth
+

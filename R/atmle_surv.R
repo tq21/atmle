@@ -5,6 +5,7 @@ atmle_surv <- function(data,
                        A,
                        T_tilde,
                        Delta,
+                       tau,
                        t0,
                        g_rct,
                        controls_only,
@@ -19,8 +20,6 @@ atmle_surv <- function(data,
   if (!is.data.table(data)) {
     data <- as.data.table(data)
   }
-
-  tau <- max(data[[T_tilde]])
 
   set(data, j = "Delta_t0", value = as.numeric(data[[Delta]] == 1 | data[[T_tilde]] > t0))
   set(data, j = "Y", value = as.numeric(data[[T_tilde]] > t0))
@@ -54,6 +53,7 @@ atmle_surv <- function(data,
                folds = folds,
                g_bounds = g_bounds,
                cross_fit_nuisance = cross_fit_nuisance) # GOOD! 6/23/2024
+  data_long[, g := rep(g, each = tau)]
 
   # estimate nuisance: \bar{G}(t|W,A)=P(C>t|W,A)
   lambda_c <- learn_hazard(data_long = data_long,
@@ -71,6 +71,8 @@ atmle_surv <- function(data,
                     lambda_c_A0 = lambda_c$A0)]
   data_long[, `:=` (surv_c_A1 = cumprod(1 - lambda_c_A1),
                     surv_c_A0 = cumprod(1 - lambda_c_A0)), by = id]
+  data_long[, `:=` (surv_c_A1_lag = shift(surv_c_A1, fill = 1),
+                    surv_c_A0_lag = shift(surv_c_A0, fill = 1)), by = id]
 
   # compute nuisance: \bar{G}(t0|W,A)=P(C>t0|W,A)
   G_bar <- list(A1 = data_long[t == U, ]$surv_c_A1,
@@ -79,14 +81,26 @@ atmle_surv <- function(data,
   G_bar$integrate_A <- as.numeric(G_bar$A1)*g+as.numeric(G_bar$A0)*(1-g)
 
   # estimate nuisance: \Tilde{\theta}(W)=P(T>t0|W)
-  theta_tilde <- learn_hazard(data_long = data_long,
-                              X = W,
-                              T_tilde = T_tilde,
-                              event = "T_t",
-                              method = lambda_method,
-                              folds = folds,
-                              cross_fit_nuisance = cross_fit_nuisance,
-                              counter_var = NULL) # GOOD! 6/23/2024
+  # theta_tilde <- learn_theta_tilde(data = data,
+  #                                  W = W,
+  #                                  Y = "Y",
+  #                                  delta = data[["Delta_t0"]],
+  #                                  method = "glm",
+  #                                  family = "binomial",
+  #                                  theta_bounds = g_bounds,
+  #                                  folds = folds,
+  #                                  cross_fit_nuisance = cross_fit_nuisance)
+  lambda_W <- learn_hazard(data_long = data_long,
+                           X = W,
+                           T_tilde = T_tilde,
+                           event = "T_t",
+                           method = lambda_method,
+                           folds = folds,
+                           cross_fit_nuisance = cross_fit_nuisance,
+                           counter_var = NULL) # GOOD! 6/23/2024
+  data_long[, lambda_W := lambda_W]
+  data_long[, surv_W := cumprod(1 - lambda_W), by = id]
+  theta_tilde <- data_long[t == t0, ]$surv_W
 
   # learn a working model for difference in conditional survival functions
   stablize_weights <- g*(1-g)*G_bar$integrate_A
@@ -112,15 +126,15 @@ atmle_surv <- function(data,
                          event = "T_t",
                          method = lambda_method,
                          folds = folds,
-                         cross_fit_nuisance = cross_fit_nuisance,
+                         cross_fit_nuisance = FALSE,
                          counter_var = A) # GOOD! 6/23/2024
 
   # compute survival probabilities from hazard
   data_long[, `:=` (lambda = lambda$pred,
                     lambda_A1 = lambda$A1,
                     lambda_A0 = lambda$A0)]
-  data_long[, `:=` (surv_A1 = shift(cumprod(1 - lambda_A1), fill = 1),
-                    surv_A0 = shift(cumprod(1 - lambda_A0), fill = 1)), by = id]
+  data_long[, `:=` (surv_A1 = cumprod(1 - lambda_A1),
+                    surv_A0 = cumprod(1 - lambda_A0)), by = id]
   psi_tilde_no_tmle_lambda <- mean(data_long[t == t0, surv_A1]-data_long[t == t0, surv_A0])
 
   # TMLE targeting of lambda
@@ -136,11 +150,21 @@ atmle_surv <- function(data,
                            cate_surv = cate_surv)
   psi_tilde_tmle_lambda <- mean(data_long[t == t0, surv_A1]-data_long[t == t0, surv_A0])
 
+  unique_t <- sort(unique(data[[T_tilde]]))
+
+  # tmp_eic <- check_eic_after_tmle(data_long = data_long,
+  #                                 g = g,
+  #                                 stablize_weights = stablize_weights,
+  #                                 cate_surv = cate_surv,
+  #                                 unique_t = unique_t,
+  #                                 n = data[, .N])
+
   # Re-learn beta under the survival mapped from the targeted lambda
   data_long[t == t0, `:=` (targeted_diff = surv_A1 - surv_A0)]
   targeted_diff <- data_long[t == t0, targeted_diff]
   targeted_working_model <- glm(targeted_diff ~ -1+.,
                                 data = as.data.frame(cate_surv$x_basis),
+                                weights = stablize_weights,
                                 family = "gaussian") # TODO: can bound this using logistic
   cate_surv$coefs <- as.numeric(coef(targeted_working_model))
   cate_surv$coefs[is.na(cate_surv$coefs)] <- 0
@@ -148,7 +172,6 @@ atmle_surv <- function(data,
   psi_tilde_r_learner_tmle_beta <- mean(cate_surv$pred)
 
   # compute efficient influence curve
-  unique_t <- sort(unique(data[[T_tilde]]))
   psi_tilde_eic <- get_eic_psi_tilde_surv(data = data,
                                           data_long = data_long,
                                           g = g,
@@ -159,19 +182,14 @@ atmle_surv <- function(data,
                                           Y = "Y",
                                           n = data[, .N])
 
-  # psi_tilde_est <- mean(data_long[t == t0-1, surv_A1] - data_long[t == t0-1, surv_A0])
-
-  # psi_tilde_est <- mean(Q_bar_r)
-  # psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE) / n)
-  # psi_tilde_lower <- psi_tilde_est - 1.96 * psi_tilde_se
-  # psi_tilde_upper <- psi_tilde_est + 1.96 * psi_tilde_se
-#
-  # return(list(psi_tilde = psi_tilde_est,
-  #             psi_tilde_lower = psi_tilde_lower,
-  #             psi_tilde_upper = psi_tilde_upper))
+  psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE) / n)
 
   return(list(psi_tilde_r_learner = psi_tilde_r_learner,
               psi_tilde_no_tmle_lambda = psi_tilde_no_tmle_lambda,
               psi_tilde_tmle_lambda = psi_tilde_tmle_lambda,
-              psi_tilde_r_learner_tmle_beta = psi_tilde_r_learner_tmle_beta))
+              psi_tilde_r_learner_tmle_beta = psi_tilde_r_learner_tmle_beta,
+              psi_tilde_tmle_lambda_lower = psi_tilde_tmle_lambda - 1.96 * psi_tilde_se,
+              psi_tilde_tmle_lambda_upper = psi_tilde_tmle_lambda + 1.96 * psi_tilde_se,
+              psi_tilde_r_learner_tmle_beta_lower = psi_tilde_r_learner_tmle_beta - 1.96 * psi_tilde_se,
+              psi_tilde_r_learner_tmle_beta_upper = psi_tilde_r_learner_tmle_beta + 1.96 * psi_tilde_se))
 }

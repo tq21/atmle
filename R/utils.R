@@ -130,3 +130,18 @@ filter_rows <- function(x, var) {
   return(x)
 }
 
+check_eic_after_tmle <- function(data_long,
+                                 g,
+                                 stablize_weights,
+                                 cate_surv,
+                                 unique_t,
+                                 n) {
+  browser()
+
+  data_long[, D_tilde_Q := (clever_cov_A1-clever_cov_A0)*(dN_t-lambda)]
+  D_tilde_Q <- map(unique_t, function(cur_t) {
+    return(data_long[t == cur_t]$D_tilde_Q)
+  })
+  D_tilde_Q <- Reduce(`+`, D_tilde_Q)
+  return(D_tilde_Q)
+}
