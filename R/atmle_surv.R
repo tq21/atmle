@@ -1,14 +1,11 @@
 # data structure: O=(S,W,A,T_tilde=min(T,C),Delta=I(T<=C))
 atmle_surv <- function(data,
-                       S,
                        W,
                        A,
                        T_tilde,
                        Delta,
                        tau,
                        t0,
-                       g_rct,
-                       controls_only,
                        g_method = "glmnet",
                        lambda_method = "glmnet",
                        cate_working_model = "glmnet",
@@ -32,11 +29,11 @@ atmle_surv <- function(data,
     W <- c(W, "W_dummy")
   }
 
+  n <- data[, .N]
   folds <- make_folds(n = n, V = v_folds)
 
   # make long format of data
   data_long <- copy(data)
-  n <- data_long[, .N]
   data_long <- data_long[rep(1:.N, each = tau)]
   data_long[, `:=` (id = rep(seq(n), each = tau),
                     t = rep(seq(tau), n))]
@@ -81,15 +78,6 @@ atmle_surv <- function(data,
   G_bar$integrate_A <- as.numeric(G_bar$A1)*g+as.numeric(G_bar$A0)*(1-g)
 
   # estimate nuisance: \Tilde{\theta}(W)=P(T>t0|W)
-  # theta_tilde <- learn_theta_tilde(data = data,
-  #                                  W = W,
-  #                                  Y = "Y",
-  #                                  delta = data[["Delta_t0"]],
-  #                                  method = "glm",
-  #                                  family = "binomial",
-  #                                  theta_bounds = g_bounds,
-  #                                  folds = folds,
-  #                                  cross_fit_nuisance = cross_fit_nuisance)
   lambda_W <- learn_hazard(data_long = data_long,
                            X = W,
                            T_tilde = T_tilde,
@@ -101,6 +89,8 @@ atmle_surv <- function(data,
   data_long[, lambda_W := lambda_W]
   data_long[, surv_W := cumprod(1 - lambda_W), by = id]
   theta_tilde <- data_long[t == t0, ]$surv_W
+
+  browser()
 
   # learn a working model for difference in conditional survival functions
   stablize_weights <- g*(1-g)*G_bar$integrate_A
@@ -117,7 +107,20 @@ atmle_surv <- function(data,
                        enumerate_basis_args = enumerate_basis_args,
                        fit_hal_args = fit_hal_args) # GOOD! 6/23/2024
 
-  psi_tilde_r_learner <- mean(cate_surv$pred) # TODO: TESTING PURPOSES
+  # IPCW R-learner -------------------------------------------------------------
+  r_learner <- mean(cate_surv$pred)
+  r_learner_eic <- get_eic_ipcw_r_learner(data = data,
+                                          Y = "Y",
+                                          A = A,
+                                          cate_surv = cate_surv,
+                                          g = g,
+                                          theta = theta_tilde,
+                                          n = n,
+                                          weights = data[["Delta_t0"]]/G_bar$pred)
+  r_learner_se <- sqrt(var(r_learner_eic, na.rm = TRUE) / n)
+  r_learner_lower <- r_learner - 1.96 * r_learner_se
+  r_learner_upper <- r_learner + 1.96 * r_learner_se
+  # ----------------------------------------------------------------------------
 
   # estimate nuisance: lambda(t|W,A)=P(T=t|T>=t,W,A)
   lambda <- learn_hazard(data_long = data_long,
@@ -137,7 +140,28 @@ atmle_surv <- function(data,
                     surv_A0 = cumprod(1 - lambda_A0)), by = id]
   psi_tilde_no_tmle_lambda <- mean(data_long[t == t0, surv_A1]-data_long[t == t0, surv_A0])
 
-  # TMLE targeting of lambda
+  # regular TMLE targeting of lambda
+  data_long_reg_tmle <- lambda_survtmle(data_long = copy(data_long),
+                                        n = n,
+                                        A = A,
+                                        T_tilde = T_tilde,
+                                        g = g,
+                                        t0 = t0,
+                                        lambda = lambda)
+
+  unique_t <- sort(unique(data[[T_tilde]]))
+
+  # regular survival TMLE ------------------------------------------------------
+  tmle <- mean(data_long_reg_tmle[t == t0, surv_A1]-data_long_reg_tmle[t == t0, surv_A0])
+  tmle_eic <- get_eic_surv_tmle(data_long = data_long_reg_tmle,
+                                unique_t = unique_t,
+                                tmle = tmle)
+  tmle_se <- sqrt(var(tmle_eic, na.rm = TRUE) / n)
+  tmle_lower <- tmle - 1.96 * tmle_se
+  tmle_upper <- tmle + 1.96 * tmle_se
+  # ----------------------------------------------------------------------------
+
+  # TMLE targeting of lambda (within the working model from IPCW R-learner)
   data_long <- lambda_tmle(data_long = data_long,
                            n = data[, .N],
                            A = A,
@@ -148,16 +172,6 @@ atmle_surv <- function(data,
                            lambda = lambda,
                            stablize_weights = stablize_weights,
                            cate_surv = cate_surv)
-  psi_tilde_tmle_lambda <- mean(data_long[t == t0, surv_A1]-data_long[t == t0, surv_A0])
-
-  unique_t <- sort(unique(data[[T_tilde]]))
-
-  # tmp_eic <- check_eic_after_tmle(data_long = data_long,
-  #                                 g = g,
-  #                                 stablize_weights = stablize_weights,
-  #                                 cate_surv = cate_surv,
-  #                                 unique_t = unique_t,
-  #                                 n = data[, .N])
 
   # Re-learn beta under the survival mapped from the targeted lambda
   data_long[t == t0, `:=` (targeted_diff = surv_A1 - surv_A0)]
@@ -169,7 +183,6 @@ atmle_surv <- function(data,
   cate_surv$coefs <- as.numeric(coef(targeted_working_model))
   cate_surv$coefs[is.na(cate_surv$coefs)] <- 0
   cate_surv$pred <- as.numeric(cate_surv$x_basis %*% cate_surv$coefs)
-  psi_tilde_r_learner_tmle_beta <- mean(cate_surv$pred)
 
   # compute efficient influence curve
   psi_tilde_eic <- get_eic_psi_tilde_surv(data = data,
@@ -184,12 +197,28 @@ atmle_surv <- function(data,
 
   psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE) / n)
 
-  return(list(psi_tilde_r_learner = psi_tilde_r_learner,
-              psi_tilde_no_tmle_lambda = psi_tilde_no_tmle_lambda,
-              psi_tilde_tmle_lambda = psi_tilde_tmle_lambda,
-              psi_tilde_r_learner_tmle_beta = psi_tilde_r_learner_tmle_beta,
-              psi_tilde_tmle_lambda_lower = psi_tilde_tmle_lambda - 1.96 * psi_tilde_se,
-              psi_tilde_tmle_lambda_upper = psi_tilde_tmle_lambda + 1.96 * psi_tilde_se,
-              psi_tilde_r_learner_tmle_beta_lower = psi_tilde_r_learner_tmle_beta - 1.96 * psi_tilde_se,
-              psi_tilde_r_learner_tmle_beta_upper = psi_tilde_r_learner_tmle_beta + 1.96 * psi_tilde_se))
+  # IPCW R-learner + TMLE lambda -----------------------------------------------
+  r_learner_tmle_lambda <- mean(data_long[t == t0, surv_A1]-data_long[t == t0, surv_A0])
+  r_learner_tmle_lambda_lower <- r_learner_tmle_lambda - 1.96 * psi_tilde_se
+  r_learner_tmle_lambda_upper <- r_learner_tmle_lambda + 1.96 * psi_tilde_se
+  # ----------------------------------------------------------------------------
+
+  # IPCW R-learner + TMLE projection -------------------------------------------
+  r_learner_tmle_proj <- mean(cate_surv$pred)
+  r_learner_tmle_proj_lower <- r_learner_tmle_proj - 1.96 * psi_tilde_se
+  r_learner_tmle_proj_upper <- r_learner_tmle_proj + 1.96 * psi_tilde_se
+  # ----------------------------------------------------------------------------
+
+  return(list(r_learner = r_learner,
+              r_learner_lower = r_learner_lower,
+              r_learner_upper = r_learner_upper,
+              tmle = tmle,
+              tmle_lower = tmle_lower,
+              tmle_upper = tmle_upper,
+              r_learner_tmle_lambda = r_learner_tmle_lambda,
+              r_learner_tmle_lambda_lower = r_learner_tmle_lambda_lower,
+              r_learner_tmle_lambda_upper = r_learner_tmle_lambda_upper,
+              r_learner_tmle_proj = r_learner_tmle_proj,
+              r_learner_tmle_proj_lower = r_learner_tmle_proj_lower,
+              r_learner_tmle_proj_upper = r_learner_tmle_proj_upper))
 }

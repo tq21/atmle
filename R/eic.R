@@ -155,3 +155,32 @@ get_eic_psi_tilde_surv <- function(data,
   return(D_star)
 }
 
+get_eic_ipcw_r_learner <- function(data,
+                                   Y,
+                                   A,
+                                   cate_surv,
+                                   g,
+                                   theta,
+                                   n,
+                                   weights) {
+
+  IM <- t(cate_surv$x_basis)%*%diag(g*(1-g))%*%cate_surv$x_basis/n
+  D_beta <- weights*as.vector(cate_surv$x_basis%*%solve(IM)%*%colMeans(cate_surv$x_basis)*(data[[A]]-g)*(data[[Y]]-theta-(data[[A]]-g)*cate_surv$pred))
+  W_comp <- cate_surv$pred - mean(cate_surv$pred)
+
+  return(W_comp + D_beta)
+}
+
+get_eic_surv_tmle <- function(data_long,
+                              unique_t,
+                              tmle) {
+
+  data_long[, D_tilde_Q := (clever_cov_A1-clever_cov_A0)*(dN_t-lambda)]
+  D_tilde_Q <- map(unique_t, function(cur_t) {
+    return(data_long[t == cur_t]$D_tilde_Q)
+  })
+  D_tilde_Q <- Reduce(`+`, D_tilde_Q)
+  D_star <- D_tilde_Q+data_long[t == t0]$surv_A1-data_long[t == t0]$surv_A0-tmle
+
+  return(D_star)
+}

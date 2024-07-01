@@ -1,3 +1,4 @@
+library(data.table)
 sim_data <- function(n, A_counter = NULL) {
 
   W1 <- round(runif(n, 0, 4), 2)
@@ -7,12 +8,12 @@ sim_data <- function(n, A_counter = NULL) {
     A <- rep(A_counter, n)
   } else {
     # A <- rbinom(n, 1, 0.5)
-    A <- rbinom(n, 1, plogis(5*W1-0.2*W2))
+    A <- rbinom(n, 1, plogis(0.2*W1-0.4*W2))
   }
 
   # failure hazard
   lambda_fun <- function(t, A, W1, W2) {
-    return(plogis(-20*A*W1+0.2*W1+0.6*W2+0.2*t))
+    return(plogis(-0.5*A*W1+0.2*W1-0.6*W2+0.2*t))
   }
   lambda_fun <- Vectorize(lambda_fun)
 
@@ -55,50 +56,6 @@ sim_data <- function(n, A_counter = NULL) {
   return(as.data.frame(dt[t == 1, .(W1, W2, A, T_tilde, Delta)]))
 }
 
-
-
-library(devtools)
-library(data.table)
-load_all()
-library(hal9001)
-library(glmnet)
-library(purrr)
-
-t0 <- 4
-data_A1 <- sim_data(100000, A_counter = 1)
-data_A0 <- sim_data(100000, A_counter = 0)
-truth <- mean(data_A1$T_tilde > t0)-mean(data_A0$T_tilde > t0)
-
-n <- 500
-data <- sim_data(n)
+data <- sim_data(2000)
 summary(as.factor(data$T_tilde))
-
-res_1 <- atmle_surv(data = data,
-                    W = c("W1", "W2"),
-                    A = "A",
-                    T_tilde = "T_tilde",
-                    Delta = "Delta",
-                    tau = 5,
-                    t0 = t0,
-                    g_method = "glm",
-                    lambda_method = "glm")
-
-# n <- 10000
-# data <- sim_data(n)
-# res_2 <- atmle_surv(data = data,
-#                     S = "T_tilde",
-#                     W = c("W1", "W2"),
-#                     A = "A",
-#                     T_tilde = "T_tilde",
-#                     Delta = "Delta",
-#                     t0 = t0,
-#                     tau = 9,
-#                     g_rct = 0.5,
-#                     controls_only = FALSE,
-#                     g_method = "glm",
-#                     lambda_method = "glm")
-res_1$psi_tilde_tmle_lambda - truth
-res_1$psi_tilde_r_learner - truth
-# res_2$psi_tilde_tmle_lambda - truth
-# res_2$psi_tilde_r_learner - truth
-
+summary(as.factor(data$Delta))
