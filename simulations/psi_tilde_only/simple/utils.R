@@ -1,7 +1,6 @@
 library(devtools)
 library(purrr)
 load_all()
-source("sim_data.R")
 
 `%+%` <- function(a, b) paste0(a, b)
 

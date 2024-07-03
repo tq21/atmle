@@ -1,6 +1,7 @@
 source("utils.R")
-source("check_result.R")
-res_list <- readRDS("out/res_list.RDS")
+source("utils_plot.R")
+source("sim_data_002.R")
+res_list <- readRDS("out/res_list_002.RDS")
 set.seed(123)
 
 n_seq <- seq(500, 2000, 500)
@@ -65,5 +66,5 @@ relative_mse_plt <- get_relative_mse_plot(df)
 cover_plt <- get_cover_plot(df)
 plt <- ggarrange(bias_plt, var_plt, mse_plt, relative_mse_plt, cover_plt,
                  nrow = 1, ncol = 5, common.legend = TRUE)
-ggsave(filename = "simple.pdf", plot = plt, device = "pdf",
+ggsave(filename = "simple_002.pdf", plot = plt, device = "pdf",
        path = "figs", width = 16, height = 4, dpi = 300)

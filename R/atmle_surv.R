@@ -90,8 +90,6 @@ atmle_surv <- function(data,
   data_long[, surv_W := cumprod(1 - lambda_W), by = id]
   theta_tilde <- data_long[t == t0, ]$surv_W
 
-  browser()
-
   # learn a working model for difference in conditional survival functions
   stablize_weights <- g*(1-g)*G_bar$integrate_A
   cate_surv <- learn_T(data = data,

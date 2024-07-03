@@ -1,6 +1,7 @@
 source("utils.R")
+source("sim_data_001.R")
 
-set.seed(123)
+set.seed(141)
 B <- 500
 n_seq <- seq(500, 2000, 500)
 t0 <- 3
@@ -15,4 +16,4 @@ res_list <- run_sim(t0 = t0,
                     lambda_method = "glm",
                     working_model = "glmnet",
                     cross_fit_nuisance = TRUE)
-saveRDS(res_list, "out/res_list.rds")
+saveRDS(res_list, "out/res_list_001.rds")

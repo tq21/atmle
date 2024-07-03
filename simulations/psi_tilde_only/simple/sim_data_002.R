@@ -7,8 +7,7 @@ sim_data <- function(n, A_counter = NULL) {
   if (!is.null(A_counter)) {
     A <- rep(A_counter, n)
   } else {
-    # A <- rbinom(n, 1, 0.5)
-    A <- rbinom(n, 1, plogis(0.2*W1-0.4*W2))
+    A <- rbinom(n, 1, 0.5)
   }
 
   # failure hazard
