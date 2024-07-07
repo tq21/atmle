@@ -121,13 +121,12 @@
 #'   verbose = FALSE
 #' )
 atmle <- function(data,
-                  S_node,
-                  W_node,
-                  A_node,
-                  Y_node,
+                  S,
+                  W,
+                  A,
+                  Y,
                   controls_only,
                   family,
-                  g_rct,
                   atmle_pooled = TRUE,
                   theta_method = "glmnet",
                   Pi_method = "glmnet",
@@ -151,13 +150,13 @@ atmle <- function(data,
     data <- as.data.frame(data)
   }
 
-  # define nodes ---------------------------------------------------------------
-  S <- data[, S_node] # study indicator
-  W <- data[, W_node, drop = FALSE] # covariates
-  A <- data[, A_node] # treatment
-  Y <- data[, Y_node] # outcome
-  delta <- as.integer(!is.na(Y)) # missingness indicator
-  n <- nrow(data) # sample size
+  # extract variables ----------------------------------------------------------
+  S <- data[[S]]
+  W <- data[, W, drop = FALSE]
+  A <- data[[A]]
+  Y <- data[[Y]]
+  delta <- as.integer(!is.na(Y))
+  n <- nrow(data)
 
   # validate controls_only argument
   if (controls_only & 1 %in% A[S == 0]) {
@@ -224,11 +223,8 @@ atmle <- function(data,
 
   if (verbose) cat("learning g(A=1|W)=P(A=1|W)...")
   g <- learn_g(
-    S = S,
     W = W,
     A = A,
-    g_rct = g_rct,
-    controls_only = controls_only,
     method = g_method,
     folds = folds,
     g_bounds = g_bounds
