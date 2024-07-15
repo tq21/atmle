@@ -37,6 +37,7 @@ run_sim <- function(t0,
   all_r_learner_cover <- vector("list", length(data_list))
   all_r_learner_lower <- vector("list", length(data_list))
   all_r_learner_upper <- vector("list", length(data_list))
+  all_r_learner_cate_mse <- vector("list", length(data_list))
 
   # TMLE for survival outcomes
   all_tmle <- vector("list", length(data_list))
@@ -55,6 +56,7 @@ run_sim <- function(t0,
   all_r_learner_tmle_proj_cover <- vector("list", length(data_list))
   all_r_learner_tmle_proj_lower <- vector("list", length(data_list))
   all_r_learner_tmle_proj_upper <- vector("list", length(data_list))
+  all_r_learner_tmle_proj_cate_mse <- vector("list", length(data_list))
 
   for (i in 1:length(data_list)) {
 
@@ -67,6 +69,7 @@ run_sim <- function(t0,
     r_learner_cover <- vector(length = length(cur_data_list))
     r_learner_lower <- vector(length = length(cur_data_list))
     r_learner_upper <- vector(length = length(cur_data_list))
+    r_learner_cate_mse <- vector(length = length(cur_data_list))
 
     # TMLE for survival outcomes
     tmle <- vector(length = length(cur_data_list))
@@ -85,6 +88,7 @@ run_sim <- function(t0,
     r_learner_tmle_proj_cover <- vector(length = length(cur_data_list))
     r_learner_tmle_proj_lower <- vector(length = length(cur_data_list))
     r_learner_tmle_proj_upper <- vector(length = length(cur_data_list))
+    r_learner_tmle_proj_cate_mse <- vector(length = length(cur_data_list))
 
     for (j in 1:length(cur_data_list)) {
 
@@ -101,12 +105,14 @@ run_sim <- function(t0,
                         lambda_method = lambda_method,
                         cate_working_model = working_model,
                         cross_fit_nuisance = cross_fit_nuisance)
+      true_cate <- get_true_cate(data, t0)
 
       # R-learner
       r_learner[j] <- res$r_learner
       r_learner_cover[j] <- as.numeric(res$r_learner_lower <= truth & truth <= res$r_learner_upper)
       r_learner_lower[j] <- res$r_learner_lower
       r_learner_upper[j] <- res$r_learner_upper
+      r_learner_cate_mse[j] <- mean((res$ipcw_r_loss_cate-true_cate)^2)
 
       # TMLE for survival outcomes
       tmle[j] <- res$tmle
@@ -125,6 +131,7 @@ run_sim <- function(t0,
       r_learner_tmle_proj_cover[j] <- as.numeric(res$r_learner_tmle_proj_lower <= truth & truth <= res$r_learner_tmle_proj_upper)
       r_learner_tmle_proj_lower[j] <- res$r_learner_tmle_proj_lower
       r_learner_tmle_proj_upper[j] <- res$r_learner_tmle_proj_upper
+      r_learner_tmle_proj_cate_mse[j] <- mean((res$tmle_cate-true_cate)^2)
 
       print("(" %+% j %+% "/" %+% length(cur_data_list) %+% ") " %+%
               "R-learner: " %+% (round(mean(r_learner_cover[1:j]), 2)) %+%
@@ -138,6 +145,7 @@ run_sim <- function(t0,
     all_r_learner_cover[[i]] <- r_learner_cover
     all_r_learner_lower[[i]] <- r_learner_lower
     all_r_learner_upper[[i]] <- r_learner_upper
+    all_r_learner_cate_mse[[i]] <- r_learner_cate_mse
 
     # TMLE for survival outcomes
     all_tmle[[i]] <- tmle
@@ -156,12 +164,14 @@ run_sim <- function(t0,
     all_r_learner_tmle_proj_cover[[i]] <- r_learner_tmle_proj_cover
     all_r_learner_tmle_proj_lower[[i]] <- r_learner_tmle_proj_lower
     all_r_learner_tmle_proj_upper[[i]] <- r_learner_tmle_proj_upper
+    all_r_learner_tmle_proj_cate_mse[[i]] <- r_learner_tmle_proj_cate_mse
   }
 
   return(list(all_r_learner = all_r_learner,
               all_r_learner_cover = all_r_learner_cover,
               all_r_learner_lower = all_r_learner_lower,
               all_r_learner_upper = all_r_learner_upper,
+              all_r_learner_cate_mse = all_r_learner_cate_mse,
               all_tmle = all_tmle,
               all_tmle_cover = all_tmle_cover,
               all_tmle_lower = all_tmle_lower,
@@ -173,5 +183,6 @@ run_sim <- function(t0,
               all_r_learner_tmle_proj = all_r_learner_tmle_proj,
               all_r_learner_tmle_proj_cover = all_r_learner_tmle_proj_cover,
               all_r_learner_tmle_proj_lower = all_r_learner_tmle_proj_lower,
-              all_r_learner_tmle_proj_upper = all_r_learner_tmle_proj_upper))
+              all_r_learner_tmle_proj_upper = all_r_learner_tmle_proj_upper,
+              all_r_learner_tmle_proj_cate_mse = all_r_learner_tmle_proj_cate_mse))
 }

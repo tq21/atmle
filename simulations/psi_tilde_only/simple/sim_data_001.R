@@ -12,7 +12,7 @@ sim_data <- function(n, A_counter = NULL) {
 
   # failure hazard
   lambda_fun <- function(t, A, W1, W2) {
-    return(plogis(-0.5*A+0.2*W1-0.6*W2))
+    return(plogis(-0.5*A))
   }
   lambda_fun <- Vectorize(lambda_fun)
 
@@ -53,6 +53,12 @@ sim_data <- function(n, A_counter = NULL) {
   dt[, Delta := as.numeric(T_t <= C_t), by = id]
 
   return(as.data.frame(dt[t == 1, .(W1, W2, A, T_tilde, Delta)]))
+}
+
+get_true_cate <- function(data, t0) {
+  W1 <- data$W1; W2 <- data$W2
+  cate <- (1-plogis(-0.5))^t0 - (1-plogis(0))^t0
+  return(cate)
 }
 
 data <- sim_data(2000)

@@ -104,6 +104,7 @@ atmle_surv <- function(data,
                        folds = folds,
                        enumerate_basis_args = enumerate_basis_args,
                        fit_hal_args = fit_hal_args) # GOOD! 6/23/2024
+  ipcw_r_loss_cate <- cate_surv$pred
 
   # IPCW R-learner -------------------------------------------------------------
   r_learner <- mean(cate_surv$pred)
@@ -181,6 +182,7 @@ atmle_surv <- function(data,
   cate_surv$coefs <- as.numeric(coef(targeted_working_model))
   cate_surv$coefs[is.na(cate_surv$coefs)] <- 0
   cate_surv$pred <- as.numeric(cate_surv$x_basis %*% cate_surv$coefs)
+  tmle_cate <- cate_surv$pred
 
   # compute efficient influence curve
   psi_tilde_eic <- get_eic_psi_tilde_surv(data = data,
@@ -218,5 +220,7 @@ atmle_surv <- function(data,
               r_learner_tmle_lambda_upper = r_learner_tmle_lambda_upper,
               r_learner_tmle_proj = r_learner_tmle_proj,
               r_learner_tmle_proj_lower = r_learner_tmle_proj_lower,
-              r_learner_tmle_proj_upper = r_learner_tmle_proj_upper))
+              r_learner_tmle_proj_upper = r_learner_tmle_proj_upper,
+              ipcw_r_loss_cate = ipcw_r_loss_cate,
+              tmle_cate = tmle_cate))
 }
