@@ -46,7 +46,7 @@ learn_Pi <- function(S,
   }
 
   pred <- rep(NA, length(A))
-  A1 <- rep(1, length(A))
+  A1 <- rep(NA, length(A))
   A0 <- rep(NA, length(A))
 
   if (is.list(method)) {
@@ -70,7 +70,8 @@ learn_Pi <- function(S,
     pred[A == 0] <- A0[A == 0]
 
     if (controls_only) {
-      pred[A == 1] <- 1 # no treated in external
+      A1 <- rep(1, length(A1)) # no treated in external
+      pred[A == 1] <- 1
     } else {
       task_Pi_A1 <- sl3_Task$new(
         data = data.table(W, A = 1, S = S),
@@ -102,20 +103,20 @@ learn_Pi <- function(S,
             data = X[train_idx, ],
             family = "binomial"
           )
-          pred[valid_idx] <<- .bound(as.numeric(predict(
+          A0[valid_idx] <<- .bound(as.numeric(predict(
             fit,
             newdata = X_A0[valid_idx, ], type = "response"
           )), Pi_bounds)
         })
 
-        pred[A == 1] <- 1 # no treated in external
-        A0 <- pred
+        A1 <- rep(1, length(A1)) # no treated in external
+        pred[A == 1] <- 1; pred[A == 0] <- A0[A == 0]
       } else {
         # no cross fit
         fit <- glm(S ~ ., data = X, family = "binomial")
         A0 <- .bound(as.numeric(predict(fit, newdata = X_A0, type = "response")), Pi_bounds)
-        pred <- A0
-        pred[A == 1] <- 1 # no treated in external
+        A1 <- rep(1, length(A1)) # no treated in external
+        pred[A == 1] <- 1; pred[A == 0] <- A0[A == 0]
       }
     } else {
       # treat + control
@@ -177,15 +178,15 @@ learn_Pi <- function(S,
             keep = TRUE, alpha = 1, nfolds = length(folds),
             family = "binomial"
           )
-          pred[valid_idx] <<- .bound(as.numeric(predict(
+          A0[valid_idx] <<- .bound(as.numeric(predict(
             fit,
             newx = as.matrix(X_A0[valid_idx, ]), s = "lambda.min",
             type = "response"
           )), Pi_bounds)
         })
 
-        pred[A == 1] <- 1 # no treated in external
-        A0 <- pred
+        A1 <- rep(1, length(A1)) # no treated in external
+        pred[A == 1] <- 1; pred[A == 0] <- A0[A == 0]
       } else {
         # no cross fit
         fit <- cv.glmnet(
@@ -197,8 +198,9 @@ learn_Pi <- function(S,
           fit,
           newx = X_A0, s = "lambda.min", type = "response"
         )), Pi_bounds)
-        pred <- A0
-        pred[A == 1] <- 1 # no treated in external
+
+        A1 <- rep(1, length(A1)) # no treated in external
+        pred[A == 1] <- 1; pred[A == 0] <- A0[A == 0]
       }
     } else {
       # treat + control

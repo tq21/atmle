@@ -55,7 +55,9 @@ learn_tau <- function(S,
                       Pi_bounds,
                       enumerate_basis_args,
                       fit_hal_args,
-                      weights) {
+                      weights,
+                      bias_working_model_formula) {
+
   pred <- NULL
   A1 <- numeric(length = length(A))
   A0 <- numeric(length = length(A))
@@ -66,6 +68,7 @@ learn_tau <- function(S,
   x_basis_A1 <- NULL
   x_basis_A0 <- NULL
   coefs <- NULL
+  non_zero <- NULL
 
   pseudo_outcome <- NULL
   pseudo_weights <- NULL
@@ -108,14 +111,53 @@ learn_tau <- function(S,
     }
 
     # design matrix
-    X <- cbind(W_aug, A, W_aug * A)
+    X <- data.frame(W_aug, A, W_aug * A)
 
     # counterfactual design matrices
-    X_A1_counter <- cbind(1, W_aug, 1, W_aug)
-    X_A0_counter <- cbind(1, W_aug, 0, W_aug * 0)
+    X_A1_counter <- data.frame(1, W_aug, 1, W_aug)
+    X_A0_counter <- data.frame(1, W_aug, 0, W_aug * 0)
   }
 
-  if (method == "glmnet") {
+  if (!is.null(bias_working_model_formula)) {
+    cov_only_formula <- as.formula(paste0("~ ", bias_working_model_formula))
+    data_formula <- as.formula(paste0("~ ", bias_working_model_formula, " + Y"))
+    train_formula <- as.formula(paste0("Y ~ ", bias_working_model_formula))
+    if (controls_only) {
+      df_train <- model.matrix(data_formula,
+                               data = cbind(X[delta[A == 0] == 1, ],
+                                            Y = pseudo_outcome[delta[A == 0] == 1]))
+      fit <- glm(formula = train_formula,
+                 family = "gaussian",
+                 data = as.data.frame(df_train),
+                 weights = pseudo_weights[delta[A == 0] == 1])
+    } else {
+      df_train <- model.matrix(data_formula,
+                               data = cbind(X[delta == 1, ],
+                                            Y = pseudo_outcome[delta == 1]))
+      fit <- glm(formula = train_formula,
+                 family = "gaussian",
+                 data = as.data.frame(df_train),
+                 weights = pseudo_weights[delta == 1])
+    }
+
+    coefs <- as.numeric(coef(fit))
+
+    if (controls_only) {
+      x_basis <- x_basis_A0 <- as.matrix(model.matrix(cov_only_formula, data = X))
+      pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
+    } else {
+      x_basis <- as.matrix(model.matrix(cov_only_formula, data = X))
+      x_basis_A1 <- as.matrix(model.matrix(cov_only_formula, data = X_A1_counter))
+      x_basis_A0 <- as.matrix(model.matrix(cov_only_formula, data = X_A0_counter))
+
+      # predictions
+      A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
+      A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
+      pred[A == 1] <- A1[A == 1]
+      pred[A == 0] <- A0[A == 0]
+    }
+
+  } else if (method == "glmnet") {
     if (controls_only) {
       fit <- cv.glmnet(
         x = as.matrix(X[delta[A == 0] == 1, , drop = FALSE]),
@@ -252,7 +294,7 @@ learn_tau <- function(S,
     x_basis_A1 = x_basis_A1,
     x_basis_A0 = x_basis_A0,
     pred = pred,
-    coefs = fit$beta,
+    coefs = coefs,
     non_zero = non_zero,
     pseudo_outcome = pseudo_outcome,
     pseudo_weights = pseudo_weights

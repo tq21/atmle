@@ -103,14 +103,14 @@ learn_g <- function(W,
       walk(folds, function(.x) {
         train_idx <- .x$training_set
         valid_idx <- .x$validation_set
-        fot <- cv.glmnet(x = W[train_idx, ], y = A[train_idx], family = "binomial",
+        fit <- cv.glmnet(x = as.matrix(W[train_idx, ]), y = A[train_idx], family = "binomial",
                          keep = TRUE, alpha = 1, nfolds = length(folds))
-        pred[valid_idx] <<- as.numeric(predict(fit, newx = W[valid_idx, ], s = "lambda.min", type = "response"))
+        pred[valid_idx] <<- as.numeric(predict(fit, newx = as.matrix(W[valid_idx, ]), s = "lambda.min", type = "response"))
       })
     } else {
-      fit <- cv.glmnet(x = W, y = A, family = "binomial",
+      fit <- cv.glmnet(x = as.matrix(W), y = A, family = "binomial",
                        keep = TRUE, alpha = 1, nfolds = length(folds))
-      pred <- as.numeric(predict(fit, newx = W, s = "lambda.min", type = "response"))
+      pred <- as.numeric(predict(fit, newx = as.matrix(W), s = "lambda.min", type = "response"))
     }
 
   } else {

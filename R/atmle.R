@@ -135,7 +135,9 @@ atmle <- function(data,
                   theta_tilde_method = "glmnet",
                   Q_method = "glmnet",
                   bias_working_model = "glmnet",
+                  bias_working_model_formula = NULL,
                   pooled_working_model = "glmnet",
+                  pooled_working_model_formula = NULL,
                   min_working_model = FALSE,
                   max_degree = 1,
                   v_folds = 5,
@@ -205,7 +207,8 @@ atmle <- function(data,
     method = theta_method,
     folds = folds,
     family = family,
-    theta_bounds = theta_bounds
+    theta_bounds = theta_bounds,
+    cross_fit_nuisance = cross_fit_nuisance
   )
   if (verbose) cat("Done!\n")
 
@@ -282,7 +285,8 @@ atmle <- function(data,
     Pi_bounds = Pi_bounds,
     enumerate_basis_args = enumerate_basis_args,
     fit_hal_args = fit_hal_args,
-    weights = weights
+    weights = weights,
+    bias_working_model_formula = bias_working_model_formula
   )
   if (verbose) cat("Done!\n")
 
@@ -339,7 +343,8 @@ atmle <- function(data,
       v_folds = v_folds,
       weights = weights_tilde,
       enumerate_basis_args = enumerate_basis_args,
-      fit_hal_args = fit_hal_args
+      fit_hal_args = fit_hal_args,
+      pooled_working_model_formula = pooled_working_model_formula
     )
     if (verbose) cat("Done!\n\n")
 

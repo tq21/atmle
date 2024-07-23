@@ -73,6 +73,13 @@ res <- atmle(data = data,
              g_method = "glm",
              theta_tilde_method = "glm",
              bias_working_model = "glmnet",
-             pooled_working_model = "glmnet")
+             bias_working_model_formula = "W1 + `W1.1`",
+             pooled_working_model = "glmnet",
+             pooled_working_model_formula = "W1")
+
+
+
+
+
 
 
