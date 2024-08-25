@@ -60,7 +60,7 @@ learn_g <- function(W,
                     method,
                     folds,
                     g_bounds,
-                    cross_fit_nuisance = TRUE) {
+                    cross_fit_nuisance) {
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners("binomial")
   }

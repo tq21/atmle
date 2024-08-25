@@ -8,7 +8,7 @@ source("utils.R")
 
 # simulation parameters --------------------------------------------------------
 set.seed(123)
-B <- 500 # number of runs for each sample size n
+B <- 100 # number of runs for each sample size n
 n_rct_seq <- c(400, 500, 600, 700, 800)
 n_rwd_seq <- n_rct_seq * 3
 ate <- 1.5 # true ATE
@@ -18,7 +18,7 @@ nuisance_method <- "glm"
 working_model <- "glmnet"
 g_rct <- 0.67
 f_name <- bias %+% "_bias"
-date_name <- "0417"
+date_name <- "0823"
 
 # make data
 data_list <- make_data(B = B,

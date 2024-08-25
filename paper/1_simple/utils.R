@@ -66,19 +66,19 @@ run_sim <- function(data_list,
     for (j in 1:length(cur_data_list)) {
       data <- cur_data_list[[j]]
 
-      S_node <- 1
-      W_node <- 2:4
-      A_node <- 5
-      Y_node <- 6
+      S <- 1
+      W <- 2:4
+      A <- 5
+      Y <- 6
 
       # fit
       res <- NULL
       if (method == "atmle") {
         res <- atmle(data = data,
-                     S_node = S_node,
-                     W_node = W_node,
-                     A_node = A_node,
-                     Y_node = Y_node,
+                     S = S,
+                     W = W,
+                     A = A,
+                     Y = Y,
                      controls_only = controls_only,
                      family = "gaussian",
                      atmle_pooled = TRUE,
@@ -89,14 +89,13 @@ run_sim <- function(data_list,
                      Q_method = nuisance_method,
                      bias_working_model = working_model,
                      pooled_working_model = working_model,
-                     g_rct = g_rct,
                      verbose = FALSE)
       } else if (method == "atmle_tmle") {
         res <- atmle(data = data,
-                     S_node = S_node,
-                     W_node = W_node,
-                     A_node = A_node,
-                     Y_node = Y_node,
+                     S = S,
+                     W = W,
+                     A = A,
+                     Y = Y,
                      controls_only = controls_only,
                      family = "gaussian",
                      atmle_pooled = FALSE,
@@ -107,7 +106,6 @@ run_sim <- function(data_list,
                      Q_method = nuisance_method,
                      bias_working_model = working_model,
                      pooled_working_model = working_model,
-                     g_rct = g_rct,
                      verbose = FALSE)
       } else if (method == "escvtmle") {
         covariates <- c("W1", "W2", "W3")
@@ -131,10 +129,10 @@ run_sim <- function(data_list,
         escvtmle_prop_selected[j] <- tmp$proportionselected$b2v
       } else if (method == "tmle") {
         res <- nonparametric(data = data,
-                             S_node = S_node,
-                             W_node = W_node,
-                             A_node = A_node,
-                             Y_node = Y_node,
+                             S = S,
+                             W = W,
+                             A = A,
+                             Y = Y,
                              controls_only = controls_only,
                              family = "gaussian",
                              atmle_pooled = TRUE,
@@ -145,14 +143,13 @@ run_sim <- function(data_list,
                              Q_method = nuisance_method,
                              bias_working_model = working_model,
                              pooled_working_model = working_model,
-                             g_rct = g_rct,
                              verbose = FALSE)
       } else if (method == "rct_only") {
         res <- rct_only(data,
-                        S_node = S_node,
-                        W_node = W_node,
-                        A_node = A_node,
-                        Y_node = Y_node,
+                        S = S,
+                        W = W,
+                        A = A,
+                        Y = Y,
                         nuisance_method = nuisance_method,
                         family = "gaussian",
                         g_rct = g_rct,

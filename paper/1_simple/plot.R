@@ -10,11 +10,11 @@ total_sample_sizes <- n_rct_seq + n_rwd_seq
 ate <- 1.5
 
 # bias a -----------------------------------------------------------------------
-atmle_both_res <- readRDS("out/atmle_both_a_bias_0218.RDS")
-escvtmle_res <- readRDS("out/escvtmle_a_bias_0218.RDS")
-tmle_res <- readRDS("out/tmle_a_bias_0218.RDS")
-rct_only_res <- readRDS("out/rct_only_a_bias_0218.RDS")
-procova_res <- readRDS("out/procova_a_bias_0218.RDS")
+atmle_both_res <- readRDS("out/atmle_both_a_bias_0823.RDS")
+escvtmle_res <- readRDS("out/escvtmle_a_bias_0823.RDS")
+tmle_res <- readRDS("out/tmle_a_bias_0823.RDS")
+rct_only_res <- readRDS("out/rct_only_a_bias_0823.RDS")
+procova_res <- readRDS("out/procova_a_bias_0823.RDS")
 
 # MSE
 plt_mse_a <- get_mse_plot("No bias",
@@ -94,5 +94,5 @@ plt_prop_b <- get_plot_prop_selected(escvtmle_res, "")
 plt <- ggarrange(plt_mse_a, plt_relative_mse_a, plt_coverage_a, plt_prop_a,
                  plt_mse_b, plt_relative_mse_b, plt_coverage_b, plt_prop_b,
                  nrow = 2, ncol = 4, common.legend = TRUE)
-ggsave(filename = "simple.pdf", plot = plt, device = "pdf",
+ggsave(filename = "simple_0823_100_run.pdf", plot = plt, device = "pdf",
        path = "figs", width = 16, height = 8, dpi = 300)

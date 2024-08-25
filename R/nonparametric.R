@@ -1,4 +1,6 @@
-# nonparametric estimator, pooling across data
+#' @title Nonparametric TMLE
+#'
+#' @export
 nonparametric <- function(data,
                           S,
                           W,

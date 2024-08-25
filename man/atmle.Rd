@@ -6,13 +6,12 @@
 \usage{
 atmle(
   data,
-  S_node,
-  W_node,
-  A_node,
-  Y_node,
+  S,
+  W,
+  A,
+  Y,
   controls_only,
   family,
-  g_rct,
   atmle_pooled = TRUE,
   theta_method = "glmnet",
   Pi_method = "glmnet",
@@ -21,7 +20,10 @@ atmle(
   theta_tilde_method = "glmnet",
   Q_method = "glmnet",
   bias_working_model = "glmnet",
+  bias_working_model_formula = NULL,
   pooled_working_model = "glmnet",
+  pooled_working_model_formula = NULL,
+  cross_fit_nuisance = TRUE,
   min_working_model = FALSE,
   max_degree = 1,
   v_folds = 5,
@@ -42,23 +44,12 @@ from the randomized controlled trial \eqn{S=1} or from the external data
 \eqn{S=0}. If both studies are observational, then \eqn{S=1} should be the
 reference study.}
 
-\item{S_node}{The column index of the \eqn{S} node in \code{data}.}
-
-\item{W_node}{The column indices of the \eqn{W} node in \code{data}.}
-
-\item{A_node}{The column index of the \eqn{A} node in \code{data}.}
-
-\item{Y_node}{The column index of the \eqn{Y} node in \code{data}.}
-
 \item{controls_only}{A logical indicating whether the external data has
 only control-arm or both control-arm and treatment-arm.}
 
 \item{family}{A character string specifying the family of the outcome
 \eqn{Y}. Currently only \code{"gaussian"} and \code{"binomial"} are
 supported.}
-
-\item{g_rct}{The probability of receiving the active treatment in the
-randomized controlled trial.}
 
 \item{atmle_pooled}{A logical indicating whether to also use A-TMLE for the
 pooled-ATE estimand If set to \code{FALSE}, use a regular TMLE for the
@@ -133,6 +124,17 @@ submodel.}
 
 \item{verbose}{A logical indicating whether to print out the progress.
 Default is \code{TRUE}.}
+
+\item{S_node}{The column index of the \eqn{S} node in \code{data}.}
+
+\item{W_node}{The column indices of the \eqn{W} node in \code{data}.}
+
+\item{A_node}{The column index of the \eqn{A} node in \code{data}.}
+
+\item{Y_node}{The column index of the \eqn{Y} node in \code{data}.}
+
+\item{g_rct}{The probability of receiving the active treatment in the
+randomized controlled trial.}
 }
 \value{
 A \code{list} containing the following elements:

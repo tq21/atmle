@@ -17,7 +17,8 @@ learn_T(
   v_folds,
   weights,
   enumerate_basis_args,
-  fit_hal_args
+  fit_hal_args,
+  pooled_working_model_formula
 )
 }
 \arguments{

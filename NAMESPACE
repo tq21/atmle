@@ -2,6 +2,9 @@
 
 export(atmle)
 export(learn_theta)
+export(nonparametric)
+export(procova)
+export(rct_only)
 importFrom(data.table,data.table)
 importFrom(glmnet,cv.glmnet)
 importFrom(hal9001,enumerate_basis)
