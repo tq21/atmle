@@ -127,6 +127,7 @@ atmle <- function(data,
                   Y,
                   controls_only,
                   family,
+                  robust_covariate,
                   atmle_pooled = TRUE,
                   theta_method = "glmnet",
                   Pi_method = "glmnet",
@@ -276,21 +277,40 @@ atmle <- function(data,
 
   # learn working model tau for bias
   if (verbose) cat("learning \U03C4(W,A)=E(Y|S=1,W,A)-E(Y|S=0,W,A)...")
-  tau <- learn_tau(
-    S = S, W = W, A = A, Y = Y, Pi = Pi, theta = theta, g = g,
-    delta = delta,
-    controls_only = controls_only,
-    method = bias_working_model,
-    v_folds = v_folds,
-    max_degree = max_degree,
-    min_working_model = min_working_model,
-    target_gwt = target_gwt,
-    Pi_bounds = Pi_bounds,
-    enumerate_basis_args = enumerate_basis_args,
-    fit_hal_args = fit_hal_args,
-    weights = weights,
-    bias_working_model_formula = bias_working_model_formula
-  )
+  if (robust_covariate) {
+    tau <- learn_tau_robust(
+      S = S, W = W, A = A, Y = Y, Pi = Pi, theta = theta, g = g,
+      delta = delta,
+      controls_only = controls_only,
+      method = bias_working_model,
+      v_folds = v_folds,
+      max_degree = max_degree,
+      min_working_model = min_working_model,
+      target_gwt = target_gwt,
+      Pi_bounds = Pi_bounds,
+      enumerate_basis_args = enumerate_basis_args,
+      fit_hal_args = fit_hal_args,
+      weights = weights,
+      bias_working_model_formula = bias_working_model_formula
+    )
+  } else {
+    tau <- learn_tau(
+      S = S, W = W, A = A, Y = Y, Pi = Pi, theta = theta, g = g,
+      delta = delta,
+      controls_only = controls_only,
+      method = bias_working_model,
+      v_folds = v_folds,
+      max_degree = max_degree,
+      min_working_model = min_working_model,
+      target_gwt = target_gwt,
+      Pi_bounds = Pi_bounds,
+      enumerate_basis_args = enumerate_basis_args,
+      fit_hal_args = fit_hal_args,
+      weights = weights,
+      bias_working_model_formula = bias_working_model_formula
+    )
+  }
+
   if (verbose) cat("Done!\n")
 
   # TMLE to target Pi

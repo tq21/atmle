@@ -38,25 +38,25 @@
 #' under control;}
 #' \item{pred}{A numeric vector of estimated conditional effects;}
 #' \item{coefs}{A numeric vector of the working model coefficients.}
-learn_tau <- function(S,
-                      W,
-                      A,
-                      Y,
-                      Pi,
-                      theta,
-                      g,
-                      delta,
-                      controls_only,
-                      method,
-                      v_folds,
-                      max_degree,
-                      min_working_model,
-                      target_gwt,
-                      Pi_bounds,
-                      enumerate_basis_args,
-                      fit_hal_args,
-                      weights,
-                      bias_working_model_formula) {
+learn_tau_robust <- function(S,
+                             W,
+                             A,
+                             Y,
+                             Pi,
+                             theta,
+                             g,
+                             delta,
+                             controls_only,
+                             method,
+                             v_folds,
+                             max_degree,
+                             min_working_model,
+                             target_gwt,
+                             Pi_bounds,
+                             enumerate_basis_args,
+                             fit_hal_args,
+                             weights,
+                             bias_working_model_formula) {
 
   pred <- NULL
   A1 <- numeric(length = length(A))
@@ -110,12 +110,22 @@ learn_tau <- function(S,
       W_aug <- W
     }
 
+    clever_cov <- (S*(2*A-1))/(S-Pi$pred)
+    clever_cov_pred_cate <- (2*A-1)/(1-Pi$pred)
+    clever_cov_A1 <- S/(S-Pi$A1)
+    clever_cov_pred_cate_A1 <- 1/(1-Pi$A1)
+    clever_cov_A0 <- -S/(S-Pi$A0)
+    clever_cov_pred_cate_A0 <- -1/(1-Pi$A0)
+
     # design matrix
-    X <- data.frame(W_aug, A, W_aug * A)
+    X <- data.frame(1, clever_cov, W_aug, A, W_aug * A)
+    X_pred_cate <- data.frame(1, clever_cov_pred_cate, W_aug, 1, W_aug)
 
     # counterfactual design matrices
-    X_A1_counter <- data.frame(1, W_aug, 1, W_aug)
-    X_A0_counter <- data.frame(1, W_aug, 0, W_aug * 0)
+    X_A1_counter <- data.frame(1, clever_cov_A1, W_aug, 1, W_aug)
+    X_A1_counter_pred_cate <- data.frame(1, clever_cov_pred_cate_A1, W_aug, 1, W_aug)
+    X_A0_counter <- data.frame(1, clever_cov_A0, W_aug, 0, W_aug * 0)
+    X_A0_counter_pred_cate <- data.frame(1, clever_cov_pred_cate_A0, W_aug, 0, W_aug * 0)
   }
 
   if (!is.null(bias_working_model_formula)) {
@@ -166,16 +176,39 @@ learn_tau <- function(S,
         keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE
       )
     } else {
+      # penalized fit
       fit <- cv.glmnet(
-        x = as.matrix(X[delta == 1, , drop = FALSE]),
+        x = as.matrix(X[delta == 1, -1, drop = FALSE]),
         y = pseudo_outcome[delta == 1], intercept = TRUE,
         family = "gaussian", weights = pseudo_weights[delta == 1],
-        keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE
+        keep = TRUE, nfolds = v_folds, alpha = 1
       )
     }
+    non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
+    non_zero <- sort(union(2, non_zero))
+    x_basis <- X[, non_zero, drop = FALSE]
+    x_basis_pred_cate <- X_pred_cate[, non_zero, drop = FALSE]
+    x_basis_A1 <- X_A1_counter[, non_zero, drop = FALSE]
+    x_basis_pred_cate_A1 <- X_A1_counter_pred_cate[, non_zero, drop = FALSE]
+    x_basis_A0 <- X_A0_counter[, non_zero, drop = FALSE]
+    x_basis_pred_cate_A0 <- X_A0_counter_pred_cate[, non_zero, drop = FALSE]
 
-    non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
-    coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
+    # relaxed fit
+    relax_fit <- glm(pseudo_outcome[delta == 1] ~ .,
+                     weights = pseudo_weights[delta == 1],
+                     data = x_basis[, -1, drop = FALSE],
+                     family = "gaussian")
+    coefs <- as.numeric(coef(relax_fit))
+    na_idx <- which(is.na(coefs))
+    if (length(na_idx) > 0) {
+      coefs <- coefs[-na_idx]
+      x_basis <- x_basis[, -na_idx, drop = FALSE]
+      x_basis_pred_cate <- x_basis_pred_cate[, -na_idx, drop = FALSE]
+      x_basis_A1 <- x_basis_A1[, -na_idx, drop = FALSE]
+      x_basis_pred_cate_A1 <- x_basis_pred_cate_A1[, -na_idx, drop = FALSE]
+      x_basis_A0 <- x_basis_A0[, -na_idx, drop = FALSE]
+      x_basis_pred_cate_A0 <- x_basis_pred_cate_A0[, -na_idx, drop = FALSE]
+    }
 
     if (controls_only) {
       # selected counterfactual bases
@@ -184,14 +217,9 @@ learn_tau <- function(S,
       # predictions
       pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
     } else {
-      # selected counterfactual bases
-      x_basis <- as.matrix(cbind(1, X)[, non_zero, drop = FALSE])
-      x_basis_A1 <- as.matrix(X_A1_counter[, non_zero, drop = FALSE])
-      x_basis_A0 <- as.matrix(X_A0_counter[, non_zero, drop = FALSE])
-
       # predictions
-      A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
-      A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
+      A1 <- as.numeric(as.matrix(x_basis_pred_cate_A1) %*% matrix(coefs))
+      A0 <- as.numeric(as.matrix(x_basis_pred_cate_A0) %*% matrix(coefs))
       pred[A == 1] <- A1[A == 1]
       pred[A == 0] <- A0[A == 0]
     }
@@ -290,9 +318,12 @@ learn_tau <- function(S,
   return(list(
     A1 = A1,
     A0 = A0,
-    x_basis = x_basis,
-    x_basis_A1 = x_basis_A1,
-    x_basis_A0 = x_basis_A0,
+    x_basis = as.matrix(x_basis),
+    x_basis_pred_cate = as.matrix(x_basis_pred_cate),
+    x_basis_A1 = as.matrix(x_basis_A1),
+    x_basis_pred_cate_A1 = as.matrix(x_basis_pred_cate_A1),
+    x_basis_A0 = as.matrix(x_basis_A0),
+    x_basis_pred_cate_A0 = as.matrix(x_basis_pred_cate_A0),
     pred = pred,
     coefs = coefs,
     non_zero = non_zero,

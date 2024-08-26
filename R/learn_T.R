@@ -65,30 +65,15 @@ learn_T <- function(W,
     x_basis <- as.matrix(model.matrix(cov_only_formula, data = W))
     pred <- as.numeric(x_basis %*% matrix(coefs))
   } else if (method == "glmnet") {
-    # penalized fit
-    score_term_1 <- A / (A - g); score_term_2 <- 1 / (A - g)
-    X <- cbind(1, score_term_1, score_term_2, W)
     fit <- cv.glmnet(
-      x = as.matrix(X[delta == 1, -1, drop = FALSE]),
-      y = pseudo_outcome[delta == 1],
+      x = as.matrix(W[delta == 1, ]), y = pseudo_outcome[delta == 1],
       family = "gaussian", weights = pseudo_weights[delta == 1],
-      keep = TRUE, nfolds = v_folds, alpha = 1
+      keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE
     )
-    non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
-    non_zero <- sort(union(c(2, 3), non_zero))
-    x_basis <- X[, non_zero, drop = FALSE]
-
-    # relaxed fit
-    relax_fit <- glm(pseudo_outcome[delta == 1] ~ .,
-                     weights = pseudo_weights[delta == 1],
-                     data = x_basis[, -1, drop = FALSE],
-                     family = "gaussian")
-    coefs <- as.numeric(coef(relax_fit))
-    na_idx <- which(is.na(coefs))
-    if (length(na_idx) > 0) {
-      coefs <- coefs[-na_idx]; x_basis <- x_basis[, -na_idx, drop = FALSE]
-    }
-    pred <- as.numeric(as.matrix(x_basis) %*% matrix(coefs))
+    non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
+    coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
+    x_basis <- as.matrix(cbind(1, W)[, non_zero, drop = FALSE])
+    pred <- as.numeric(x_basis %*% matrix(coefs))
   } else if (method == "HAL") {
     X <- as.matrix(W)
 
@@ -119,7 +104,7 @@ learn_T <- function(W,
 
   return(list(
     pred = pred,
-    x_basis = as.matrix(x_basis),
+    x_basis = x_basis,
     coefs = coefs,
     non_zero = non_zero,
     pseudo_outcome = pseudo_outcome,
