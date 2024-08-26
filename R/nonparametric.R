@@ -1,9 +1,11 @@
-# nonparametric estimator, pooling across data
+#' @title Nonparametric TMLE
+#'
+#' @export
 nonparametric <- function(data,
-                          S_node,
-                          W_node,
-                          A_node,
-                          Y_node,
+                          S,
+                          W,
+                          A,
+                          Y,
                           controls_only,
                           family = "gaussian",
                           atmle_pooled = TRUE,
@@ -14,17 +16,16 @@ nonparametric <- function(data,
                           Q_method = "glm",
                           bias_working_model = "glmnet",
                           pooled_working_model = "glmnet",
-                          g_rct,
                           var_method = "ic",
                           max_iter = 1,
                           v_folds = 5,
                           verbose = TRUE) {
 
   # define nodes ---------------------------------------------------------------
-  S <- data[, S_node] # study indicator
-  W <- data[, W_node] # covariates
-  A <- data[, A_node] # treatment
-  Y <- data[, Y_node] # outcome
+  S <- data[[S]]
+  W <- data[, W, drop = FALSE]
+  A <- data[[A]]
+  Y <- data[[Y]]
   delta <- as.numeric(!is.na(Y)) # missingness indicator
   n <- nrow(data) # sample size
 
@@ -40,22 +41,28 @@ nonparametric <- function(data,
   )
 
   if (verbose) print("learning P(A=1|S,W)")
-  g <- rep(g_rct, n)
+  g <- learn_g(W = W[S == 1, ],
+               A = A[S == 1],
+               method = g_method,
+               folds = 1:5,
+               g_bounds = c(0, 1),
+               cross_fit_nuisance = FALSE)
 
   if (verbose) print("learning P(S=1|W)")
   Pi <- learn_S_W(S, W, Pi_method)
 
   # estimate missing mechanism
-  g_delta <- learn_g_delta(
-    W = W,
-    A = A,
-    delta = delta,
-    method = g_method,
-    folds = c(1, 2, 3, 4, 5),
-    g_bounds = c(0, 1)
-  )
+  # g_delta <- learn_g_delta(
+  #   W = W,
+  #   A = A,
+  #   delta = delta,
+  #   method = g_method,
+  #   folds = c(1, 2, 3, 4, 5),
+  #   g_bounds = c(0, 1)
+  # )
 
   # censoring weights
+  g_delta <- list(pred = rep(1, n))
   weights <- delta / g_delta$pred
 
   # target Q

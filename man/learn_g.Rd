@@ -4,30 +4,13 @@
 \alias{learn_g}
 \title{Learn nuisance function: treatment mechanism}
 \usage{
-learn_g(
-  S,
-  W,
-  A,
-  g_rct,
-  controls_only,
-  method,
-  folds,
-  g_bounds,
-  cross_fit_nuisance = TRUE
-)
+learn_g(W, A, method, folds, g_bounds, cross_fit_nuisance)
 }
 \arguments{
-\item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
-
 \item{W}{A matrix of baseline covariates.}
 
 \item{A}{A vector of treatment indicators, \eqn{A=1} for treatment-arm,
 \eqn{A=0} for control-arm.}
-
-\item{g_rct}{A numeric of treatment probability in RCT.}
-
-\item{controls_only}{A logical indicating whether the external data has only
-control-arm observations.}
 
 \item{method}{Learning method. \code{"glm"} for main-term linear model,
 \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
@@ -36,6 +19,13 @@ super learner-based estimation.}
 \item{g_bounds}{A numeric vector of lower and upper bounds for the
 treatment mechanism. The first element is the lower bound, and the second
 element is the upper bound.}
+
+\item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
+
+\item{g_rct}{A numeric of treatment probability in RCT.}
+
+\item{controls_only}{A logical indicating whether the external data has only
+control-arm observations.}
 }
 \value{
 A numeric vector of estimated treatment probabilities.

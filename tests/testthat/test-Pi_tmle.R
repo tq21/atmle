@@ -1,226 +1,110 @@
-test_that("Pi_tmle works when external has both treated and controls", {
-  # simulate data
-  set.seed(123)
-  n <- 500
-  S <- rbinom(n, 1, 0.5)
-  W1 <- rnorm(n)
-  W2 <- rnorm(n)
-  W <- cbind(W1, W2)
-  A <- numeric(n)
-  A[S == 1] <- rbinom(sum(S), 1, 0.67)
-  A[S == 0] <- rbinom(n - sum(S), 1, plogis(1.2 * W1[S == 0] - 0.9 * W2[S == 0]))
-  UY <- rnorm(n, 0, 1)
-  U_bias <- rnorm(n, 0, 0.5)
-  Y <- -0.5 - 0.8 * W1 - 1.1 * W2 + 1.5 * A + UY + (1 - S) * (0.9 + 2.6 * W1)
-  delta <- rep(1, n)
+library(atmle)
+source("tests/testthat/utils.R")
 
-  # make cv folds
+test_Pi_tmle <- function(test_args) {
+  set.seed(123)
+  data <- sim_data(test_args$n,
+                   test_args$controls_only,
+                   test_args$family,
+                   test_args$prop_miss)
+  S <- data$S; W <- data[, c("W1", "W2")]; A <- data$A; Y <- data$Y
+  delta <- as.integer(!is.na(Y))
   cv_strata <- paste0(S, "-", A)
   suppressWarnings({
     folds <- make_folds(
-      n = n, V = 5,
+      n = test_args$n, V = 5,
       strata_ids = as.integer(factor(cv_strata))
     )
   })
 
-  # estimate nuisance parameters
-  g <- learn_g(
-    S = S,
-    W = W,
-    A = A,
-    g_rct = 0.67,
-    controls_only = FALSE,
-    method = "glm",
-    folds = folds,
-    g_bounds = c(0.01, 0.99)
-  )
-  Pi <- learn_Pi(
-    S = S,
-    W = W,
-    A = A,
-    controls_only = FALSE,
-    method = "glm",
-    folds = folds,
-    Pi_bounds = c(0.01, 0.99)
-  )
-  theta <- learn_theta(
-    W = W,
-    A = A,
-    Y = Y,
-    delta = delta,
-    controls_only = FALSE,
-    method = "glm",
-    folds = folds,
-    family = "gaussian",
-    theta_bounds = NULL
-  )
-  tau <- learn_tau(
-    S = S,
-    W = W,
-    A = A,
-    Y = Y,
-    Pi = Pi,
-    theta = theta,
-    g = g,
-    delta = delta,
-    controls_only = FALSE,
-    method = "glmnet",
-    v_folds = 5,
-    max_degree = 1,
-    min_working_model = FALSE,
-    target_gwt = TRUE,
-    Pi_bounds = c(0.01, 0.99),
-    weights = delta
-  )
+  theta <- learn_theta(W = W,
+                       A = A,
+                       Y = Y,
+                       delta = delta,
+                       controls_only = test_args$controls_only,
+                       method = test_args$theta_method,
+                       folds = folds,
+                       family = test_args$family,
+                       theta_bounds = test_args$theta_bounds,
+                       cross_fit_nuisance = test_args$cross_fit_nuisance)
 
-  # target_gwt = TRUE
-  Pi_star <- Pi_tmle(
-    S = S,
-    W = W,
-    A = A,
-    g = g,
-    tau = tau,
-    Pi = Pi,
-    controls_only = FALSE,
-    target_gwt = TRUE,
-    Pi_bounds = c(0.2, 0.8)
-  )
-  expect_length(Pi_star$pred, n)
-  expect_length(Pi_star$A0, n)
-  expect_length(Pi_star$A1, n)
-  expect_true(all(Pi_star$pred >= 0.2 & Pi_star$pred <= 0.8))
-  expect_true(all(Pi_star$A0 >= 0.2 & Pi_star$A0 <= 0.8))
-  expect_true(all(Pi_star$A1 >= 0.2 & Pi_star$A1 <= 0.8))
+  g <- learn_g(W = W,
+               A = A,
+               method = test_args$g_method,
+               folds = folds,
+               g_bounds = test_args$g_bounds)
 
-  # target_gwt = FALSE
-  Pi_star <- Pi_tmle(
-    S = S,
-    W = W,
-    A = A,
-    g = g,
-    tau = tau,
-    Pi = Pi,
-    controls_only = FALSE,
-    target_gwt = FALSE,
-    Pi_bounds = c(0.2, 0.8)
-  )
-  expect_length(Pi_star$pred, n)
-  expect_length(Pi_star$A0, n)
-  expect_length(Pi_star$A1, n)
-  expect_true(all(Pi_star$pred >= 0.2 & Pi_star$pred <= 0.8))
-  expect_true(all(Pi_star$A0 >= 0.2 & Pi_star$A0 <= 0.8))
-  expect_true(all(Pi_star$A1 >= 0.2 & Pi_star$A1 <= 0.8))
-})
+  Pi <- learn_Pi(S = S,
+                 W = W,
+                 A = A,
+                 controls_only = test_args$controls_only,
+                 method = test_args$Pi_method,
+                 folds = folds,
+                 Pi_bounds = test_args$Pi_bounds,
+                 cross_fit_nuisance = test_args$cross_fit_nuisance)
 
-test_that("Pi_tmle works when external has controls only", {
-  # simulate data
-  set.seed(123)
-  n <- 500
-  S <- rbinom(n, 1, 0.5)
-  W1 <- rnorm(n)
-  W2 <- rnorm(n)
-  W <- cbind(W1, W2)
-  A <- numeric(n)
-  A[S == 1] <- rbinom(sum(S), 1, 0.67)
-  A[S == 0] <- 0
-  UY <- rnorm(n, 0, 1)
-  U_bias <- rnorm(n, 0, 0.5)
-  Y <- -0.5 - 0.8 * W1 - 1.1 * W2 + 1.5 * A + UY + (1 - S) * (0.9 + 2.6 * W1)
-  delta <- rep(1, n)
+  tau <- learn_tau(S = S, W = W, A = A, Y = Y, Pi = Pi, theta = theta, g = g,
+                   delta = delta,
+                   controls_only = test_args$controls_only,
+                   method = test_args$bias_working_model,
+                   v_folds = length(folds),
+                   max_degree = test_args$max_degree,
+                   min_working_model = test_args$min_working_model,
+                   target_gwt = test_args$target_gwt,
+                   Pi_bounds = test_args$Pi_bounds,
+                   enumerate_basis_args = test_args$enumerate_basis_args,
+                   fit_hal_args = test_args$fit_hal_args,
+                   weights = test_args$weights,
+                   bias_working_model_formula = test_args$bias_working_model_formula)
 
-  # make cv folds
-  cv_strata <- paste0(S, "-", A)
-  suppressWarnings({
-    folds <- make_folds(
-      n = n, V = 5,
-      strata_ids = as.integer(factor(cv_strata))
-    )
-  })
+  res <- Pi_tmle(S = S,
+                 W = W,
+                 A = A,
+                 g = g,
+                 tau = tau,
+                 Pi = Pi,
+                 controls_only = test_args$controls_only,
+                 target_gwt = test_args$target_gwt,
+                 Pi_bounds = test_args$Pi_bounds)
 
-  # estimate nuisance parameters
-  g <- learn_g(
-    S = S,
-    W = W,
-    A = A,
-    g_rct = 0.67,
-    controls_only = TRUE,
-    method = "glm",
-    folds = folds,
-    g_bounds = c(0.01, 0.99)
-  )
-  Pi <- learn_Pi(
-    S = S,
-    W = W,
-    A = A,
-    controls_only = TRUE,
-    method = "glm",
-    folds = folds,
-    Pi_bounds = c(0.01, 0.99)
-  )
-  theta <- learn_theta(
-    W = W,
-    A = A,
-    Y = Y,
-    delta = delta,
-    controls_only = TRUE,
-    method = "glm",
-    folds = folds,
-    family = "gaussian",
-    theta_bounds = NULL
-  )
-  tau <- learn_tau(
-    S = S,
-    W = W,
-    A = A,
-    Y = Y,
-    Pi = Pi,
-    theta = theta,
-    g = g,
-    delta = delta,
-    controls_only = TRUE,
-    method = "glmnet",
-    v_folds = 5,
-    max_degree = 1,
-    min_working_model = FALSE,
-    target_gwt = TRUE,
-    Pi_bounds = c(0.01, 0.99),
-    weights = delta
-  )
+  return(res)
+}
 
-  # target_gwt = TRUE
-  Pi_star <- Pi_tmle(
-    S = S,
-    W = W,
-    A = A,
-    g = g,
-    tau = tau,
-    Pi = Pi,
-    controls_only = TRUE,
-    target_gwt = TRUE,
-    Pi_bounds = c(0.2, 0.8)
-  )
-  expect_length(Pi_star$pred, n)
-  expect_length(Pi_star$A0, n)
-  expect_length(Pi_star$A1, n)
-  expect_true(all(Pi_star$A1 == 1))
-  expect_true(all(Pi_star$pred[A == 1] == 1))
-  expect_true(all(Pi_star$pred[A == 0] >= 0.2 & Pi_star$pred[A == 0] <= 0.8))
+test_that("Pi_tmle basic functionalities", {
+  # tabulate test scenarios
+  test_args <- list.expand(n = list(500),
+                           controls_only = list(TRUE, FALSE),
+                           family = list("gaussian", "binomial"),
+                           prop_miss = list(0, 0.1),
+                           theta_method = list("glm"),
+                           theta_bounds = list(c(-Inf, Inf)),
+                           g_method = list("glm"),
+                           g_bounds = list(c(0.01, 0.99)),
+                           Pi_method = list("glm"),
+                           Pi_bounds = list(c(0.1, 0.9)),
+                           bias_working_model = list("glmnet"),
+                           max_degree = list(1),
+                           min_working_model = list(FALSE),
+                           target_gwt = list(TRUE, FALSE),
+                           enumerate_basis_args = list(list()),
+                           fit_hal_args = list(list()),
+                           weights = list(rep(1, 500)),
+                           bias_working_model_formula = list(NULL),
+                           cross_fit_nuisance = list(TRUE))
 
-  Pi_star <- Pi_tmle(
-    S = S,
-    W = W,
-    A = A,
-    g = g,
-    tau = tau,
-    Pi = Pi,
-    controls_only = TRUE,
-    target_gwt = FALSE,
-    Pi_bounds = c(0.2, 0.8)
-  )
-  expect_length(Pi_star$pred, n)
-  expect_length(Pi_star$A0, n)
-  expect_length(Pi_star$A1, n)
-  expect_true(all(Pi_star$A1 == 1))
-  expect_true(all(Pi_star$pred[A == 1] == 1))
-  expect_true(all(Pi_star$pred[A == 0] >= 0.2 & Pi_star$pred[A == 0] <= 0.8))
+  for (i in 1:length(test_args)) {
+    cur_args <- test_args[[i]]
+    res <- test_Pi_tmle(cur_args)
+
+    # checks
+    expect_length(res$pred, cur_args$n)
+    expect_true(all(res$A0 >= cur_args$Pi_bounds[1] & res$A0 <= cur_args$Pi_bounds[2]))
+    if (cur_args$controls_only) {
+      expect_true(all(res$A1 == 1))
+    } else {
+      expect_true(all(res$A1 >= cur_args$Pi_bounds[1] & res$A1 <= cur_args$Pi_bounds[2]))
+    }
+  }
+
+  # TODO: missing data case
 })

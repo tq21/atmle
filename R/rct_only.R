@@ -1,19 +1,21 @@
-# estimator that only uses RCT data
+#' @title RCT only TMLE
+#'
+#' @export
 rct_only <- function(data,
-                     S_node,
-                     W_node,
-                     A_node,
-                     Y_node,
+                     S,
+                     W,
+                     A,
+                     Y,
                      g_rct,
                      family,
                      nuisance_method = "glm",
                      verbose = TRUE) {
 
   # define nodes
-  S <- data[, S_node]
-  W <- data[S == 1, W_node]
-  A <- data[S == 1, A_node]
-  Y <- data[S == 1, Y_node]
+  S <- data[, S]
+  W <- data[S == 1, W]
+  A <- data[S == 1, A]
+  Y <- data[S == 1, Y]
   delta <- as.numeric(!is.na(Y)) # missingness indicator
   n <- nrow(W)
 

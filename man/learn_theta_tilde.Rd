@@ -13,7 +13,7 @@ learn_theta_tilde(
   folds,
   family,
   theta_bounds,
-  cross_fit_nuisance = TRUE
+  cross_fit_nuisance
 )
 }
 \arguments{

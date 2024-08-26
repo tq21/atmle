@@ -38,7 +38,8 @@ learn_T <- function(W,
                     v_folds,
                     weights,
                     enumerate_basis_args,
-                    fit_hal_args) {
+                    fit_hal_args,
+                    pooled_working_model_formula) {
 
   # R-transformations
   pseudo_outcome <- ifelse(abs(A - g) < 1e-10, 0, (Y - theta_tilde) / (A - g))
@@ -49,7 +50,21 @@ learn_T <- function(W,
   coefs <- NULL
   non_zero <- NULL
 
-  if (method == "glmnet") {
+  if (!is.null(pooled_working_model_formula)) {
+    cov_only_formula <- as.formula(paste0("~ ", pooled_working_model_formula))
+    data_formula <- as.formula(paste0("~ ", pooled_working_model_formula, " + Y"))
+    train_formula <- as.formula(paste0("Y ~ ", pooled_working_model_formula))
+    df_train <- model.matrix(data_formula,
+                             data = cbind(W[delta == 1, , drop = FALSE],
+                                          Y = pseudo_outcome[delta == 1]))
+    fit <- glm(formula = train_formula,
+               family = "gaussian",
+               data = as.data.frame(df_train),
+               weights = pseudo_weights[delta == 1])
+    coefs <- as.numeric(coef(fit))
+    x_basis <- as.matrix(model.matrix(cov_only_formula, data = W))
+    pred <- as.numeric(x_basis %*% matrix(coefs))
+  } else if (method == "glmnet") {
     fit <- cv.glmnet(
       x = as.matrix(W[delta == 1, ]), y = pseudo_outcome[delta == 1],
       family = "gaussian", weights = pseudo_weights[delta == 1],

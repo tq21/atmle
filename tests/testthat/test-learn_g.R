@@ -1,173 +1,60 @@
-test_that("learn_g works when external has both treated and controls", {
-  # simulate data
-  set.seed(123)
-  n <- 500
-  S <- rbinom(n, 1, 0.5)
-  W1 <- rnorm(n)
-  W2 <- rnorm(n)
-  W <- cbind(W1, W2)
-  A <- numeric(n)
-  A[S == 1] <- rbinom(sum(S), 1, 0.67)
-  A[S == 0] <- rbinom(n - sum(S), 1, plogis(1.2 * W1[S == 0] - 0.9 * W2[S == 0]))
+library(atmle)
+library(sl3)
+source("tests/testthat/utils.R")
 
-  # make cv folds
+test_learn_g <- function(test_args) {
+  set.seed(123)
+  data <- sim_data(test_args$n,
+                   test_args$controls_only,
+                   test_args$family,
+                   test_args$prop_miss)
+  S <- data$S; W <- data[, c("W1", "W2")]; A <- data$A; Y <- data$Y
+  delta <- as.integer(!is.na(Y))
   cv_strata <- paste0(S, "-", A)
   suppressWarnings({
     folds <- make_folds(
-      n = n, V = 5,
+      n = test_args$n, V = 5,
       strata_ids = as.integer(factor(cv_strata))
     )
   })
 
-  # glm
-  g <- learn_g(
-    S = S,
-    W = W,
-    A = A,
-    g_rct = 0.67,
-    controls_only = FALSE,
-    method = "glm",
-    folds = folds,
-    g_bounds = c(0.01, 0.5)
-  )
-  expect_true(min(g) >= 0.01 & max(g) <= 0.5)
-  expect_equal(length(g), n)
+  res <- learn_g(W = W,
+                 A = A,
+                 method = test_args$method,
+                 folds = folds,
+                 g_bounds = test_args$g_bounds)
 
-  # glmnet
-  g <- learn_g(
-    S = S,
-    W = W,
-    A = A,
-    g_rct = 0.67,
-    controls_only = FALSE,
-    method = "glmnet",
-    folds = folds,
-    g_bounds = c(0.01, 0.99)
-  ) # glmnet
-  expect_true(min(g) >= 0.01 & max(g) <= 0.99)
-  expect_equal(length(g), n)
+  return(res)
+}
 
-  # # sl3 with default learners
-  # g <- learn_g(S = S,
-  #              W = W,
-  #              A = A,
-  #              g_rct = 0.67,
-  #              controls_only = FALSE,
-  #              method = "sl3",
-  #              folds = folds,
-  #              g_bounds = c(0.01, 0.99))
-  # expect_true(min(g) >= 0.01 & max(g) <= 0.99)
-  # expect_equal(length(g), n)
-  #
-  # # sl3 with custom learners
-  # lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
-  # g <- learn_g(S = S,
-  #              W = W,
-  #              A = A,
-  #              g_rct = 0.67,
-  #              controls_only = FALSE,
-  #              method = lrnrs,
-  #              folds = folds,
-  #              g_bounds = c(0.01, 0.99))
-  # expect_true(min(g) >= 0.01 & max(g) <= 0.99)
-  # expect_equal(length(g), n)
+test_that("learn_g basic functionalities", {
+  # tabulate test scenarios
+  lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
+  test_args <- list.expand(n = list(500),
+                           controls_only = list(FALSE),
+                           family = list("gaussian"),
+                           prop_miss = list(0),
+                           method = list("glm", "glmnet", lrnrs),
+                           g_bounds = list(c(0.1, 0.5), c(0.01, 0.99)),
+                           cross_fit_nuisance = list(TRUE, FALSE))
 
-  expect_error(learn_g(
-    S = S,
-    W = W,
-    A = A,
-    g_rct = 0.67,
-    controls_only = FALSE,
-    method = "abc",
-    folds = folds,
-    g_bounds = c(0.01, 0.99)
-  ))
+  for (i in 1:length(test_args)) {
+    cur_args <- test_args[[i]]
+    res <- test_learn_g(cur_args)
+
+    # checks
+    expect_true(all(res >= cur_args$g_bounds[1] & res <= cur_args$g_bounds[2]))
+    expect_equal(length(res), cur_args$n)
+  }
 })
 
-test_that("learn_g works when external has controls only", {
-  # simulate data
-  set.seed(123)
-  n <- 500
-  S <- rbinom(n, 1, 0.5)
-  W1 <- rnorm(n)
-  W2 <- rnorm(n)
-  W <- cbind(W1, W2)
-  A <- numeric(n)
-  A[S == 1] <- rbinom(sum(S), 1, 0.67)
-  A[S == 0] <- 0
-
-  # make cv folds
-  cv_strata <- paste0(S, "-", A)
-  suppressWarnings({
-    folds <- make_folds(
-      n = n, V = 5,
-      strata_ids = as.integer(factor(cv_strata))
-    )
-  })
-
-  # glm
-  g <- learn_g(
-    S = S,
-    W = W,
-    A = A,
-    g_rct = 0.67,
-    controls_only = TRUE,
-    method = "glm",
-    folds = folds,
-    g_bounds = c(0.01, 0.5)
-  )
-  expect_true(min(g) >= 0.01 & max(g) <= 0.5)
-  expect_equal(length(g), n)
-
-  # glmnet
-  g <- learn_g(
-    S = S,
-    W = W,
-    A = A,
-    g_rct = 0.67,
-    controls_only = TRUE,
-    method = "glmnet",
-    folds = folds,
-    g_bounds = c(0.01, 0.99)
-  ) # glmnet
-  expect_true(min(g) >= 0.01 & max(g) <= 0.99)
-  expect_equal(length(g), n)
-
-  # # sl3 with default learners
-  # g <- learn_g(S = S,
-  #              W = W,
-  #              A = A,
-  #              g_rct = 0.67,
-  #              controls_only = TRUE,
-  #              method = "sl3",
-  #              folds = folds,
-  #              g_bounds = c(0.01, 0.99))
-  # expect_true(min(g) >= 0.01 & max(g) <= 0.99)
-  # expect_equal(length(g), n)
-  #
-  # # sl3 with custom learners
-  # lrnrs <- list(Lrnr_mean$new(), Lrnr_glm$new())
-  # g <- learn_g(S = S,
-  #              W = W,
-  #              A = A,
-  #              g_rct = 0.67,
-  #              controls_only = TRUE,
-  #              method = lrnrs,
-  #              folds = folds,
-  #              g_bounds = c(0.01, 0.99))
-  # expect_true(min(g) >= 0.01 & max(g) <= 0.99)
-  # expect_equal(length(g), n)
-
-  expect_error(learn_g(
-    S = S,
-    W = W,
-    A = A,
-    g_rct = 0.67,
-    controls_only = FALSE,
-    method = "abc",
-    folds = folds,
-    g_bounds = c(0.01, 0.99)
-  ))
+test_that("learn_g error behavior", {
+  test_args <- list(n = 500,
+                    controls_only = FALSE,
+                    family = "gaussian",
+                    prop_miss = 0,
+                    method = "abc",
+                    g_bounds = c(0.01, 0.99),
+                    cross_fit_nuisance = TRUE)
+  expect_error(test_learn_g(test_args))
 })
-
-# TODO: TEST CROSS FITTING FALSE

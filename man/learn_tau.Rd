@@ -23,7 +23,8 @@ learn_tau(
   Pi_bounds,
   enumerate_basis_args,
   fit_hal_args,
-  weights
+  weights,
+  bias_working_model_formula
 )
 }
 \arguments{

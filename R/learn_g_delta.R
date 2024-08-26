@@ -37,7 +37,7 @@ learn_g_delta <- function(S,
                           method,
                           folds,
                           g_bounds,
-                          cross_fit_nuisance = TRUE) {
+                          cross_fit_nuisance = FALSE) {
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners("binomial")
   }

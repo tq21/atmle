@@ -1,3 +1,6 @@
+#' @title PROCOVA
+#'
+#' @export
 procova <- function(data,
                     S_node,
                     W_node,

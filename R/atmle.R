@@ -121,13 +121,12 @@
 #'   verbose = FALSE
 #' )
 atmle <- function(data,
-                  S_node,
-                  W_node,
-                  A_node,
-                  Y_node,
+                  S,
+                  W,
+                  A,
+                  Y,
                   controls_only,
                   family,
-                  g_rct,
                   atmle_pooled = TRUE,
                   theta_method = "glmnet",
                   Pi_method = "glmnet",
@@ -136,7 +135,10 @@ atmle <- function(data,
                   theta_tilde_method = "glmnet",
                   Q_method = "glmnet",
                   bias_working_model = "glmnet",
+                  bias_working_model_formula = NULL,
                   pooled_working_model = "glmnet",
+                  pooled_working_model_formula = NULL,
+                  cross_fit_nuisance = TRUE,
                   min_working_model = FALSE,
                   max_degree = 1,
                   v_folds = 5,
@@ -151,13 +153,13 @@ atmle <- function(data,
     data <- as.data.frame(data)
   }
 
-  # define nodes ---------------------------------------------------------------
-  S <- data[, S_node] # study indicator
-  W <- data[, W_node, drop = FALSE] # covariates
-  A <- data[, A_node] # treatment
-  Y <- data[, Y_node] # outcome
-  delta <- as.integer(!is.na(Y)) # missingness indicator
-  n <- nrow(data) # sample size
+  # extract variables ----------------------------------------------------------
+  S <- data[[S]]
+  W <- data[, W, drop = FALSE]
+  A <- data[[A]]
+  Y <- data[[Y]]
+  delta <- as.integer(!is.na(Y))
+  n <- nrow(data)
 
   # validate controls_only argument
   if (controls_only & 1 %in% A[S == 0]) {
@@ -206,7 +208,8 @@ atmle <- function(data,
     method = theta_method,
     folds = folds,
     family = family,
-    theta_bounds = theta_bounds
+    theta_bounds = theta_bounds,
+    cross_fit_nuisance = cross_fit_nuisance
   )
   if (verbose) cat("Done!\n")
 
@@ -218,20 +221,19 @@ atmle <- function(data,
     controls_only = controls_only,
     method = Pi_method,
     folds = folds,
-    Pi_bounds = Pi_bounds
+    Pi_bounds = Pi_bounds,
+    cross_fit_nuisance = cross_fit_nuisance
   )
   if (verbose) cat("Done!\n")
 
   if (verbose) cat("learning g(A=1|W)=P(A=1|W)...")
   g <- learn_g(
-    S = S,
     W = W,
     A = A,
-    g_rct = g_rct,
-    controls_only = controls_only,
     method = g_method,
     folds = folds,
-    g_bounds = g_bounds
+    g_bounds = g_bounds,
+    cross_fit_nuisance = cross_fit_nuisance
   )
   if (verbose) cat("Done!\n")
 
@@ -286,7 +288,8 @@ atmle <- function(data,
     Pi_bounds = Pi_bounds,
     enumerate_basis_args = enumerate_basis_args,
     fit_hal_args = fit_hal_args,
-    weights = weights
+    weights = weights,
+    bias_working_model_formula = bias_working_model_formula
   )
   if (verbose) cat("Done!\n")
 
@@ -326,7 +329,8 @@ atmle <- function(data,
       method = theta_tilde_method,
       folds = folds,
       family = family,
-      theta_bounds = theta_bounds
+      theta_bounds = theta_bounds,
+      cross_fit_nuisance = cross_fit_nuisance
     )
     if (verbose) cat("Done!\n")
 
@@ -343,7 +347,8 @@ atmle <- function(data,
       v_folds = v_folds,
       weights = weights_tilde,
       enumerate_basis_args = enumerate_basis_args,
-      fit_hal_args = fit_hal_args
+      fit_hal_args = fit_hal_args,
+      pooled_working_model_formula = pooled_working_model_formula
     )
     if (verbose) cat("Done!\n\n")
 

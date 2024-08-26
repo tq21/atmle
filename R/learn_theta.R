@@ -38,23 +38,6 @@
 #' @export
 #'
 #' @returns A numeric vector of the estimated values.
-#'
-#' @examples
-#' # simulate data
-#' set.seed(123)
-#' n <- 500
-#' S <- rbinom(n, 1, 0.5)
-#' W1 <- rnorm(n)
-#' W2 <- rnorm(n)
-#' W <- cbind(W1, W2)
-#' A <- numeric(n)
-#' A[S == 1] <- rbinom(sum(S), 1, 0.67)
-#' A[S == 0] <- rbinom(n - sum(S), 1, plogis(1.2 * W1 - 0.9 * W2))
-#' UY <- rnorm(n, 0, 1)
-#' U_bias <- rnorm(n, 0, 0.5)
-#' Y <- -0.5 - 0.8 * W1 - 1.1 * W2 + 1.5 * A + UY + (1 - S) * (0.9 + 2.6 * W1) + (1 - S) * U_bias
-#'
-#' theta <- learn_theta(W, A, Y, FALSE, "glm", 5, "gaussian", c(-4, 4))
 learn_theta <- function(W,
                         A,
                         Y,
@@ -64,7 +47,7 @@ learn_theta <- function(W,
                         folds,
                         family,
                         theta_bounds,
-                        cross_fit_nuisance = TRUE) {
+                        cross_fit_nuisance) {
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners(family)
   }
@@ -241,10 +224,10 @@ learn_theta <- function(W,
           x = X[delta == 1, ], y = Y[delta == 1], keep = TRUE,
           alpha = 1, nfolds = length(folds), family = family
         )
-        pred <- as.numeric(predict(
+        pred <- .bound(as.numeric(predict(
           fit,
           newx = X_A0, s = "lambda.min", type = "response"
-        ))
+        )), theta_bounds)
       }
     } else {
       # treat + control
