@@ -1,4 +1,5 @@
 library(devtools)
+library(EScvtmle)
 load_all()
 sim_data <- function(ate,
                      n,
@@ -49,13 +50,13 @@ sim_data <- function(ate,
 }
 
 data_rct <- sim_data(ate = 1.5,
-                     n = 2000,
+                     n = 500,
                      rct = TRUE,
                      g_rct = 0.5,
                      bias = "a",
                      controls_only = FALSE)
 data_rwd <- sim_data(ate = 1.5,
-                     n = 2000,
+                     n = 5000,
                      rct = FALSE,
                      g_rct = 0.5,
                      bias = "a",
@@ -73,13 +74,25 @@ res <- atmle(data = data,
              g_method = "glm",
              theta_tilde_method = "glm",
              bias_working_model = "glmnet",
-             bias_working_model_formula = "W1 + `W1.1`",
+             #bias_working_model_formula = "W1 + `W1.1`",
              pooled_working_model = "glmnet",
-             pooled_working_model_formula = "W1")
+             verbose = FALSE)#,
+             #pooled_working_model_formula = "W1")
 
+escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
+                          data = data,
+                          study = "S",
+                          covariates = c("W1", "W2", "W3"),
+                          treatment_var = "A",
+                          treatment = 1,
+                          outcome = "Y",
+                          pRCT = 0.5,
+                          family = "gaussian",
+                          Q.SL.library = c("SL.glm"),
+                          g.SL.library = c("SL.glm"),
+                          Q.discreteSL = TRUE,
+                          g.discreteSL = TRUE,
+                          V = 5)
 
-
-
-
-
-
+res$upper - res$lower
+escvtmle_res$CI$b2v[2] - escvtmle_res$CI$b2v[1]

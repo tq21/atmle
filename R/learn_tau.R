@@ -110,12 +110,15 @@ learn_tau <- function(S,
       W_aug <- W
     }
 
+    score_term_1 <- (S * A) / (S - Pi$pred)
+    score_term_2 <- S / (S - Pi$pred)
+
     # design matrix
-    X <- data.frame(W_aug, A, W_aug * A)
+    X <- data.frame(1, score_term_1, score_term_2, W_aug, A, W_aug * A)
 
     # counterfactual design matrices
-    X_A1_counter <- data.frame(1, W_aug, 1, W_aug)
-    X_A0_counter <- data.frame(1, W_aug, 0, W_aug * 0)
+    X_A1_counter <- data.frame(1, score_term_2, score_term_2, W_aug, 1, W_aug)
+    X_A0_counter <- data.frame(1, 0, score_term_2, W_aug, 0, W_aug * 0)
   }
 
   if (!is.null(bias_working_model_formula)) {
@@ -166,16 +169,33 @@ learn_tau <- function(S,
         keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE
       )
     } else {
+      # penalized fit
       fit <- cv.glmnet(
-        x = as.matrix(X[delta == 1, , drop = FALSE]),
+        x = as.matrix(X[delta == 1, -1, drop = FALSE]),
         y = pseudo_outcome[delta == 1], intercept = TRUE,
         family = "gaussian", weights = pseudo_weights[delta == 1],
-        keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE
+        keep = TRUE, nfolds = v_folds, alpha = 1
       )
     }
+    non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
+    non_zero <- sort(union(c(2, 3), non_zero))
+    x_basis <- X[, non_zero, drop = FALSE]
+    x_basis_A1 <- X_A1_counter[, non_zero, drop = FALSE]
+    x_basis_A0 <- X_A0_counter[, non_zero, drop = FALSE]
 
-    non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
-    coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
+    # relaxed fit
+    relax_fit <- glm(pseudo_outcome[delta == 1] ~ .,
+                     weights = pseudo_weights[delta == 1],
+                     data = x_basis[, -1, drop = FALSE],
+                     family = "gaussian")
+    coefs <- as.numeric(coef(relax_fit))
+    na_idx <- which(is.na(coefs))
+    if (length(na_idx) > 0) {
+      coefs <- coefs[-na_idx]
+      x_basis <- x_basis[, -na_idx, drop = FALSE]
+      x_basis_A1 <- x_basis_A1[, -na_idx, drop = FALSE]
+      x_basis_A0 <- x_basis_A0[, -na_idx, drop = FALSE]
+    }
 
     if (controls_only) {
       # selected counterfactual bases
@@ -184,14 +204,9 @@ learn_tau <- function(S,
       # predictions
       pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
     } else {
-      # selected counterfactual bases
-      x_basis <- as.matrix(cbind(1, X)[, non_zero, drop = FALSE])
-      x_basis_A1 <- as.matrix(X_A1_counter[, non_zero, drop = FALSE])
-      x_basis_A0 <- as.matrix(X_A0_counter[, non_zero, drop = FALSE])
-
       # predictions
-      A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
-      A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
+      A1 <- as.numeric(as.matrix(x_basis_A1) %*% matrix(coefs))
+      A0 <- as.numeric(as.matrix(x_basis_A0) %*% matrix(coefs))
       pred[A == 1] <- A1[A == 1]
       pred[A == 0] <- A0[A == 0]
     }
@@ -290,9 +305,9 @@ learn_tau <- function(S,
   return(list(
     A1 = A1,
     A0 = A0,
-    x_basis = x_basis,
-    x_basis_A1 = x_basis_A1,
-    x_basis_A0 = x_basis_A0,
+    x_basis = as.matrix(x_basis),
+    x_basis_A1 = as.matrix(x_basis_A1),
+    x_basis_A0 = as.matrix(x_basis_A0),
     pred = pred,
     coefs = coefs,
     non_zero = non_zero,
