@@ -127,6 +127,8 @@ atmle <- function(data,
                   Y,
                   controls_only,
                   family,
+                  param_new = TRUE,
+                  tau_split = FALSE,
                   atmle_pooled = TRUE,
                   theta_method = "glmnet",
                   Pi_method = "glmnet",
@@ -236,23 +238,49 @@ atmle <- function(data,
   if (verbose) cat("Done!\n")
 
   if (verbose) cat("learning g(A=1|W)=P(A=1|W)...")
-  g <- learn_g(
-    S = S,
-    W = W,
-    A = A,
-    method = g_method,
-    controls_only = controls_only,
-    v_folds = v_folds,
-    g_bounds = g_bounds
-  )
+  if (param_new) {
+    g <- learn_g_new(
+      S = S,
+      W = W,
+      A = A,
+      method = g_method,
+      controls_only = controls_only,
+      v_folds = v_folds,
+      g_bounds = g_bounds
+    )
+  } else {
+    g <- learn_g(
+      W = W,
+      A = A,
+      method = g_method,
+      folds = folds,
+      g_bounds = g_bounds,
+      cross_fit_nuisance = cross_fit_nuisance
+    )
+  }
+
   if (verbose) cat("Done!\n")
 
   if (verbose) cat("learning \U03A0(S=1|W,A)=P(S=1|W,A)...")
-  Pi <- learn_Pi(
-    g = g,
-    A = A,
-    Pi_bounds = Pi_bounds
-  )
+  if (param_new) {
+    Pi <- learn_Pi_new(
+      g = g,
+      A = A,
+      Pi_bounds = Pi_bounds
+    )
+  } else {
+    Pi <- learn_Pi(
+      S = S,
+      W = W,
+      A = A,
+      controls_only = controls_only,
+      method = Pi_method,
+      folds = folds,
+      Pi_bounds = Pi_bounds,
+      cross_fit_nuisance = cross_fit_nuisance
+    )
+  }
+
   if (verbose) cat("Done!\n")
 
   if (sum(delta) < n) {
@@ -294,21 +322,43 @@ atmle <- function(data,
 
   # learn working model tau for bias
   if (verbose) cat("learning \U03C4(W,A)=E(Y|S=1,W,A)-E(Y|S=0,W,A)...")
-  tau <- learn_tau(
-    S = S, W = W, A = A, Y = Y, Pi = Pi, theta = theta, g = g$pred,
-    delta = delta,
-    controls_only = controls_only,
-    method = bias_working_model,
-    v_folds = v_folds,
-    max_degree = max_degree,
-    min_working_model = min_working_model,
-    target_gwt = target_gwt,
-    Pi_bounds = Pi_bounds,
-    enumerate_basis_args = enumerate_basis_args,
-    fit_hal_args = fit_hal_args,
-    weights = weights,
-    bias_working_model_formula = bias_working_model_formula
-  )
+  if (param_new) {
+    g_pred <- g$pred
+  } else {
+    g_pred <- g
+  }
+  if (tau_split) {
+    tau <- learn_tau_split(S = S, W = W, A = A, Y = Y, Pi = Pi, theta = theta, g = g_pred,
+                           delta = delta,
+                           controls_only = controls_only,
+                           method = bias_working_model,
+                           v_folds = v_folds,
+                           max_degree = max_degree,
+                           min_working_model = min_working_model,
+                           target_gwt = target_gwt,
+                           Pi_bounds = Pi_bounds,
+                           enumerate_basis_args = enumerate_basis_args,
+                           fit_hal_args = fit_hal_args,
+                           weights = weights,
+                           bias_working_model_formula = bias_working_model_formula)
+  } else {
+    tau <- learn_tau(
+      S = S, W = W, A = A, Y = Y, Pi = Pi, theta = theta, g = g_pred,
+      delta = delta,
+      controls_only = controls_only,
+      method = bias_working_model,
+      v_folds = v_folds,
+      max_degree = max_degree,
+      min_working_model = min_working_model,
+      target_gwt = target_gwt,
+      Pi_bounds = Pi_bounds,
+      enumerate_basis_args = enumerate_basis_args,
+      fit_hal_args = fit_hal_args,
+      weights = weights,
+      bias_working_model_formula = bias_working_model_formula
+    )
+  }
+
   if (verbose) cat("Done!\n")
 
   # TMLE to target Pi
@@ -317,7 +367,7 @@ atmle <- function(data,
     S = S,
     W = W,
     A = A,
-    g = g$pred,
+    g = g_pred,
     tau = tau,
     Pi = Pi,
     controls_only = controls_only,
@@ -357,7 +407,7 @@ atmle <- function(data,
       W = W,
       A = A,
       Y = Y,
-      g = g$pred,
+      g = g_pred,
       delta = delta,
       theta_tilde = theta_tilde,
       method = pooled_working_model,
@@ -372,7 +422,7 @@ atmle <- function(data,
 
     # estimates
     psi_tilde_est <- mean(T_working$pred)
-    psi_tilde_eic <- get_eic_psi_tilde(T_working, g$pred, theta_tilde, Y, A, n, weights_tilde)
+    psi_tilde_eic <- get_eic_psi_tilde(T_working, g_pred, theta_tilde, Y, A, n, weights_tilde)
   } else {
     # use regular TMLE for pooled-ATE
     Q <- learn_Q(
@@ -386,7 +436,7 @@ atmle <- function(data,
       theta_bounds = theta_bounds
     )
     Q_star <- tmle(
-      Y = Y, A = A, W = W, g1W = g$pred,
+      Y = Y, A = A, W = W, g1W = g_pred,
       Q = as.matrix(data.frame(Q$A1, Q$A0)),
       family = family
     )
@@ -409,7 +459,7 @@ atmle <- function(data,
   psi_pound_eic <- get_eic_psi_pound(
     Pi = Pi,
     tau = tau,
-    g = g$pred,
+    g = g_pred,
     theta = theta,
     psi_pound_est = psi_pound_est,
     S = S,
@@ -448,7 +498,7 @@ atmle <- function(data,
     tau_A1 = tau$A1,
     tau_A0 = tau$A0,
     Pi = Pi$pred,
-    g = g$pred
+    g = g_pred
   )
 
   if (verbose) {
