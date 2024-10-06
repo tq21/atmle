@@ -50,7 +50,7 @@ sim_data <- function(ate,
   return(data)
 }
 
-controls_only <- TRUE
+controls_only <- FALSE
 
 data_rct <- sim_data(ate = 1.5,
                      n = 400,
@@ -59,7 +59,7 @@ data_rct <- sim_data(ate = 1.5,
                      bias = "a",
                      controls_only = controls_only)
 data_rwd <- sim_data(ate = 1.5,
-                     n = 400,
+                     n = 2000,
                      rct = FALSE,
                      g_rct = 0.67,
                      bias = "a",
@@ -74,10 +74,12 @@ res <- atmle(data = data,
              controls_only = controls_only,
              family = "gaussian",
              theta_method = "glm",
-             g_method = "sl3",
+             g_method = "glm",
              theta_tilde_method = "glm",
              bias_working_model = "glmnet",
-             pooled_working_model = "glmnet")
+             pooled_working_model = "glmnet",
+             max_degree = 2,
+             verbose = FALSE)
 
 res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,
