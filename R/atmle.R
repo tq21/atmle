@@ -194,6 +194,28 @@ atmle <- function(data,
       n = n, V = v_folds,
       strata_ids = as.integer(factor(cv_strata))
     )
+
+    idx_S1 <- which(S == 1)
+    folds_S1 <- map(folds, function(.x) {
+      train_idx <- intersect(.x$training_set, idx_S1)
+      valid_idx <- intersect(.x$validation_set, idx_S1)
+      return(list(v = .x$v,
+                  training_set = train_idx,
+                  validation_set = valid_idx))
+    })
+
+    if (controls_only) {
+      folds_S1 <- NULL
+    } else {
+      idx_S0 <- which(S == 0);
+      folds_S0 <- map(folds, function(.x) {
+        train_idx <- intersect(.x$training_set, idx_S0)
+        valid_idx <- intersect(.x$validation_set, idx_S0)
+        return(list(v = .x$v,
+                    training_set = train_idx,
+                    validation_set = valid_idx))
+      })
+    }
   })
 
   # estimate bias psi_pound ----------------------------------------------------
@@ -213,27 +235,23 @@ atmle <- function(data,
   )
   if (verbose) cat("Done!\n")
 
-  if (verbose) cat("learning \U03A0(S=1|W,A)=P(S=1|W,A)...")
-  Pi <- learn_Pi(
+  if (verbose) cat("learning g(A=1|W)=P(A=1|W)...")
+  g <- learn_g(
     S = S,
     W = W,
     A = A,
+    method = g_method,
     controls_only = controls_only,
-    method = Pi_method,
-    folds = folds,
-    Pi_bounds = Pi_bounds,
-    cross_fit_nuisance = cross_fit_nuisance
+    v_folds = v_folds,
+    g_bounds = g_bounds
   )
   if (verbose) cat("Done!\n")
 
-  if (verbose) cat("learning g(A=1|W)=P(A=1|W)...")
-  g <- learn_g(
-    W = W,
+  if (verbose) cat("learning \U03A0(S=1|W,A)=P(S=1|W,A)...")
+  Pi <- learn_Pi(
+    g = g,
     A = A,
-    method = g_method,
-    folds = folds,
-    g_bounds = g_bounds,
-    cross_fit_nuisance = cross_fit_nuisance
+    Pi_bounds = Pi_bounds
   )
   if (verbose) cat("Done!\n")
 
@@ -277,7 +295,7 @@ atmle <- function(data,
   # learn working model tau for bias
   if (verbose) cat("learning \U03C4(W,A)=E(Y|S=1,W,A)-E(Y|S=0,W,A)...")
   tau <- learn_tau(
-    S = S, W = W, A = A, Y = Y, Pi = Pi, theta = theta, g = g,
+    S = S, W = W, A = A, Y = Y, Pi = Pi, theta = theta, g = g$pred,
     delta = delta,
     controls_only = controls_only,
     method = bias_working_model,
@@ -299,7 +317,7 @@ atmle <- function(data,
     S = S,
     W = W,
     A = A,
-    g = g,
+    g = g$pred,
     tau = tau,
     Pi = Pi,
     controls_only = controls_only,
@@ -339,7 +357,7 @@ atmle <- function(data,
       W = W,
       A = A,
       Y = Y,
-      g = g,
+      g = g$pred,
       delta = delta,
       theta_tilde = theta_tilde,
       method = pooled_working_model,
@@ -354,7 +372,7 @@ atmle <- function(data,
 
     # estimates
     psi_tilde_est <- mean(T_working$pred)
-    psi_tilde_eic <- get_eic_psi_tilde(T_working, g, theta_tilde, Y, A, n, weights_tilde)
+    psi_tilde_eic <- get_eic_psi_tilde(T_working, g$pred, theta_tilde, Y, A, n, weights_tilde)
   } else {
     # use regular TMLE for pooled-ATE
     Q <- learn_Q(
@@ -368,7 +386,7 @@ atmle <- function(data,
       theta_bounds = theta_bounds
     )
     Q_star <- tmle(
-      Y = Y, A = A, W = W, g1W = g,
+      Y = Y, A = A, W = W, g1W = g$pred,
       Q = as.matrix(data.frame(Q$A1, Q$A0)),
       family = family
     )
@@ -391,7 +409,7 @@ atmle <- function(data,
   psi_pound_eic <- get_eic_psi_pound(
     Pi = Pi,
     tau = tau,
-    g = g,
+    g = g$pred,
     theta = theta,
     psi_pound_est = psi_pound_est,
     S = S,
@@ -428,7 +446,9 @@ atmle <- function(data,
     psi_tilde_lower = psi_tilde_lower,
     psi_tilde_upper = psi_tilde_upper,
     tau_A1 = tau$A1,
-    tau_A0 = tau$A0
+    tau_A0 = tau$A0,
+    Pi = Pi$pred,
+    g = g$pred
   )
 
   if (verbose) {
