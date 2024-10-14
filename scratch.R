@@ -77,7 +77,7 @@ res <- atmle(data = data,
              g_method = "glm",
              theta_tilde_method = "glm",
              bias_working_model = "HAL",
-             pooled_working_model = "glmnet",
+             pooled_working_model = "HAL",
              max_degree = 1,
              verbose = FALSE)
 

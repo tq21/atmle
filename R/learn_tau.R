@@ -199,8 +199,6 @@ learn_tau <- function(S,
     }
   } else if (method == "HAL") {
 
-    browser()
-
     # check arguments
     enumerate_basis_default_args <- list(
       max_degree = 2,
