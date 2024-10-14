@@ -198,93 +198,104 @@ learn_tau <- function(S,
       pred[A == 0] <- A0[A == 0]
     }
   } else if (method == "HAL") {
-    non_zero <- NULL
-    if (controls_only) {
-      # external data has only controls
-      X <- data.frame(W[A == 0, , drop = FALSE])
 
-      if (min_working_model) {
-        # enforce a minimal (main-term only) working model
-        if (max_degree > 1) {
-          aug_formula <- as.formula("~-1+(.)^" %+% max_degree)
-        } else {
-          aug_formula <- as.formula("~-1+(.)")
-        }
-        X_aug <- X_unpenalized <- model.matrix(aug_formula, data = data.frame(W))
-      } else {
-        # no minimal working model
-        X_unpenalized <- X_unpenalized_A0 <- X_unpenalized_A1 <- NULL
-      }
+    # check arguments
+    enumerate_basis_default_args <- list(
+      max_degree = 2,
+      smoothness_orders = 1,
+      num_knots = 20
+    )
+    enumerate_basis_args <- modifyList(
+      enumerate_basis_default_args,
+      enumerate_basis_args
+    )
 
-      # fit relaxed HAL
-      fit <- fit_relaxed_hal(
-        X = X[delta == 1, ], Y = pseudo_outcome[delta == 1],
-        X_unpenalized = X_unpenalized,
-        family = "gaussian", # ALWAYS GAUSSIAN, EVEN FOR BINARIES!
-        weights = pseudo_weights[delta == 1],
-        relaxed = TRUE
-      )
-
-      # selected bases
-      x_basis <- x_basis_A0 <- make_counter_design_matrix(
-        basis_list = fit$hal_basis_list,
-        X_counterfactual = as.matrix(W),
-        X_unpenalized = X_unpenalized
-      )
-
-      # predictions
-      pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
+    # make data formula
+    if (max_degree > 1) {
+      aug_formula <- as.formula("~-1+(.)^" %+% max_degree)
     } else {
-      # external data has both controls and treated
+      aug_formula <- as.formula("~-1+(.)")
+    }
+
+    if (controls_only) {
+      X <- data.frame(W[A == 0, , drop = FALSE])
+      X_A0 <- data.frame(W)
+      X <- model.matrix(aug_formula, data = X)
+      X_A0_counter <- model.matrix(aug_formula, data = X_A0)
+    } else {
       X <- data.frame(W, A)
       X_A0 <- data.frame(W, A = 0)
       X_A1 <- data.frame(W, A = 1)
+      X <- model.matrix(aug_formula, data = X)
+      X_A0_counter <- model.matrix(aug_formula, data = X_A0)
+      X_A1_counter <- model.matrix(aug_formula, data = X_A1)
+    }
 
-      # enforcing a minimal working model --------------------------------------
-      if (min_working_model) {
-        if (max_degree > 1) {
-          aug_formula <- as.formula("~-1+(.)^" %+% max_degree %+% "+(A:.)^" %+% max_degree)
-        } else {
-          aug_formula <- as.formula("~-1+(.)+(A:.)")
-        }
-        X_aug <- X_unpenalized <- model.matrix(aug_formula, data = data.frame(W, A = A))
-        X_A0_aug <- X_unpenalized_A0 <- model.matrix(aug_formula, data = data.frame(W, A = 0))
-        X_A1_aug <- X_unpenalized_A1 <- model.matrix(aug_formula, data = data.frame(W, A = 1))
-      } else {
-        # no minimal working model
-        X_unpenalized <- X_unpenalized_A0 <- X_unpenalized_A1 <- NULL
-      }
+    # make design matrix
+    basis_list <- enumerate_basis(x = as.matrix(X[delta == 1, ]),
+                                  max_degree = enumerate_basis_args$max_degree,
+                                  smoothness_orders = enumerate_basis_args$smoothness_orders,
+                                  num_knots = enumerate_basis_args$num_knots)
+    X_hal <- make_design_matrix(X = as.matrix(X[delta == 1, ]),
+                                blist = basis_list)
 
+    # fit penalized HAL
+    fit <- cv.glmnet(x = as.matrix(X_hal),
+                     y = pseudo_outcome[delta == 1],
+                     weights = pseudo_weights[delta == 1],
+                     family = "gaussian",
+                     alpha = 1,
+                     nfolds = v_folds,
+                     keep = TRUE)
+
+    # non-zero bases
+    non_zero <- which(as.numeric(coef(fit, s = "lambda.min"))[-1] != 0)
+    basis_list <- basis_list[non_zero]
+    X_hal_selected <- X_hal[, non_zero, drop = FALSE]
+
+    if (length(non_zero) > 0) {
       # fit relaxed HAL
-      fit <- fit_relaxed_hal(
-        X = X[delta == 1, ], Y = pseudo_outcome[delta == 1],
-        X_unpenalized = X_unpenalized,
-        family = "gaussian", # ALWAYS GAUSSIAN, EVEN FOR BINARIES!
-        weights = pseudo_weights[delta == 1],
-        relaxed = TRUE,
-        enumerate_basis_args = enumerate_basis_args,
-        fit_hal_args = fit_hal_args
-      )
+      fit <- glm(pseudo_outcome[delta == 1] ~ .,
+                 family = "gaussian",
+                 data = data.frame(as.matrix(X_hal_selected)),
+                 weights = pseudo_weights[delta == 1])
+      coefs <- as.numeric(coef(fit))
+      na_idx <- which(is.na(coefs[-1]))
+      if (length(na_idx) > 0) {
+        coefs <- coefs[!is.na(coefs)]
+        basis_list <- basis_list[-na_idx]
+        X_hal_selected <- X_hal_selected[, -na_idx, drop = FALSE]
+      }
+    } else {
+      coefs <- mean(pseudo_outcome[delta == 1])
+    }
 
-      # selected bases
-      x_basis <- fit$x_basis
+    # selected bases and predictions
+    if (controls_only) {
+      x_basis <- x_basis_A0 <- make_counter_design_matrix(
+        basis_list = basis_list,
+        X_counterfactual = X_A0_counter,
+        X_unpenalized = NULL
+      )
+      pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
+    } else {
+      x_basis <- as.matrix(cbind(1, X_hal_selected))
       x_basis_A1 <- make_counter_design_matrix(
-        basis_list = fit$hal_basis_list,
-        X_counterfactual = as.matrix(X_A1),
-        X_unpenalized = X_unpenalized_A1[, fit$selected_unpenalized_idx, drop = FALSE]
+        basis_list = basis_list,
+        X_counterfactual = as.matrix(X_A1_counter),
+        X_unpenalized = NULL
       )
       x_basis_A0 <- make_counter_design_matrix(
-        basis_list = fit$hal_basis_list,
-        X_counterfactual = as.matrix(X_A0),
-        X_unpenalized = X_unpenalized_A0[, fit$selected_unpenalized_idx, drop = FALSE]
+        basis_list = basis_list,
+        X_counterfactual = as.matrix(X_A0_counter),
+        X_unpenalized = NULL
       )
-
-      # predictions
-      A1 <- as.numeric(x_basis_A1 %*% matrix(fit$beta))
-      A0 <- as.numeric(x_basis_A0 %*% matrix(fit$beta))
+      A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
+      A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
       pred[A == 1] <- A1[A == 1]
       pred[A == 0] <- A0[A == 0]
     }
+
   } else {
     stop("bias_working_model must be either 'glmnet' or 'HAL'")
   }
