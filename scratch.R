@@ -76,9 +76,9 @@ res <- atmle(data = data,
              theta_method = "glm",
              g_method = "glm",
              theta_tilde_method = "glm",
-             bias_working_model = "glmnet",
+             bias_working_model = "HAL",
              pooled_working_model = "glmnet",
-             max_degree = 2,
+             max_degree = 1,
              verbose = FALSE)
 
 res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
