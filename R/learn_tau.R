@@ -120,7 +120,8 @@ learn_tau <- function(S,
 
   if (!is.null(bias_working_model_formula)) {
     cov_only_formula <- as.formula(paste0("~ ", bias_working_model_formula))
-    data_formula <- as.formula(paste0("~ ", bias_working_model_formula, " + Y"))
+    cov_only_no_intercept_formula <- as.formula(paste0("~ ", bias_working_model_formula, " - 1"))
+    data_formula <- as.formula(paste0("~ -1 + ", bias_working_model_formula, " + Y"))
     train_formula <- as.formula(paste0("Y ~ ", bias_working_model_formula))
     if (controls_only) {
       df_train <- model.matrix(data_formula,
@@ -141,14 +142,15 @@ learn_tau <- function(S,
     }
 
     coefs <- as.numeric(coef(fit))
+    coefs[is.na(coefs)] <- 0
 
     if (controls_only) {
       x_basis <- x_basis_A0 <- as.matrix(model.matrix(cov_only_formula, data = X))
       pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
     } else {
       x_basis <- as.matrix(model.matrix(cov_only_formula, data = X))
-      x_basis_A1 <- as.matrix(model.matrix(cov_only_formula, data = X_A1_counter))
-      x_basis_A0 <- as.matrix(model.matrix(cov_only_formula, data = X_A0_counter))
+      x_basis_A1 <- as.matrix(model.matrix(cov_only_no_intercept_formula, data = X_A1_counter))
+      x_basis_A0 <- as.matrix(model.matrix(cov_only_no_intercept_formula, data = X_A0_counter))
 
       # predictions
       A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
