@@ -7,6 +7,7 @@ nonparametric <- function(data,
                           A,
                           Y,
                           controls_only,
+                          g_rct,
                           family = "gaussian",
                           atmle_pooled = TRUE,
                           theta_method = "glm",
@@ -19,7 +20,10 @@ nonparametric <- function(data,
                           var_method = "ic",
                           max_iter = 1,
                           v_folds = 5,
-                          verbose = TRUE) {
+                          verbose = TRUE,
+                          browse = FALSE) {
+
+  if (browse) browser()
 
   # define nodes ---------------------------------------------------------------
   S <- data[[S]]
@@ -40,13 +44,8 @@ nonparametric <- function(data,
     method = Q_method
   )
 
-  if (verbose) print("learning P(A=1|S,W)")
-  g <- learn_g(W = W[S == 1, ],
-               A = A[S == 1],
-               method = g_method,
-               folds = 1:5,
-               g_bounds = c(0, 1),
-               cross_fit_nuisance = FALSE)
+  if (verbose) print("learning P(A=1|S=1,W)")
+  g <- rep(g_rct, n)
 
   if (verbose) print("learning P(S=1|W)")
   Pi <- learn_S_W(S, W, Pi_method)

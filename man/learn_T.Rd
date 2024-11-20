@@ -15,6 +15,7 @@ learn_T(
   method,
   min_working_model,
   v_folds,
+  max_degree,
   weights,
   enumerate_basis_args,
   fit_hal_args,

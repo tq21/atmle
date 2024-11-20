@@ -4,9 +4,11 @@
 \alias{learn_g}
 \title{Learn nuisance function: treatment mechanism}
 \usage{
-learn_g(W, A, method, folds, g_bounds, cross_fit_nuisance)
+learn_g(S, W, A, method, controls_only, v_folds, g_bounds)
 }
 \arguments{
+\item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
+
 \item{W}{A matrix of baseline covariates.}
 
 \item{A}{A vector of treatment indicators, \eqn{A=1} for treatment-arm,
@@ -16,16 +18,14 @@ learn_g(W, A, method, folds, g_bounds, cross_fit_nuisance)
 \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
 super learner-based estimation.}
 
+\item{controls_only}{A logical indicating whether the external data has only
+control-arm observations.}
+
 \item{g_bounds}{A numeric vector of lower and upper bounds for the
 treatment mechanism. The first element is the lower bound, and the second
 element is the upper bound.}
 
-\item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
-
 \item{g_rct}{A numeric of treatment probability in RCT.}
-
-\item{controls_only}{A logical indicating whether the external data has only
-control-arm observations.}
 }
 \value{
 A numeric vector of estimated treatment probabilities.
@@ -43,20 +43,5 @@ treatment mechanism into the following form:
 This form allows us to use the RCT randomization probability
 (typically known) for the term \eqn{\mathbb{P}(A=1\mid S=1,W)}.
 The rest of the terms are estimated using methods specified in \code{method}.
-}
-\examples{
-# simulate data
-set.seed(123)
-n <- 500
-S <- rbinom(n, 1, 0.5)
-W1 <- rnorm(n)
-W2 <- rnorm(n)
-W <- cbind(W1, W2)
-A <- numeric(n)
-A[S == 1] <- rbinom(sum(S), 1, 0.67)
-A[S == 0] <- rbinom(n - sum(S), 1, plogis(1.2 * W1 - 0.9 * W2))
-
-# learn treatment mechanism
-g <- learn_g(S, W, A, 0.67, FALSE, "glm", 5, c(0.01, 0.99))
 }
 \keyword{nuisance}

@@ -4,26 +4,10 @@
 \alias{learn_Pi}
 \title{Learn nuisance function: trial enrollment mechanism}
 \usage{
-learn_Pi(S, W, A, controls_only, method, folds, Pi_bounds, cross_fit_nuisance)
+learn_Pi(g, A, Pi_bounds)
 }
 \arguments{
-\item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
-
-\item{W}{A matrix of baseline covariates.}
-
-\item{A}{A vector of treatment indicators, \eqn{A=1} for treatment-arm,
-\eqn{A=0} for control-arm.}
-
-\item{controls_only}{A logical indicating whether the external data has only
-control-arm observations.}
-
-\item{method}{Learning method. \code{"glm"} for main-term linear model,
-\code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
-super learner-based estimation.}
-
-\item{Pi_bounds}{A numeric vector of lower and upper bounds for the
-trial enrollment probabilities. The first element is the lower bound,
-and the second element is the upper bound.}
+\item{g}{Returned list from `learn_g()` function.}
 }
 \value{
 A \code{list} containing the following elements:

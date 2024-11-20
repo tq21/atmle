@@ -1,6 +1,7 @@
 library(devtools)
 library(EScvtmle)
 library(sl3)
+library(ggplot2)
 load_all()
 sim_data <- function(ate,
                      n,
@@ -66,20 +67,20 @@ data_rwd <- sim_data(ate = 1.5,
                      controls_only = controls_only)
 data <- rbind(data_rct, data_rwd)
 
-res <- atmle(data = data,
-             S = "S",
-             W = c("W1", "W2", "W3"),
-             A = "A",
-             Y = "Y",
-             controls_only = controls_only,
-             family = "gaussian",
-             theta_method = "glm",
-             g_method = "glm",
-             theta_tilde_method = "glm",
-             bias_working_model = "HAL",
-             pooled_working_model = "HAL",
-             max_degree = 1,
-             verbose = FALSE)
+res <- atmle_seq(data = data,
+                 S = "S",
+                 W = c("W1", "W2", "W3"),
+                 A = "A",
+                 Y = "Y",
+                 controls_only = controls_only,
+                 family = "gaussian",
+                 theta_method = "glm",
+                 g_method = "glm",
+                 theta_tilde_method = "glm",
+                 bias_working_model = "HAL",
+                 pooled_working_model = "glmnet",
+                 max_degree = 1,
+                 verbose = FALSE)
 
 res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,
@@ -98,3 +99,27 @@ res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
 
 res$upper-res$lower
 as.numeric(res_escvtmle$CI$b2v[2]-res_escvtmle$CI$b2v[1])
+
+res_tab <- map_dfr(res, function(.x) {
+  if (length(.x) == 3) {
+    data.frame(est = .x$est,
+               lower = .x$lower,
+               upper = .x$upper)
+  } else {
+    data.frame(est = NA,
+               lower = NA,
+               upper = NA)
+  }
+})
+res_tab <- res_tab[complete.cases(res_tab),]
+res_tab$id <- 1:nrow(res_tab)
+
+ggplot(res_tab[1:50,], aes(x = id, y = est)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  labs(x = "X", y = "Estimate") +
+  theme_minimal()
+
+
+
+

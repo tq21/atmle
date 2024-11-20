@@ -120,35 +120,35 @@
 #'   g_rct = g_rct,
 #'   verbose = FALSE
 #' )
-atmle <- function(data,
-                  S,
-                  W,
-                  A,
-                  Y,
-                  controls_only,
-                  family,
-                  atmle_pooled = TRUE,
-                  theta_method = "glmnet",
-                  Pi_method = "glmnet",
-                  g_method = "glmnet",
-                  g_delta_method = "glmnet",
-                  theta_tilde_method = "glmnet",
-                  Q_method = "glmnet",
-                  bias_working_model = "glmnet",
-                  bias_working_model_formula = NULL,
-                  pooled_working_model = "glmnet",
-                  pooled_working_model_formula = NULL,
-                  cross_fit_nuisance = TRUE,
-                  min_working_model = FALSE,
-                  max_degree = 1,
-                  v_folds = 5,
-                  g_bounds = c(0.01, 0.99),
-                  Pi_bounds = c(0.01, 0.99),
-                  theta_bounds = c(-Inf, Inf),
-                  target_gwt = TRUE,
-                  verbose = TRUE,
-                  enumerate_basis_args = list(),
-                  fit_hal_args = list()) {
+atmle_seq <- function(data,
+                      S,
+                      W,
+                      A,
+                      Y,
+                      controls_only,
+                      family,
+                      atmle_pooled = TRUE,
+                      theta_method = "glmnet",
+                      Pi_method = "glmnet",
+                      g_method = "glmnet",
+                      g_delta_method = "glmnet",
+                      theta_tilde_method = "glmnet",
+                      Q_method = "glmnet",
+                      bias_working_model = "glmnet",
+                      bias_working_model_formula = NULL,
+                      pooled_working_model = "glmnet",
+                      pooled_working_model_formula = NULL,
+                      cross_fit_nuisance = TRUE,
+                      min_working_model = FALSE,
+                      max_degree = 1,
+                      v_folds = 5,
+                      g_bounds = c(0.01, 0.99),
+                      Pi_bounds = c(0.01, 0.99),
+                      theta_bounds = c(-Inf, Inf),
+                      target_gwt = TRUE,
+                      verbose = TRUE,
+                      enumerate_basis_args = list(),
+                      fit_hal_args = list()) {
   if (!is.data.frame(data)) {
     data <- as.data.frame(data)
   }
@@ -294,169 +294,121 @@ atmle <- function(data,
 
   # learn working model tau for bias
   if (verbose) cat("learning \U03C4(W,A)=E(Y|S=1,W,A)-E(Y|S=0,W,A)...")
-  tau <- learn_tau(
-    S = S, W = W, A = A, Y = Y, Pi = Pi, theta = theta, g = g$pred,
-    delta = delta,
-    controls_only = controls_only,
-    method = bias_working_model,
-    v_folds = v_folds,
-    max_degree = max_degree,
-    min_working_model = min_working_model,
-    target_gwt = target_gwt,
-    Pi_bounds = Pi_bounds,
-    enumerate_basis_args = enumerate_basis_args,
-    fit_hal_args = fit_hal_args,
-    weights = weights,
-    bias_working_model_formula = bias_working_model_formula
-  )
+  tau_seq <- learn_tau_seq(S = S,
+                           W = W,
+                           A = A,
+                           Y = Y,
+                           Pi = Pi,
+                           theta = theta,
+                           g = g$pred,
+                           delta = delta,
+                           controls_only = controls_only,
+                           v_folds = v_folds,
+                           max_degree = max_degree,
+                           min_working_model = min_working_model,
+                           enumerate_basis_args = enumerate_basis_args,
+                           fit_hal_args = fit_hal_args,
+                           weights = weights,
+                           bias_working_model_formula = bias_working_model_formula)
   if (verbose) cat("Done!\n")
 
   # TMLE to target Pi
   if (verbose) cat("targeting \U03A0(S=1|W,A)=P(S=1|W,A)...")
-  Pi <- Pi_tmle(
-    S = S,
-    W = W,
-    A = A,
-    g = g$pred,
-    tau = tau,
-    Pi = Pi,
-    controls_only = controls_only,
-    target_gwt = target_gwt,
-    Pi_bounds = Pi_bounds
-  )
+  Pi_seq <- map(tau_seq, function(tau) {
+    Pi_tmle(S = S,
+            W = W,
+            A = A,
+            g = g$pred,
+            tau = tau,
+            Pi = Pi,
+            controls_only = controls_only,
+            target_gwt = target_gwt,
+            Pi_bounds = Pi_bounds)
+  })
   if (verbose) cat("Done!\n")
 
-  psi_pound_est <- NULL
   if (controls_only) {
-    psi_pound_est <- mean((1 - Pi$A0) * tau$A0)
+    psi_pount_est_seq <- map2(Pi_seq, tau_seq, function(Pi, tau) {
+      mean((1 - Pi$A0) * tau$A0)
+    })
   } else {
-    psi_pound_est <- mean((1 - Pi$A0) * tau$A0 - (1 - Pi$A1) * tau$A1)
+    psi_pound_est_seq <- map2(Pi_seq, tau_seq, function(Pi, tau) {
+      mean((1 - Pi$A0) * tau$A0 - (1 - Pi$A1) * tau$A1)
+    })
   }
 
   # estimate pooled-ATE psi_tilde ----------------------------------------------
-  T_working <- NULL
-  psi_tilde_est <- NULL
-  psi_tilde_eic <- NULL
-  if (atmle_pooled) {
-    # use atmle for pooled-ATE
-    if (verbose) cat("learning \U03B8\U0303(W)=E(Y|W)...")
-    theta_tilde <- learn_theta_tilde(
-      W = W,
-      Y = Y,
-      delta = delta,
-      method = theta_tilde_method,
-      folds = folds,
-      family = family,
-      theta_bounds = theta_bounds,
-      cross_fit_nuisance = cross_fit_nuisance
-    )
-    if (verbose) cat("Done!\n")
+  if (verbose) cat("learning \U03B8\U0303(W)=E(Y|W)...")
+  theta_tilde <- learn_theta_tilde(W = W,
+                                   Y = Y,
+                                   delta = delta,
+                                   method = theta_tilde_method,
+                                   folds = folds,
+                                   family = family,
+                                   theta_bounds = theta_bounds,
+                                   cross_fit_nuisance = cross_fit_nuisance)
+  if (verbose) cat("Done!\n")
 
-    if (verbose) cat("learning \U03A4(W)=E(Y|W,A=1)-E(Y|W,A=0)...")
-    T_working <- learn_T(
-      W = W,
-      A = A,
-      Y = Y,
-      g = g$pred,
-      delta = delta,
-      theta_tilde = theta_tilde,
-      method = pooled_working_model,
-      min_working_model = min_working_model,
-      v_folds = v_folds,
-      max_degree = max_degree,
-      weights = weights_tilde,
-      enumerate_basis_args = enumerate_basis_args,
-      fit_hal_args = fit_hal_args,
-      pooled_working_model_formula = pooled_working_model_formula
-    )
-    if (verbose) cat("Done!\n\n")
+  if (verbose) cat("learning \U03A4(W)=E(Y|W,A=1)-E(Y|W,A=0)...")
+  T_working <- learn_T(W = W,
+                       A = A,
+                       Y = Y,
+                       g = g$pred,
+                       delta = delta,
+                       theta_tilde = theta_tilde,
+                       method = pooled_working_model,
+                       min_working_model = min_working_model,
+                       v_folds = v_folds,
+                       max_degree = max_degree,
+                       weights = weights_tilde,
+                       enumerate_basis_args = enumerate_basis_args,
+                       fit_hal_args = fit_hal_args,
+                       pooled_working_model_formula = pooled_working_model_formula)
+  if (verbose) cat("Done!\n\n")
 
-    # estimates
-    psi_tilde_est <- mean(T_working$pred)
-    psi_tilde_eic <- get_eic_psi_tilde(T_working, g$pred, theta_tilde, Y, A, n, weights_tilde)
-  } else {
-    # use regular TMLE for pooled-ATE
-    Q <- learn_Q(
-      W = W,
-      A = A,
-      Y = Y,
-      delta = delta,
-      method = Q_method,
-      v_folds = v_folds,
-      family = family,
-      theta_bounds = theta_bounds
-    )
-    Q_star <- tmle(
-      Y = Y, A = A, W = W, g1W = g$pred,
-      Q = as.matrix(data.frame(Q$A1, Q$A0)),
-      family = family
-    )
-
-    # estimates
-    psi_tilde_est <- Q_star$estimates$ATE$psi
-    psi_tilde_eic <- Q_star$estimates$IC$IC.ATE
-  }
+  # estimates
+  psi_tilde_est <- mean(T_working$pred)
+  psi_tilde_eic <- get_eic_psi_tilde(T_working, g$pred, theta_tilde, Y, A, n, weights_tilde)
 
   # final estimates ------------------------------------------------------------
-  est <- NULL
-  lower <- NULL
-  upper <- NULL
-  psi_pound_lower <- NULL
-  psi_pound_upper <- NULL
-  psi_tilde_lower <- NULL
-  psi_tilde_upper <- NULL
-
   # bias parameter
-  psi_pound_eic <- get_eic_psi_pound(
-    Pi = Pi,
-    tau = tau,
-    g = g$pred,
-    theta = theta,
-    psi_pound_est = psi_pound_est,
-    S = S,
-    A = A,
-    Y = Y,
-    n = n,
-    controls_only = controls_only,
-    weights = weights
-  )
-  psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE) / n)
-  psi_pound_lower <- psi_pound_est - 1.96 * psi_pound_se
-  psi_pound_upper <- psi_pound_est + 1.96 * psi_pound_se
+  res_seq <- map(seq(length(tau_seq)), function(j) {
+    tryCatch({
+      psi_pound_eic <- get_eic_psi_pound(Pi = Pi_seq[[j]],
+                                         tau = tau_seq[[j]],
+                                         g = g$pred,
+                                         theta = theta,
+                                         psi_pound_est = psi_pound_est_seq[[j]],
+                                         S = S,
+                                         A = A,
+                                         Y = Y,
+                                         n = n,
+                                         controls_only = controls_only,
+                                         weights = weights)
 
-  # pooled-ATE parameter
-  psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE) / n)
-  psi_tilde_lower <- psi_tilde_est - 1.96 * psi_tilde_se
-  psi_tilde_upper <- psi_tilde_est + 1.96 * psi_tilde_se
+      psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE) / n)
+      psi_pound_lower <- psi_pound_est_seq[[j]] - 1.96 * psi_pound_se
+      psi_pound_upper <- psi_pound_est_seq[[j]] + 1.96 * psi_pound_se
 
-  # RCT-ATE
-  est <- psi_tilde_est - psi_pound_est
-  eic <- psi_tilde_eic - psi_pound_eic
-  se <- sqrt(var(eic, na.rm = TRUE) / n)
-  lower <- est - 1.96 * se
-  upper <- est + 1.96 * se
+      # pooled-ATE parameter
+      psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE) / n)
+      psi_tilde_lower <- psi_tilde_est - 1.96 * psi_tilde_se
+      psi_tilde_upper <- psi_tilde_est + 1.96 * psi_tilde_se
 
-  results <- list(
-    est = est,
-    lower = lower,
-    upper = upper,
-    psi_pound_est = psi_pound_est,
-    psi_pound_lower = psi_pound_lower,
-    psi_pound_upper = psi_pound_upper,
-    psi_tilde_est = psi_tilde_est,
-    psi_tilde_lower = psi_tilde_lower,
-    psi_tilde_upper = psi_tilde_upper,
-    tau_A1 = tau$A1,
-    tau_A0 = tau$A0,
-    Pi = Pi$pred,
-    g = g$pred,
-    var = se^2
-  )
+      # RCT-ATE
+      est <- psi_tilde_est - psi_pound_est_seq[[j]]
+      eic <- psi_tilde_eic - psi_pound_eic
+      se <- sqrt(var(eic, na.rm = TRUE) / n)
+      lower <- est - 1.96 * se
+      upper <- est + 1.96 * se
 
-  if (verbose) {
-    cat("Pooled ATE: ", signif(results$psi_tilde_est, 3), " (", signif(results$psi_tilde_lower, 3), ", ", signif(results$psi_tilde_upper, 3), ")\n", sep = "")
-    cat("Bias-corrected ATE: ", signif(results$est, 3), " (", signif(results$lower, 3), ", ", signif(results$upper, 3), ")\n", sep = "")
-  }
+      return(list(est = est,
+                  lower = lower,
+                  upper = upper))
+    }, error = function(e) {
+      NA
+    })
+  })
 
-  return(results)
+  return(res_seq)
 }
