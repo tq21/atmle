@@ -148,7 +148,10 @@ atmle <- function(data,
                   target_gwt = TRUE,
                   verbose = TRUE,
                   enumerate_basis_args = list(),
-                  fit_hal_args = list()) {
+                  fit_hal_args = list(),
+                  browse = FALSE) {
+  if (browse) browser()
+
   if (!is.data.frame(data)) {
     data <- as.data.frame(data)
   }
@@ -242,8 +245,9 @@ atmle <- function(data,
     A = A,
     method = g_method,
     controls_only = controls_only,
-    v_folds = v_folds,
-    g_bounds = g_bounds
+    folds = folds,
+    g_bounds = g_bounds,
+    cross_fit_nuisance = cross_fit_nuisance
   )
   if (verbose) cat("Done!\n")
 
@@ -421,20 +425,20 @@ atmle <- function(data,
     weights = weights
   )
   psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE) / n)
-  psi_pound_lower <- psi_pound_est - 1.96 * psi_pound_se
-  psi_pound_upper <- psi_pound_est + 1.96 * psi_pound_se
+  psi_pound_lower <- psi_pound_est - 2 * psi_pound_se
+  psi_pound_upper <- psi_pound_est + 2 * psi_pound_se
 
   # pooled-ATE parameter
   psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE) / n)
-  psi_tilde_lower <- psi_tilde_est - 1.96 * psi_tilde_se
-  psi_tilde_upper <- psi_tilde_est + 1.96 * psi_tilde_se
+  psi_tilde_lower <- psi_tilde_est - 2 * psi_tilde_se
+  psi_tilde_upper <- psi_tilde_est + 2 * psi_tilde_se
 
   # RCT-ATE
   est <- psi_tilde_est - psi_pound_est
   eic <- psi_tilde_eic - psi_pound_eic
   se <- sqrt(var(eic, na.rm = TRUE) / n)
-  lower <- est - 1.96 * se
-  upper <- est + 1.96 * se
+  lower <- est - 2 * se
+  upper <- est + 2 * se
 
   results <- list(
     est = est,

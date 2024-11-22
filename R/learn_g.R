@@ -45,8 +45,10 @@ learn_g <- function(S,
                     A,
                     method,
                     controls_only,
-                    v_folds,
-                    g_bounds) {
+                    folds,
+                    g_bounds,
+                    cross_fit_nuisance) {
+
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners("binomial")
   }
@@ -92,37 +94,101 @@ learn_g <- function(S,
 
   } else if (method == "glm") {
 
-    # P(S=1|W)
-    fit_S_W <- glm(S ~ ., data = W, family = "binomial")
-    pred_S_W <- as.numeric(predict(fit_S_W, newdata = W, type = "response"))
+    if (cross_fit_nuisance) {
+      walk(folds, function(.x) {
+        train_idx <- .x$training_set
+        valid_idx <- .x$validation_set
 
-    # P(A=1|S=1,W)
-    fit_A_S1_W <- glm(A[S == 1] ~ ., data = W[S == 1, ], family = "binomial")
-    pred_A_S1_W <- as.numeric(predict(fit_A_S1_W, newdata = W, type = "response"))
+        # P(S=1|W)
+        fit_S_W <- glm(S[train_idx] ~ ., data = W[train_idx, ], family = "binomial")
+        pred_S_W[valid_idx] <<- as.numeric(predict(fit_S_W, newdata = W[valid_idx, ], type = "response"))
 
-    if (!controls_only) {
-      # P(A=1|S=0,W)
-      fit_A_S0_W <- glm(A[S == 0] ~ ., data = W[S == 0, ], family = "binomial")
-      pred_A_S0_W <- as.numeric(predict(fit_A_S0_W, newdata = W, type = "response"))
+        # P(A=1|S=1,W)
+        fit_A_S1_W <- glm(A[train_idx][S[train_idx] == 1] ~ .,
+                          data = W[train_idx, ][S[train_idx] == 1, ], family = "binomial")
+        pred_A_S1_W[valid_idx] <<- as.numeric(predict(fit_A_S1_W, newdata = W[valid_idx, ], type = "response"))
+
+        if (!controls_only) {
+          # P(A=1|S=0,W)
+          fit_A_S0_W <- glm(A[train_idx][S[train_idx] == 0] ~ .,
+                            data = W[train_idx, ][S[train_idx] == 0, ], family = "binomial")
+          pred_A_S0_W[valid_idx] <<- as.numeric(predict(fit_A_S0_W, newdata = W[valid_idx, ], type = "response"))
+        }
+      })
+
+    } else {
+      # P(S=1|W)
+      fit_S_W <- glm(S ~ ., data = W, family = "binomial")
+      pred_S_W <- as.numeric(predict(fit_S_W, newdata = W, type = "response"))
+
+      # P(A=1|S=1,W)
+      fit_A_S1_W <- glm(A[S == 1] ~ ., data = W[S == 1, ], family = "binomial")
+      pred_A_S1_W <- as.numeric(predict(fit_A_S1_W, newdata = W, type = "response"))
+
+      if (!controls_only) {
+        # P(A=1|S=0,W)
+        fit_A_S0_W <- glm(A[S == 0] ~ ., data = W[S == 0, ], family = "binomial")
+        pred_A_S0_W <- as.numeric(predict(fit_A_S0_W, newdata = W, type = "response"))
+      }
     }
 
   } else if (method == "glmnet") {
 
-    # P(S=1|W)
-    fit_S_W <- cv.glmnet(x = as.matrix(W), y = S, family = "binomial",
-                         keep = TRUE, alpha = 1, nfolds = v_folds)
-    pred_S_W <- as.numeric(predict(fit_S_W, newx = as.matrix(W), s = "lambda.min", type = "response"))
+    if (cross_fit_nuisance) {
+      walk(folds, function(.x) {
+        train_idx <- .x$training_set
+        valid_idx <- .x$validation_set
 
-    # P(A=1|S=1,W)
-    fit_A_S1_W <- cv.glmnet(x = as.matrix(W[S == 1, ]), y = A[S == 1], family = "binomial",
-                            keep = TRUE, alpha = 1, nfolds = v_folds)
-    pred_A_S1_W <- as.numeric(predict(fit_A_S1_W, newx = as.matrix(W), s = "lambda.min", type = "response"))
+        # P(S=1|W)
+        fit_S_W <- cv.glmnet(x = as.matrix(W[train_idx, , drop = FALSE]),
+                             y = S[train_idx], family = "binomial", keep = TRUE, alpha = 1,
+                             nfolds = length(folds))
+        pred_S_W[valid_idx] <<- .bound(as.numeric(predict(
+          fit_S_W,
+          newx = as.matrix(W[valid_idx, , drop = FALSE]), s = "lambda.min",
+          type = "response"
+        )), g_bounds)
 
-    if (!controls_only) {
-      # P(A=1|S=0,W)
-      fit_A_S0_W <- cv.glmnet(x = as.matrix(W[S == 0, ]), y = A[S == 0], family = "binomial",
+        # P(A=1|S=1,W)
+        fit_A_S1_W <- cv.glmnet(x = as.matrix(W[train_idx, ][S[train_idx] == 1, ]),
+                                y = A[train_idx][S[train_idx] == 1],
+                                family = "binomial", keep = TRUE, alpha = 1,
+                                nfolds = length(folds))
+        pred_A_S1_W[valid_idx] <<- as.numeric(predict(fit_A_S1_W,
+                                                     newx = as.matrix(W[valid_idx, ]),
+                                                     s = "lambda.min",
+                                                     type = "response"))
+
+        if (!controls_only) {
+          # P(A=1|S=0,W)
+          fit_A_S0_W <- cv.glmnet(x = as.matrix(W[train_idx, ][S[train_idx] == 0, ]),
+                                  y = A[train_idx][S[train_idx] == 0],
+                                  family = "binomial", keep = TRUE, alpha = 1,
+                                  nfolds = length(folds))
+          pred_A_S0_W[valid_idx] <<- as.numeric(predict(fit_A_S0_W,
+                                                       newx = as.matrix(W[valid_idx, ]),
+                                                       s = "lambda.min",
+                                                       type = "response"))
+        }
+      })
+    } else {
+
+      # P(S=1|W)
+      fit_S_W <- cv.glmnet(x = as.matrix(W), y = S, family = "binomial",
+                           keep = TRUE, alpha = 1, nfolds = v_folds)
+      pred_S_W <- as.numeric(predict(fit_S_W, newx = as.matrix(W), s = "lambda.min", type = "response"))
+
+      # P(A=1|S=1,W)
+      fit_A_S1_W <- cv.glmnet(x = as.matrix(W[S == 1, ]), y = A[S == 1], family = "binomial",
                               keep = TRUE, alpha = 1, nfolds = v_folds)
-      pred_A_S0_W <- as.numeric(predict(fit_A_S0_W, newx = as.matrix(W), s = "lambda.min", type = "response"))
+      pred_A_S1_W <- as.numeric(predict(fit_A_S1_W, newx = as.matrix(W), s = "lambda.min", type = "response"))
+
+      if (!controls_only) {
+        # P(A=1|S=0,W)
+        fit_A_S0_W <- cv.glmnet(x = as.matrix(W[S == 0, ]), y = A[S == 0], family = "binomial",
+                                keep = TRUE, alpha = 1, nfolds = v_folds)
+        pred_A_S0_W <- as.numeric(predict(fit_A_S0_W, newx = as.matrix(W), s = "lambda.min", type = "response"))
+      }
     }
 
   } else {

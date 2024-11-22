@@ -7,14 +7,15 @@ sim_data <- function(ate,
                      rct,
                      g_rct,
                      bias,
-                     controls_only) {
+                     controls_only,
+                     delta) {
   # error
   UY <- rnorm(n, 0, 1)
 
   # baseline covariates
-  W1 <- rnorm(n, 0, 1)
-  W2 <- rnorm(n, 0, 1)
-  W3 <- rnorm(n, 0, 1)
+  W1 <- rnorm(n, 0 + delta, 1)
+  W2 <- rnorm(n, 0 - delta, 1)
+  W3 <- rnorm(n, 0 + delta, 1)
 
   # study indicator S and treatment A
   if (rct) {
@@ -57,13 +58,15 @@ data_rct <- sim_data(ate = 1.5,
                      rct = TRUE,
                      g_rct = 0.67,
                      bias = "a",
-                     controls_only = controls_only)
+                     controls_only = controls_only,
+                     delta = 0)
 data_rwd <- sim_data(ate = 1.5,
-                     n = 2000,
+                     n = 1200,
                      rct = FALSE,
                      g_rct = 0.67,
                      bias = "a",
-                     controls_only = controls_only)
+                     controls_only = controls_only,
+                     delta = 5)
 data <- rbind(data_rct, data_rwd)
 
 res <- atmle(data = data,
@@ -73,13 +76,14 @@ res <- atmle(data = data,
              Y = "Y",
              controls_only = controls_only,
              family = "gaussian",
-             theta_method = "glm",
-             g_method = "glm",
-             theta_tilde_method = "glm",
-             bias_working_model = "HAL",
-             pooled_working_model = "HAL",
+             theta_method = "glmnet",
+             g_method = "glmnet",
+             theta_tilde_method = "glmnet",
+             bias_working_model = "glmnet",
+             pooled_working_model = "glmnet",
              max_degree = 1,
-             verbose = FALSE)
+             verbose = FALSE,
+             browse = FALSE)
 
 res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,
