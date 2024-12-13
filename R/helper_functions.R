@@ -96,3 +96,30 @@ target_Q <- function(S, W, A, Y, Pi, g, Q, delta, g_delta) {
 
   return(Q_star)
 }
+
+learn_g_np <- function(S,
+                       W,
+                       A,
+                       method,
+                       v_folds,
+                       g_bounds) {
+
+  if (method == "glm") {
+
+    fit <- glm(A[S == 1] ~ ., data = W[S == 1, , drop = FALSE], family = "binomial")
+    pred <- as.numeric(predict(fit, newdata = W, type = "response"))
+
+  } else if (method == "glmnet") {
+
+    fit <- cv.glmnet(x = as.matrix(W[S == 1, , drop = FALSE]),
+                     y = A[S == 1], family = "binomial",
+                     keep = TRUE, alpha = 1, nfolds = v_folds)
+    pred <- as.numeric(predict(fit, newx = as.matrix(W), s = "lambda.min", type = "response"))
+
+  } else {
+    stop("Invalid method. Must be one of 'glm' or 'glmnet'")
+  }
+
+  return(.bound(pred, g_bounds))
+}
+

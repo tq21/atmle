@@ -41,12 +41,12 @@ nonparametric <- function(data,
   )
 
   if (verbose) print("learning P(A=1|S,W)")
-  g <- learn_g_old(W = W[S == 1, ],
-                   A = A[S == 1],
-                   method = g_method,
-                   folds = 1:5,
-                   g_bounds = c(0, 1),
-                   cross_fit_nuisance = FALSE)
+  g <- learn_g_np(S = S,
+                  W = W,
+                  A = A,
+                  method = g_method,
+                  v_folds = v_folds,
+                  g_bounds = c(0, 1))
 
   if (verbose) print("learning P(S=1|W)")
   Pi <- learn_S_W(S, W, Pi_method)
