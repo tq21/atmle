@@ -149,6 +149,8 @@ atmle <- function(data,
                   verbose = TRUE,
                   enumerate_basis_args = list(),
                   fit_hal_args = list(),
+                  conserve_pound = FALSE,
+                  conserve_pooled = FALSE,
                   browse = FALSE) {
   if (browse) browser()
 
@@ -378,6 +380,7 @@ atmle <- function(data,
     # estimates
     psi_tilde_est <- mean(T_working$pred)
     psi_tilde_eic <- get_eic_psi_tilde(T_working, g$pred, theta_tilde, Y, A, n, weights_tilde)
+    psi_tilde_eic_conserve <- get_eic_psi_tilde_conserve(T_working, g$pred, theta_tilde, Y, A, n, weights_tilde)
   } else {
     # use regular TMLE for pooled-ATE
     Q <- learn_Q(
@@ -424,6 +427,28 @@ atmle <- function(data,
     controls_only = controls_only,
     weights = weights
   )
+  psi_pound_eic_conserve <- get_eic_psi_pound_conserve(
+    Pi = Pi,
+    tau = tau,
+    g = g$pred,
+    theta = theta,
+    psi_pound_est = psi_pound_est,
+    S = S,
+    A = A,
+    Y = Y,
+    n = n,
+    controls_only = controls_only,
+    weights = weights
+  )
+
+  if (conserve_pound) {
+    psi_pound_eic <- psi_pound_eic_conserve
+  }
+
+  if (conserve_pooled) {
+    psi_tilde_eic <- psi_tilde_eic_conserve
+  }
+
   psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE) / n)
   psi_pound_lower <- psi_pound_est - 2 * psi_pound_se
   psi_pound_upper <- psi_pound_est + 2 * psi_pound_se

@@ -146,6 +146,7 @@ learn_T <- function(W,
     coefs = coefs,
     non_zero = non_zero,
     pseudo_outcome = pseudo_outcome,
-    pseudo_weights = pseudo_weights
+    pseudo_weights = pseudo_weights,
+    x_basis_all = as.matrix(cbind(1, W))
   ))
 }

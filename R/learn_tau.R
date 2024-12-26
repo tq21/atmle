@@ -310,6 +310,9 @@ learn_tau <- function(S,
     coefs = coefs,
     non_zero = non_zero,
     pseudo_outcome = pseudo_outcome,
-    pseudo_weights = pseudo_weights
+    pseudo_weights = pseudo_weights,
+    x_basis_all = as.matrix(cbind(1, X)),
+    x_basis_A1_all = as.matrix(X_A1_counter),
+    x_basis_A0_all = as.matrix(X_A0_counter)
   ))
 }
