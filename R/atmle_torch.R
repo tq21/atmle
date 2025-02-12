@@ -6,7 +6,8 @@ atmle_torch <- function(data,
                         Y,
                         controls_only,
                         family,
-                        lr = 1e-3,
+                        target_gwt = TRUE,
+                        lr = 1e-2,
                         max_iter = 5000,
                         patience = 10,
                         tolerance = 1e-6,
@@ -72,8 +73,18 @@ atmle_torch <- function(data,
     )
   })
 
-  # learn nuisance parts
-  if (verbose) cat("learning \U03B8(W,A)=E(Y|W,A)...")
+  # learn nuisance parameters
+  theta_tilde <- learn_theta_tilde(
+    W = W,
+    Y = Y,
+    delta = delta,
+    method = theta_tilde_method,
+    folds = folds,
+    family = family,
+    theta_bounds = theta_bounds,
+    cross_fit_nuisance = cross_fit_nuisance
+  )
+
   theta <- learn_theta(
     W = W,
     A = A,
@@ -86,22 +97,7 @@ atmle_torch <- function(data,
     theta_bounds = theta_bounds,
     cross_fit_nuisance = cross_fit_nuisance
   )
-  if (verbose) cat("Done!\n")
 
-  if (verbose) cat("learning \U03B8\U0303(W)=E(Y|W)...")
-  theta_tilde <- learn_theta_tilde(
-    W = W,
-    Y = Y,
-    delta = delta,
-    method = theta_tilde_method,
-    folds = folds,
-    family = family,
-    theta_bounds = theta_bounds,
-    cross_fit_nuisance = cross_fit_nuisance
-  )
-  if (verbose) cat("Done!\n")
-
-  if (verbose) cat("learning g(A=1|W)=P(A=1|W)...")
   g <- learn_g(
     S = S,
     W = W,
@@ -111,19 +107,15 @@ atmle_torch <- function(data,
     v_folds = v_folds,
     g_bounds = g_bounds
   )
-  if (verbose) cat("Done!\n")
 
-  if (verbose) cat("learning \U03A0(S=1|W,A)=P(S=1|W,A)...")
   Pi <- learn_Pi(
     g = g,
     A = A,
     Pi_bounds = Pi_bounds
   )
-  if (verbose) cat("Done!\n")
 
   if (sum(delta) < n) {
     # outcome has missing
-    if (verbose) cat("learning g(\U0394=1|S,W,A)=P(\U0394=1|S,W,A)...")
     g_delta <- learn_g_delta(
       S = S,
       W = W,
@@ -135,7 +127,6 @@ atmle_torch <- function(data,
     )
     if (verbose) cat("Done!\n")
 
-    if (verbose) cat("learning g(\U0394=1|W,A)=P(\U0394=1|W,A)...")
     g_delta_tilde <- learn_g_delta_tilde(
       W = W,
       A = A,
@@ -144,7 +135,6 @@ atmle_torch <- function(data,
       folds = folds,
       g_bounds = g_bounds
     )
-    if (verbose) cat("Done!\n")
   } else {
     # no censoring
     g_delta <- g_delta_tilde <- list(
@@ -158,7 +148,6 @@ atmle_torch <- function(data,
   weights <- delta / g_delta$pred
   weights_tilde <- delta / g_delta_tilde$pred
 
-  browser()
   # learn CATE
   tau_A_seq <- learn_tau_A_seq(
     S = S,
@@ -198,4 +187,85 @@ atmle_torch <- function(data,
     tolerance = tolerance,
     patience = patience
   )
+
+  # TMLE to target Pi
+  min_len <- min(length(tau_A_seq$beta_list), length(tau_S_seq$beta_list))
+  res_seq <- map(seq(min_len), function(j) {
+    tau_A_cur <- tau_A_seq$beta_list[[j]]
+    tau_S_cur <- tau_S_seq$beta_list[[j]]
+
+    tau_S_tmp <- vector("list", length = 6)
+    tau_S_tmp$x_basis <- as.matrix(cbind(1, tau_S_seq$hal_design[, tau_S_cur$idx, drop = FALSE]))
+    tau_S_tmp$x_basis_A1 <- as.matrix(cbind(1, tau_S_seq$hal_design_A1[, tau_S_cur$idx, drop = FALSE]))
+    tau_S_tmp$x_basis_A0 <- as.matrix(cbind(1, tau_S_seq$hal_design_A0[, tau_S_cur$idx, drop = FALSE]))
+    tau_S_tmp$A1 <- as.vector(tau_S_tmp$x_basis_A1 %*% as.matrix(tau_S_cur$beta))
+    tau_S_tmp$A0 <- as.vector(tau_S_tmp$x_basis_A0 %*% as.matrix(tau_S_cur$beta))
+    tau_S_tmp$pred <- as.vector(tau_S_tmp$x_basis %*% as.matrix(tau_S_cur$beta))
+
+    tau_A_tmp <- vector("list", length = 2)
+    tau_A_tmp$x_basis <- as.matrix(cbind(1, tau_A_seq$hal_design[, tau_A_cur$idx, drop = FALSE]))
+    tau_A_tmp$pred <- as.vector(tau_A_tmp$x_basis %*% as.matrix(tau_A_cur$beta))
+
+    # target Pi
+    Pi_cur <- Pi_tmle(
+      S = S,
+      W = W,
+      A = A,
+      g = g$pred,
+      tau = tau_S_tmp,
+      Pi = Pi,
+      controls_only = controls_only,
+      target_gwt = target_gwt,
+      Pi_bounds = Pi_bounds
+    )
+
+    # point estimates
+    psi_tilde_est <- mean(tau_A_tmp$pred)
+    if (controls_only) {
+      psi_pound_est <- mean((1 - Pi_cur$A0) * tau_S_tmp$A0)
+    } else {
+      psi_pound_est <- mean((1 - Pi_cur$A0) * tau_S_tmp$A0 - (1 - Pi_cur$A1) * tau_S_tmp$A1)
+    }
+
+    # inference
+    psi_tilde_eic <- get_eic_psi_tilde(
+      psi_tilde = tau_A_tmp,
+      g = g$pred,
+      theta = theta_tilde,
+      Y = Y,
+      A = A,
+      n = n,
+      weights = weights_tilde
+    )
+    psi_pound_eic <- get_eic_psi_pound(
+      Pi = Pi_cur,
+      tau = tau_S_tmp,
+      g = g$pred,
+      theta = theta,
+      psi_pound_est = psi_pound_est,
+      S = S,
+      A = A,
+      Y = Y,
+      n = n,
+      controls_only = controls_only,
+      weights = weights
+    )
+    psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE) / n)
+    psi_tilde_lower <- psi_tilde_est - 1.96 * psi_tilde_se
+    psi_tilde_upper <- psi_tilde_est + 1.96 * psi_tilde_se
+    psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE) / n)
+    psi_pound_lower <- psi_pound_est - 1.96 * psi_pound_se
+    psi_pound_upper <- psi_pound_est + 1.96 * psi_pound_se
+    est <- psi_tilde_est - psi_pound_est
+    eic <- psi_tilde_eic - psi_pound_eic
+    se <- sqrt(var(eic, na.rm = TRUE) / n)
+    lower <- est - 1.96 * se
+    upper <- est + 1.96 * se
+
+    return(list(psi = est,
+                lower = lower,
+                upper = upper))
+  })
+
+  return(res_seq)
 }

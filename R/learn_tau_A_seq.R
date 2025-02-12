@@ -46,6 +46,6 @@ learn_tau_A_seq <- function(S,
     patience = patience
   )
 
-  return(c(beta_list,
-           list(hal_design = hal_design)))
+  return(list(beta_list = beta_list,
+              hal_design = hal_design))
 }

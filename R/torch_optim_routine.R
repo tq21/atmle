@@ -17,6 +17,7 @@ torch_optim_routine <- function(S,
                                 patience) {
 
   intercept <- torch_ones(length(Y), 1, device = device)
+  S <- torch_tensor(S, device = device)
   A <- torch_tensor(A, device = device)
   Y <- torch_tensor(Y, device = device)
 
@@ -25,6 +26,7 @@ torch_optim_routine <- function(S,
                    y = pseudo_outcome,
                    weights = pseudo_weights,
                    alpha = 1,
+                   nlambda = 50,
                    family = "gaussian")
   cv_lambda <- fit$lambda.min
   lambda_seq <- fit$lambda
@@ -40,9 +42,9 @@ torch_optim_routine <- function(S,
 
   beta_list <- map(working_model_seq, function(.wm) {
     # make design matrix for the current working model
-    phi_W <- torch_tensor(as.matrix(hal_design[, .wm$idx, drop = FALSE]),
-                          device = device)
-    phi_W <- torch_cat(list(intercept, phi_W), dim = 2L)
+    phi <- torch_tensor(as.matrix(hal_design[, .wm$idx, drop = FALSE]),
+                        device = device)
+    phi <- torch_cat(list(intercept, phi), dim = 2L)
     which_in_cv_wm <- which(.wm$idx %in% cv_idx)
 
     # beta from CV fit as initial values
@@ -71,10 +73,8 @@ torch_optim_routine <- function(S,
         Q_bar = Q_bar,
         g1W = g1W,
         Pi1WA = Pi1WA,
-        phi_W = phi_W,
-        phi_WA = phi_WA,
-        beta = beta,
-        alpha = alpha
+        phi = phi,
+        beta = beta
       )
       train_loss$backward()
       beta_optim$step()

@@ -24,6 +24,8 @@ learn_tau_S_seq <- function(S,
     smoothness_orders = enumerate_basis_args$smoothness_orders
   )
   hal_design <- make_design_matrix(X = as.matrix(cbind(W, A = A)), blist = basis_list)
+  hal_design_A1 <- make_design_matrix(X = as.matrix(cbind(W, A = 1)), blist = basis_list)
+  hal_design_A0 <- make_design_matrix(X = as.matrix(cbind(W, A = 0)), blist = basis_list)
 
   # run optimization routine to target betas in each working model
   beta_list <- torch_optim_routine(
@@ -37,7 +39,7 @@ learn_tau_S_seq <- function(S,
     hal_design = hal_design,
     pseudo_outcome = pseudo_outcome,
     pseudo_weights = pseudo_weights,
-    loss_fn = r_loss_cate,
+    loss_fn = r_loss_care,
     lr = lr,
     max_iter = max_iter,
     verbose = verbose,
@@ -46,6 +48,8 @@ learn_tau_S_seq <- function(S,
     patience = patience
   )
 
-  return(c(beta_list,
-           list(hal_design = hal_design)))
+  return(list(beta_list = beta_list,
+              hal_design = hal_design,
+              hal_design_A1 = hal_design_A1,
+              hal_design_A0 = hal_design_A0))
 }
