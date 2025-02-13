@@ -5,9 +5,11 @@ library(tmle)
 library(torch)
 library(hal9001)
 library(EScvtmle)
+library(furrr)
 load_all()
 source("sim_data.R")
 set.seed(123)
+plan(multisession, workers = availableCores()-1)
 run <- function(B,
                 bias,
                 g_rct,

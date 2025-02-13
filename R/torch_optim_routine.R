@@ -16,11 +16,6 @@ torch_optim_routine <- function(S,
                                 tolerance,
                                 patience) {
 
-  intercept <- torch_ones(length(Y), 1, device = device)
-  S <- torch_tensor(S, device = device)
-  A <- torch_tensor(A, device = device)
-  Y <- torch_tensor(Y, device = device)
-
   # HAL fit
   fit <- cv.glmnet(x = hal_design,
                    y = pseudo_outcome,
@@ -40,7 +35,12 @@ torch_optim_routine <- function(S,
                 idx = sort(union(cur_idx, cv_idx))))
   })
 
-  beta_list <- map(working_model_seq, function(.wm) {
+  beta_list <- future_map(working_model_seq, function(.wm) {
+    intercept <- torch_ones(length(Y), 1, device = device)
+    S <- torch_tensor(S, device = device)
+    A <- torch_tensor(A, device = device)
+    Y <- torch_tensor(Y, device = device)
+
     # make design matrix for the current working model
     phi <- torch_tensor(as.matrix(hal_design[, .wm$idx, drop = FALSE]),
                         device = device)
@@ -106,7 +106,7 @@ torch_optim_routine <- function(S,
     return(list(lambda = .wm$lambda,
                 idx = .wm$idx,
                 beta = as.numeric(beta)))
-  })
+  }, .progress = TRUE)
 
   return(beta_list)
 }

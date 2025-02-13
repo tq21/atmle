@@ -67,6 +67,7 @@ data_rwd <- sim_data(ate = 1.5,
                      controls_only = controls_only)
 data <- rbind(data_rct, data_rwd)
 
+plan(multicore, workers = 6)
 res <- atmle_torch(data = data,
                    S = "S",
                    W = c("W1", "W2", "W3"),
