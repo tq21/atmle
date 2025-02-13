@@ -30,7 +30,7 @@ torch_optim_routine <- function(S,
                    family = "gaussian")
   cv_lambda <- fit$lambda.min
   lambda_seq <- fit$lambda
-  lambda_seq <- lambda_seq[lambda_seq < cv_lambda]
+  lambda_seq <- lambda_seq[lambda_seq <= cv_lambda]
   cv_coefs <- as.numeric(coef(fit, s = "lambda.min"))
   cv_idx <- which(cv_coefs[-1] != 0) # exclude intercept (used for subsetting design matrix)
   cv_coefs <- cv_coefs[cv_coefs != 0] # include intercept (used for initial)

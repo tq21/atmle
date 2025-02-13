@@ -77,7 +77,10 @@ res <- atmle_torch(data = data,
                    browse = FALSE)
 
 res_df <- map_dfr(res, function(.x) {
-  data.frame(psi = .x$psi, lower = .x$lower, upper = .x$upper)
+  data.frame(psi = .x$psi,
+             lower = .x$lower,
+             upper = .x$upper,
+             PnEIC = .x$PnEIC)
 })
 
 ggplot(res_df, aes(x = psi, y = 1:nrow(res_df))) +
@@ -88,21 +91,19 @@ ggplot(res_df, aes(x = psi, y = 1:nrow(res_df))) +
 
 which.min(res_df$upper-res_df$lower)
 
-
-res <- atmle(data = data,
-             S = "S",
-             W = c("W1", "W2", "W3"),
-             A = "A",
-             Y = "Y",
-             controls_only = controls_only,
-             family = "gaussian",
-             theta_method = "glm",
-             g_method = "glm",
-             theta_tilde_method = "glm",
-             bias_working_model = "glmnet",
-             pooled_working_model = "glmnet",
-             max_degree = 2,
-             verbose = FALSE)
+res_old_atmle <- atmle(data = data,
+                       S = "S",
+                       W = c("W1", "W2", "W3"),
+                       A = "A",
+                       Y = "Y",
+                       controls_only = controls_only,
+                       family = "gaussian",
+                       theta_method = "glm",
+                       g_method = "glm",
+                       theta_tilde_method = "glm",
+                       bias_working_model = "glmnet",
+                       pooled_working_model = "glmnet",
+                       verbose = FALSE)
 
 res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,
@@ -119,5 +120,5 @@ res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
                           g.discreteSL = TRUE,
                           V = 5)
 
-res$upper-res$lower
+res_old_atmle$upper-res_old_atmle$lower
 as.numeric(res_escvtmle$CI$b2v[2]-res_escvtmle$CI$b2v[1])

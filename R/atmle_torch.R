@@ -21,7 +21,7 @@ atmle_torch <- function(data,
                                                     smoothness_orders = 1),
                         v_folds = 10,
                         cross_fit_nuisance = TRUE,
-                        verbose = TRUE,
+                        verbose = FALSE,
                         device = "cpu",
                         browse = FALSE) {
 
@@ -264,7 +264,8 @@ atmle_torch <- function(data,
 
     return(list(psi = est,
                 lower = lower,
-                upper = upper))
+                upper = upper,
+                PnEIC = mean(eic)))
   })
 
   return(res_seq)
