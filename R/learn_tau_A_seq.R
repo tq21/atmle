@@ -13,7 +13,8 @@ learn_tau_A_seq <- function(S,
                             verbose,
                             device,
                             tolerance,
-                            patience) {
+                            patience,
+                            parallel) {
 
   # use HAL to learn tau_A
   pseudo_outcome <- (Y-theta)/(A-g1W)
@@ -43,7 +44,8 @@ learn_tau_A_seq <- function(S,
     verbose = verbose,
     device = device,
     tolerance = tolerance,
-    patience = patience
+    patience = patience,
+    parallel = parallel
   )
 
   return(list(beta_list = beta_list,

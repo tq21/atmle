@@ -14,7 +14,8 @@ torch_optim_routine <- function(S,
                                 verbose,
                                 device,
                                 tolerance,
-                                patience) {
+                                patience,
+                                parallel) {
 
   # HAL fit
   fit <- cv.glmnet(x = hal_design,
@@ -22,7 +23,8 @@ torch_optim_routine <- function(S,
                    weights = pseudo_weights,
                    alpha = 1,
                    nlambda = 50,
-                   family = "gaussian")
+                   family = "gaussian",
+                   parallel = parallel)
   cv_lambda <- fit$lambda.min
   lambda_seq <- fit$lambda
   lambda_seq <- lambda_seq[lambda_seq <= cv_lambda]

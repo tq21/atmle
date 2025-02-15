@@ -6,10 +6,12 @@ library(torch)
 library(hal9001)
 library(EScvtmle)
 library(furrr)
+library(doMC)
 load_all()
 source("sim_data.R")
 set.seed(123)
 plan(multisession, workers = availableCores()-1)
+registerDoMC(cores = availableCores()-1)
 run <- function(B,
                 bias,
                 g_rct,
@@ -53,7 +55,8 @@ run <- function(B,
                                    Y = "Y",
                                    controls_only = controls_only,
                                    family = "gaussian",
-                                   browse = FALSE)
+                                   browse = FALSE,
+                                   parallel = TRUE)
       res_seq_atmle_df <- map_dfr(res_seq_atmle, function(.x) {
         data.frame(psi = .x$psi,
                    lower = .x$lower,

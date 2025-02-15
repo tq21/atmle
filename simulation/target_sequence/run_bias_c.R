@@ -1,5 +1,5 @@
 source("utils.R")
-res_df <- run(B = 20,
+res_df <- run(B = 1,
               bias = "c",
               g_rct = 0.67,
               controls_only = FALSE,

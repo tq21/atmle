@@ -88,15 +88,21 @@ get_eic_psi_pound <- function(Pi,
 #' @param weights A vector of (e.g. inverse-censoring) weights.
 #'
 #' @return A vector of efficient influence function values.
-get_eic_psi_tilde <- function(psi_tilde, g, theta, Y, A, n, weights) {
+get_eic_psi_tilde <- function(psi_tilde, g, theta, Y, A, n, weights, eic_method = "svd_pseudo_inv") {
   Y_tmp <- Y
   Y_tmp[is.na(Y)] <- 0
   IM <- t(psi_tilde$x_basis) %*% diag(g * (1 - g)) %*% psi_tilde$x_basis / n
   if (dim(psi_tilde$x_basis)[2] == 1) {
     IM_inv <- solve(IM)
   } else {
-    # SVD-based pseudo-inverse
-    IM_inv <- svd_pseudo_inv(IM)
+    if (eic_method == "svd_pseudo_inv") {
+      print("SVD")
+      # SVD-based pseudo-inverse
+      IM_inv <- svd_pseudo_inv(IM)
+    } else if (eic_method == "diag") {
+      print("DIAG")
+      IM_inv <- solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+    }
   }
   D_beta <- weights * as.vector(
     psi_tilde$x_basis %*% IM_inv %*% colMeans(psi_tilde$x_basis) *

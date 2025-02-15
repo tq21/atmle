@@ -20,6 +20,7 @@ atmle_torch <- function(data,
                         enumerate_basis_args = list(max_degree = 2,
                                                     smoothness_orders = 1),
                         v_folds = 10,
+                        parallel = FALSE,
                         cross_fit_nuisance = TRUE,
                         verbose = FALSE,
                         device = "cpu",
@@ -165,7 +166,8 @@ atmle_torch <- function(data,
     verbose = verbose,
     device = device,
     tolerance = tolerance,
-    patience = patience
+    patience = patience,
+    parallel = parallel
   )
 
   # learn CARE
@@ -185,7 +187,8 @@ atmle_torch <- function(data,
     verbose = verbose,
     device = device,
     tolerance = tolerance,
-    patience = patience
+    patience = patience,
+    parallel = parallel
   )
 
   # TMLE to target Pi
@@ -261,11 +264,15 @@ atmle_torch <- function(data,
     se <- sqrt(var(eic, na.rm = TRUE) / n)
     lower <- est - 1.96 * se
     upper <- est + 1.96 * se
+    sn <- sqrt(var(eic, na.rm = TRUE))/(sqrt(n) * log(n))
 
     return(list(psi = est,
                 lower = lower,
                 upper = upper,
-                PnEIC = mean(eic)))
+                PnEIC = mean(eic),
+                sn = sn,
+                tau_S_beta = tau_S_cur$beta,
+                tau_A_beta = tau_A_cur$beta))
   })
 
   return(res_seq)
