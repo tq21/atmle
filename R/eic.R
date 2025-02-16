@@ -29,7 +29,8 @@ get_eic_psi_pound <- function(Pi,
                               Y,
                               n,
                               controls_only,
-                              weights) {
+                              weights,
+                              eic_method = "svd_pseudo_inv") {
   Y_tmp <- Y
   Y_tmp[is.na(Y)] <- 0
 
@@ -40,7 +41,12 @@ get_eic_psi_pound <- function(Pi,
     if (dim(tau$x_basis)[2] == 1) {
       IM_inv <- solve(IM)
     } else {
-      IM_inv <- svd_pseudo_inv(IM)
+      if (eic_method == "svd_pseudo_inv") {
+        # SVD-based pseudo-inverse
+        IM_inv <- svd_pseudo_inv(IM)
+      } else if (eic_method == "diag") {
+        IM_inv <- solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+      }
     }
     IM_A0 <- IM_inv %*% colMeans(tau$x_basis_A0 * (1 - Pi$A0))
     beta_comp <- as.numeric(tau$x_basis %*% IM_A0) *
@@ -54,7 +60,12 @@ get_eic_psi_pound <- function(Pi,
     if (dim(tau$x_basis)[2] == 1) {
       IM_inv <- solve(IM)
     } else {
-      IM_inv <- svd_pseudo_inv(IM)
+      if (eic_method == "svd_pseudo_inv") {
+        # SVD-based pseudo-inverse
+        IM_inv <- svd_pseudo_inv(IM)
+      } else if (eic_method == "diag") {
+        IM_inv <- solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+      }
     }
     D_mat <- tau$x_basis %*% IM_inv *
       (S - Pi$pred) *
@@ -96,11 +107,9 @@ get_eic_psi_tilde <- function(psi_tilde, g, theta, Y, A, n, weights, eic_method 
     IM_inv <- solve(IM)
   } else {
     if (eic_method == "svd_pseudo_inv") {
-      print("SVD")
       # SVD-based pseudo-inverse
       IM_inv <- svd_pseudo_inv(IM)
     } else if (eic_method == "diag") {
-      print("DIAG")
       IM_inv <- solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
     }
   }

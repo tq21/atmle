@@ -67,7 +67,9 @@ data_rwd <- sim_data(ate = 1.5,
                      controls_only = controls_only)
 data <- rbind(data_rct, data_rwd)
 
-plan(multicore, workers = 6)
+plan(multisession, workers = availableCores()-1)
+registerDoMC(cores = availableCores()-1)
+
 res <- atmle_torch(data = data,
                    S = "S",
                    W = c("W1", "W2", "W3"),
@@ -75,13 +77,16 @@ res <- atmle_torch(data = data,
                    Y = "Y",
                    controls_only = controls_only,
                    family = "gaussian",
+                   eic_method = "diag",
+                   parallel = TRUE,
                    browse = FALSE)
 
 res_df <- map_dfr(res, function(.x) {
   data.frame(psi = .x$psi,
              lower = .x$lower,
              upper = .x$upper,
-             PnEIC = .x$PnEIC)
+             PnEIC = .x$PnEIC,
+             sn = .x$sn)
 })
 
 ggplot(res_df, aes(x = psi, y = 1:nrow(res_df))) +

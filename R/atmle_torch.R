@@ -6,6 +6,7 @@ atmle_torch <- function(data,
                         Y,
                         controls_only,
                         family,
+                        eic_method,
                         target_gwt = TRUE,
                         lr = 1e-2,
                         max_iter = 5000,
@@ -238,7 +239,8 @@ atmle_torch <- function(data,
       Y = Y,
       A = A,
       n = n,
-      weights = weights_tilde
+      weights = weights_tilde,
+      eic_method = eic_method
     )
     psi_pound_eic <- get_eic_psi_pound(
       Pi = Pi_cur,
@@ -251,7 +253,8 @@ atmle_torch <- function(data,
       Y = Y,
       n = n,
       controls_only = controls_only,
-      weights = weights
+      weights = weights,
+      eic_method = eic_method
     )
     psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE) / n)
     psi_tilde_lower <- psi_tilde_est - 1.96 * psi_tilde_se

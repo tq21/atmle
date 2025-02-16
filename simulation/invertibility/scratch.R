@@ -60,9 +60,3 @@ ggplot(res_seq_atmle_df, aes(x = index, y = psi)) +
   theme_minimal()
 
 abs(res_seq_atmle_df$PnEIC) <= res_seq_atmle_df$sn
-
-
-
-
-
-
