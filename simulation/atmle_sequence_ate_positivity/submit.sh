@@ -9,7 +9,7 @@
 #SBATCH --account=co_biostat
 #
 # Wall clock limit ('0' for unlimited):
-#SBATCH --time=72:00:00
+#SBATCH --time=24:00:00
 #
 # Number of nodes for use case:
 #SBATCH --nodes=1
