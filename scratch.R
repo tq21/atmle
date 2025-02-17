@@ -2,6 +2,9 @@ library(devtools)
 library(EScvtmle)
 library(sl3)
 library(ggplot2)
+library(torch)
+library(doMC)
+library(furrr)
 load_all()
 sim_data <- function(ate,
                      n,
@@ -76,9 +79,11 @@ res <- atmle_torch(data = data,
                    A = "A",
                    Y = "Y",
                    controls_only = controls_only,
+                   Pi_iter_target = FALSE,
                    family = "gaussian",
-                   eic_method = "diag",
+                   eic_method = "svd_pseudo_inv",
                    parallel = TRUE,
+                   verbose = FALSE,
                    browse = FALSE)
 
 res_df <- map_dfr(res, function(.x) {

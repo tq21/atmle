@@ -14,7 +14,8 @@ learn_tau_S_seq <- function(S,
                             device,
                             tolerance,
                             patience,
-                            parallel) {
+                            parallel,
+                            Pi_iter_target) {
 
   # use HAL to learn tau_S
   pseudo_outcome <- (Y-Q_bar)/(A-Pi1WA)
@@ -29,26 +30,49 @@ learn_tau_S_seq <- function(S,
   hal_design_A0 <- make_design_matrix(X = as.matrix(cbind(W, A = 0)), blist = basis_list)
 
   # run optimization routine to target betas in each working model
-  beta_list <- torch_optim_routine(
-    S = S,
-    A = A,
-    Y = Y,
-    theta = theta,
-    Q_bar = Q_bar,
-    g1W = g1W,
-    Pi1WA = Pi1WA,
-    hal_design = hal_design,
-    pseudo_outcome = pseudo_outcome,
-    pseudo_weights = pseudo_weights,
-    loss_fn = r_loss_care,
-    lr = lr,
-    max_iter = max_iter,
-    verbose = verbose,
-    device = device,
-    tolerance = tolerance,
-    patience = patience,
-    parallel = parallel
-  )
+  if (Pi_iter_target) {
+    beta_list <- torch_optim_routine_with_Pi(
+      S = S,
+      A = A,
+      Y = Y,
+      theta = theta,
+      Q_bar = Q_bar,
+      g1W = g1W,
+      Pi1WA = Pi1WA,
+      hal_design = hal_design,
+      pseudo_outcome = pseudo_outcome,
+      pseudo_weights = pseudo_weights,
+      loss_fn = r_loss_care_with_Pi,
+      lr = lr,
+      max_iter = max_iter,
+      verbose = verbose,
+      device = device,
+      tolerance = tolerance,
+      patience = patience,
+      parallel = parallel
+    )
+  } else {
+    beta_list <- torch_optim_routine(
+      S = S,
+      A = A,
+      Y = Y,
+      theta = theta,
+      Q_bar = Q_bar,
+      g1W = g1W,
+      Pi1WA = Pi1WA,
+      hal_design = hal_design,
+      pseudo_outcome = pseudo_outcome,
+      pseudo_weights = pseudo_weights,
+      loss_fn = r_loss_care,
+      lr = lr,
+      max_iter = max_iter,
+      verbose = verbose,
+      device = device,
+      tolerance = tolerance,
+      patience = patience,
+      parallel = parallel
+    )
+  }
 
   return(list(beta_list = beta_list,
               hal_design = hal_design,

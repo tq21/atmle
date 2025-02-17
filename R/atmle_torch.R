@@ -7,6 +7,7 @@ atmle_torch <- function(data,
                         controls_only,
                         family,
                         eic_method,
+                        Pi_iter_target = FALSE,
                         target_gwt = TRUE,
                         lr = 1e-2,
                         max_iter = 5000,
@@ -189,7 +190,8 @@ atmle_torch <- function(data,
     device = device,
     tolerance = tolerance,
     patience = patience,
-    parallel = parallel
+    parallel = parallel,
+    Pi_iter_target = Pi_iter_target
   )
 
   # TMLE to target Pi
@@ -210,18 +212,30 @@ atmle_torch <- function(data,
     tau_A_tmp$x_basis <- as.matrix(cbind(1, tau_A_seq$hal_design[, tau_A_cur$idx, drop = FALSE]))
     tau_A_tmp$pred <- as.vector(tau_A_tmp$x_basis %*% as.matrix(tau_A_cur$beta))
 
+    epsilon <- tau_S_seq$beta_list[[j]]$epsilon
+
     # target Pi
-    Pi_cur <- Pi_tmle(
-      S = S,
-      W = W,
-      A = A,
-      g = g$pred,
-      tau = tau_S_tmp,
-      Pi = Pi,
-      controls_only = controls_only,
-      target_gwt = target_gwt,
-      Pi_bounds = Pi_bounds
-    )
+    if (Pi_iter_target) {
+      Pi_cur <- vector("list", length = 3)
+      H1_n <- A/g$pred*tau_S_tmp$pred
+      H0_n <- -(1-A)/(1-g$pred)*tau_S_tmp$pred
+      H <- H1_n + H0_n
+      Pi_cur$pred <- .bound(plogis(qlogis(Pi$pred) + epsilon * H), Pi_bounds)
+      Pi_cur$A1 <- .bound(plogis(qlogis(Pi$A1) + epsilon * H1_n), Pi_bounds)
+      Pi_cur$A0 <- .bound(plogis(qlogis(Pi$A0) + epsilon * H0_n), Pi_bounds)
+    } else {
+      Pi_cur <- Pi_tmle(
+        S = S,
+        W = W,
+        A = A,
+        g = g$pred,
+        tau = tau_S_tmp,
+        Pi = Pi,
+        controls_only = controls_only,
+        target_gwt = target_gwt,
+        Pi_bounds = Pi_bounds
+      )
+    }
 
     # point estimates
     psi_tilde_est <- mean(tau_A_tmp$pred)
