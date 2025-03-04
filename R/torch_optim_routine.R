@@ -108,7 +108,7 @@ torch_optim_routine <- function(S,
     return(list(lambda = .wm$lambda,
                 idx = .wm$idx,
                 beta = as.numeric(beta)))
-  }, .progress = FALSE)
+  }, .progress = TRUE)
 
   return(beta_list)
 }

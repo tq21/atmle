@@ -116,9 +116,13 @@ atmle_ate_torch <- function(data,
     return(list(psi = psi,
                 lower = lower,
                 upper = upper,
+                EIC = eic,
                 PnEIC = mean(eic),
-                sn = sn))
+                sn = sn,
+                L1_norm = sum(abs(tau_A_cur$beta))))
   })
+
+  res_seq <- res_seq[sort(map_vec(res_seq, function(.x) .x$L1_norm), index.return = TRUE)$ix]
 
   return(res_seq)
 }

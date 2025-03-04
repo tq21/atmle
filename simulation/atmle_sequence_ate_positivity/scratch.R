@@ -1,7 +1,7 @@
 library(dplyr)
 source("sim_data.R")
 truth <- get_truth()
-res_df <- read.csv("out/atmle_seq_ate_0216_101151.csv")
+res_df <- read.csv("out/atmle_seq_ate_0217_104926.csv")
 res_df %>% summarize(abs_bias = abs(mean(psi)-truth),
                      se = sd(psi),
                      mse = mean((psi-truth)^2),

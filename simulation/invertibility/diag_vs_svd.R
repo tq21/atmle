@@ -6,19 +6,19 @@ library(EScvtmle)
 library(furrr)
 library(doMC)
 library(ggplot2)
+library(ggpubr)
 load_all()
 source("sim_data.R")
-#set.seed(4905090)
 plan(multisession, workers = availableCores()-1)
 registerDoMC(cores = availableCores()-1)
 
+set.seed(4905090)
 truth <- get_truth()
-
-set.seed(982475)
 data <- sim_data(500)
 W <- colnames(data)[grep("W", colnames(data))]
 
 # SEQ-A-TMLE
+set.seed(123)
 res_svd_pseudo_inv <- atmle_ate_torch(data = data,
                                       W = W,
                                       A = "A",
@@ -28,6 +28,7 @@ res_svd_pseudo_inv <- atmle_ate_torch(data = data,
                                       family = "gaussian",
                                       browse = FALSE,
                                       parallel = TRUE)
+set.seed(123)
 res_diag <- atmle_ate_torch(data = data,
                             W = W,
                             A = "A",
@@ -38,9 +39,8 @@ res_diag <- atmle_ate_torch(data = data,
                             browse = FALSE,
                             parallel = TRUE)
 
-
 res_seq_atmle_df <- map2_dfr(res_svd_pseudo_inv, res_diag, function(.x, .y) {
-  data.frame(eic_method = c("svd_pseudo_inv", "diag"),
+  data.frame(eic_method = c("svd-based pseudoinverse", "add 1e-3 to diagonal"),
              psi = c(.x$psi, .y$psi),
              lower = c(.x$lower, .y$lower),
              upper = c(.x$upper, .y$upper),
@@ -50,13 +50,25 @@ res_seq_atmle_df <- map2_dfr(res_svd_pseudo_inv, res_diag, function(.x, .y) {
 idx <- which.min(res_seq_atmle_df$upper - res_seq_atmle_df$lower)
 res_seq_atmle_df$index <- seq_along(res_seq_atmle_df$psi)
 
-ggplot(res_seq_atmle_df, aes(x = index, y = psi)) +
+fit_1 <- ggplot(res_seq_atmle_df, aes(x = index, y = psi)) +
   geom_point() +
   geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
   facet_wrap(~eic_method) +
   geom_hline(yintercept = truth, linetype = "dashed", color = "red") +
-  labs(x = "Index", y = "Psi Estimate",
-       title = "Sequence of Psi Estimates with 95% Confidence Intervals") +
-  theme_minimal()
+  labs(x = "lambda index", y = "Psi Estimate",
+       title = "") +
+  theme_bw()
 
-abs(res_seq_atmle_df$PnEIC) <= res_seq_atmle_df$sn
+fig_2 <- ggplot(res_seq_atmle_df, aes(x = index)) +
+  geom_line(aes(y = abs(PnEIC), color = "|PnEIC|")) +
+  geom_line(aes(y = sn, color = "threshold")) +
+  facet_wrap(~eic_method) +
+  labs(x = "lambda index", y = "", color = "") +
+  scale_color_manual(values = c("|PnEIC|" = "black", "threshold" = "blue")) +
+  theme_minimal() +
+  theme_bw()
+
+fig <- ggarrange(fit_1, fig_2, common.legend = TRUE, legend = "bottom", ncol = 1)
+
+ggsave(filename = "diag_vs_svd_ate.pdf", plot = fig, device = "pdf",
+       path = "figs", width = 5, height = 5, dpi = 300)
