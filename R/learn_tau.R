@@ -280,7 +280,11 @@ learn_tau <- function(S,
       )
       pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
     } else {
-      x_basis <- as.matrix(cbind(1, X_hal_selected))
+      x_basis <- make_counter_design_matrix(
+        basis_list = basis_list,
+        X_counterfactual = as.matrix(X),
+        X_unpenalized = NULL
+      )
       x_basis_A1 <- make_counter_design_matrix(
         basis_list = basis_list,
         X_counterfactual = as.matrix(X_A1_counter),

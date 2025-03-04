@@ -137,7 +137,11 @@ learn_T <- function(W,
       coefs <- mean(pseudo_outcome[delta == 1])
     }
 
-    x_basis <- as.matrix(cbind(1, X_hal_selected))
+    x_basis <- make_counter_design_matrix(
+      basis_list = basis_list,
+      X_counterfactual = as.matrix(X),
+      X_unpenalized = NULL
+    )
     pred <- as.numeric(x_basis %*% matrix(coefs))
   }
 

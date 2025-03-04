@@ -23,6 +23,8 @@ data_rwd <- sim_data(ate = 1.5,
                      controls_only = FALSE)
 data <- rbind(data_rct, data_rwd)
 
+data[sample(nrow(data), 50), "Y"] <- NA
+
 B <- 50
 psi <- lower <- upper <- numeric(B)
 
