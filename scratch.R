@@ -2,20 +2,20 @@ library(devtools)
 library(EScvtmle)
 library(sl3)
 load_all()
+#set.seed(123)
 sim_data <- function(ate,
                      n,
                      rct,
                      g_rct,
                      bias,
-                     controls_only,
-                     delta) {
+                     controls_only) {
   # error
   UY <- rnorm(n, 0, 1)
 
   # baseline covariates
-  W1 <- rnorm(n, 0 + delta, 1)
-  W2 <- rnorm(n, 0 - delta, 1)
-  W3 <- rnorm(n, 0 + delta, 1)
+  W1 <- rnorm(n, 0, 1)
+  W2 <- rnorm(n, 0, 1)
+  W3 <- rnorm(n, 0, 1)
 
   # study indicator S and treatment A
   if (rct) {
@@ -57,16 +57,14 @@ data_rct <- sim_data(ate = 1.5,
                      n = 400,
                      rct = TRUE,
                      g_rct = 0.67,
-                     bias = "a",
-                     controls_only = controls_only,
-                     delta = 0)
+                     bias = "b",
+                     controls_only = controls_only)
 data_rwd <- sim_data(ate = 1.5,
-                     n = 1200,
+                     n = 2000,
                      rct = FALSE,
                      g_rct = 0.67,
-                     bias = "a",
-                     controls_only = controls_only,
-                     delta = 5)
+                     bias = "b",
+                     controls_only = controls_only)
 data <- rbind(data_rct, data_rwd)
 
 res <- atmle(data = data,
@@ -75,12 +73,13 @@ res <- atmle(data = data,
              A = "A",
              Y = "Y",
              controls_only = controls_only,
+             atmle_pooled = FALSE,
              family = "gaussian",
-             theta_method = "glmnet",
-             g_method = "glmnet",
-             theta_tilde_method = "glmnet",
-             bias_working_model = "glmnet",
-             pooled_working_model = "glmnet",
+             theta_method = "glm",
+             g_method = "glm",
+             theta_tilde_method = "glm",
+             bias_working_model = "HAL",
+             pooled_working_model = "HAL",
              max_degree = 1,
              verbose = FALSE,
              browse = FALSE)

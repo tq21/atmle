@@ -246,6 +246,7 @@ learn_tau <- function(S,
                      family = "gaussian",
                      alpha = 1,
                      nfolds = v_folds,
+                     parallel = TRUE,
                      keep = TRUE)
 
     # non-zero bases

@@ -1,6 +1,12 @@
 
 `%+%` <- function(a, b) paste0(a, b)
 
+svd_pseudo_inv <- function(mat, tol = 1e-3) {
+  svd_res <- svd(mat)
+  D_inv <- ifelse(svd_res$d > tol, 1 / svd_res$d, 0)
+  return(svd_res$v %*% diag(D_inv) %*% t(svd_res$u))
+}
+
 learn_procova_score <- function(S,
                                 W,
                                 A,

@@ -112,6 +112,7 @@ learn_T <- function(W,
                      family = "gaussian",
                      alpha = 1,
                      nfolds = v_folds,
+                     parallel = TRUE,
                      keep = TRUE)
 
     # non-zero bases

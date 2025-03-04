@@ -380,7 +380,7 @@ atmle <- function(data,
     # estimates
     psi_tilde_est <- mean(T_working$pred)
     psi_tilde_eic <- get_eic_psi_tilde(T_working, g$pred, theta_tilde, Y, A, n, weights_tilde)
-    psi_tilde_eic_conserve <- get_eic_psi_tilde_conserve(T_working, g$pred, theta_tilde, Y, A, n, weights_tilde)
+    #psi_tilde_eic_conserve <- get_eic_psi_tilde_conserve(T_working, g$pred, theta_tilde, Y, A, n, weights_tilde)
   } else {
     # use regular TMLE for pooled-ATE
     Q <- learn_Q(
@@ -427,19 +427,19 @@ atmle <- function(data,
     controls_only = controls_only,
     weights = weights
   )
-  psi_pound_eic_conserve <- get_eic_psi_pound_conserve(
-    Pi = Pi,
-    tau = tau,
-    g = g$pred,
-    theta = theta,
-    psi_pound_est = psi_pound_est,
-    S = S,
-    A = A,
-    Y = Y,
-    n = n,
-    controls_only = controls_only,
-    weights = weights
-  )
+  #psi_pound_eic_conserve <- get_eic_psi_pound_conserve(
+  #  Pi = Pi,
+  #  tau = tau,
+  #  g = g$pred,
+  #  theta = theta,
+  #  psi_pound_est = psi_pound_est,
+  #  S = S,
+  #  A = A,
+  #  Y = Y,
+  #  n = n,
+  #  controls_only = controls_only,
+  #  weights = weights
+  #)
 
   if (conserve_pound) {
     psi_pound_eic <- psi_pound_eic_conserve
@@ -450,20 +450,20 @@ atmle <- function(data,
   }
 
   psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE) / n)
-  psi_pound_lower <- psi_pound_est - 2 * psi_pound_se
-  psi_pound_upper <- psi_pound_est + 2 * psi_pound_se
+  psi_pound_lower <- psi_pound_est - 1.96 * psi_pound_se
+  psi_pound_upper <- psi_pound_est + 1.96 * psi_pound_se
 
   # pooled-ATE parameter
   psi_tilde_se <- sqrt(var(psi_tilde_eic, na.rm = TRUE) / n)
-  psi_tilde_lower <- psi_tilde_est - 2 * psi_tilde_se
-  psi_tilde_upper <- psi_tilde_est + 2 * psi_tilde_se
+  psi_tilde_lower <- psi_tilde_est - 1.96 * psi_tilde_se
+  psi_tilde_upper <- psi_tilde_est + 1.96 * psi_tilde_se
 
   # RCT-ATE
   est <- psi_tilde_est - psi_pound_est
   eic <- psi_tilde_eic - psi_pound_eic
   se <- sqrt(var(eic, na.rm = TRUE) / n)
-  lower <- est - 2 * se
-  upper <- est + 2 * se
+  lower <- est - 1.96 * se
+  upper <- est + 1.96 * se
 
   results <- list(
     est = est,
