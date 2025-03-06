@@ -140,3 +140,31 @@ get_eic_psi_nonparametric <- function(Q, Pi, g, S, A, Y, psi_est, weights) {
   Q_comp <- (S / Pi$pred) * (A / g - (1 - A) / (1 - g)) * weights * (Y_tmp - Q$pred)
   return(W_comp + Q_comp)
 }
+
+eic_ate <- function(QW1,
+                    QW0,
+                    psi,
+                    A,
+                    g1W,
+                    Y,
+                    QWA) {
+  W_comp <- QW1-QW0-psi
+  Y_comp <- (A/g1W-(1-A)/(1-g1W))*(Y-QWA)
+  return(W_comp + Y_comp)
+}
+
+eic_psi <- function(S,
+                    A,
+                    Y,
+                    Q1W1,
+                    Q1W0,
+                    psi,
+                    S1W,
+                    g1W,
+                    QSWA,
+                    weights) {
+  Y_tmp <- Y
+  Y_tmp[is.na(Y)] <- 0
+  W_comp <- Q1W1 - Q1W0 - psi
+  Q_comp <- (S/S1W)*(A/g1W-(1-A)/(1-g1W))*weights*(Y_tmp-QSWA)
+}
