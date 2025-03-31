@@ -54,7 +54,7 @@ sim_data <- function(ate,
   return(data)
 }
 
-controls_only <- FALSE
+controls_only <- TRUE
 
 data_rct <- sim_data(ate = 1.5,
                      n = 400,
@@ -63,12 +63,15 @@ data_rct <- sim_data(ate = 1.5,
                      bias = "b",
                      controls_only = controls_only)
 data_rwd <- sim_data(ate = 1.5,
-                     n = 400,
+                     n = 1000,
                      rct = FALSE,
                      g_rct = 0.67,
                      bias = "b",
                      controls_only = controls_only)
 data <- rbind(data_rct, data_rwd)
+
+
+
 
 plan(multisession, workers = availableCores()-1)
 registerDoMC(cores = availableCores()-1)
@@ -102,6 +105,22 @@ ggplot(res_df, aes(x = psi, y = 1:nrow(res_df))) +
 
 which.min(res_df$upper-res_df$lower)
 
+
+
+data_rct <- sim_data(ate = 1.5,
+                     n = 400,
+                     rct = TRUE,
+                     g_rct = 0.67,
+                     bias = "b",
+                     controls_only = controls_only)
+data_rwd <- sim_data(ate = 1.5,
+                     n = 1000,
+                     rct = FALSE,
+                     g_rct = 0.67,
+                     bias = "b",
+                     controls_only = controls_only)
+data <- rbind(data_rct, data_rwd)
+
 res_old_atmle <- atmle(data = data,
                        S = "S",
                        W = c("W1", "W2", "W3"),
@@ -130,6 +149,7 @@ res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
                           Q.discreteSL = TRUE,
                           g.discreteSL = TRUE,
                           V = 5)
-
 res_old_atmle$upper-res_old_atmle$lower
 as.numeric(res_escvtmle$CI$b2v[2]-res_escvtmle$CI$b2v[1])
+res_old_atmle$est
+res_escvtmle$ATE$b2v

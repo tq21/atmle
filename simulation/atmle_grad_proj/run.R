@@ -9,7 +9,7 @@ source("sim_data.R")
 set.seed(12345)
 registerDoMC(cores = availableCores()-1)
 
-B <- 100
+B <- 10
 n_seq <- seq(500, 2000, 500)
 res_df <- map_dfr(n_seq, function(.n) {
   map_dfr(seq(B), function(.b) {
@@ -29,14 +29,24 @@ res_df <- map_dfr(n_seq, function(.n) {
 
     return(data.frame(n = .n,
                       b = .b,
+                      psi_os = res$psi_os,
+                      psi_reg_cv = res$psi_reg_cv,
                       psi_reg = res$psi_reg,
                       psi_relax = res$psi_relax,
+                      lower_proj_os = res$lower_proj_os,
+                      lower_proj_reg_cv = res$lower_proj_reg_cv,
                       lower_proj_reg = res$lower_proj_reg,
                       lower_proj_relax = res$lower_proj_relax,
+                      upper_proj_os = res$upper_proj_os,
+                      upper_proj_reg_cv = res$upper_proj_reg_cv,
                       upper_proj_reg = res$upper_proj_reg,
                       upper_proj_relax = res$upper_proj_relax,
+                      lower_delta_os = res$lower_delta_os,
+                      lower_delta_reg_cv = res$lower_delta_reg_cv,
                       lower_delta_reg = res$lower_delta_reg,
                       lower_delta_relax = res$lower_delta_relax,
+                      upper_delta_os = res$upper_delta_os,
+                      upper_delta_reg_cv = res$upper_delta_reg_cv,
                       upper_delta_reg = res$upper_delta_reg,
                       upper_delta_relax = res$upper_delta_relax))
   })

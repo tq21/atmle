@@ -82,7 +82,67 @@ learn_tau_A <- function(W,
   beta <- as.numeric(coef(fit, s = "lambda.min")[coef(fit, s = "lambda.min") != 0])
 
   if (length(non_zero) > 0) {
-    # regularized targeting ----------------------------------------------------
+    # one-step targeting -------------------------------------------------------
+    cur_iter <- 1
+    PnEIC <- Inf
+    sn <- 0
+    beta_os <- beta
+    while (cur_iter <= max_iter & abs(PnEIC) > sn) {
+      # compute canonical gradient in the working model
+      cate_pred <- as.numeric(phi_W%*%beta_os)
+      eic_wm <- eic_ate_wm(x_basis = as.matrix(phi_W),
+                           g1W = g1W,
+                           A = A,
+                           Y = Y,
+                           theta = theta,
+                           tau = cate_pred)
+      PnEIC <- mean(eic_wm)
+
+      # obtain direction
+      direction <- get_beta_h(x_basis = as.matrix(phi_W), g1W = g1W)
+
+      # update beta
+      beta_os <- beta_os + dx*sign(PnEIC)*direction
+      sn <- sqrt(var(eic_wm, na.rm = TRUE))/(sqrt(length(A)) * log(length(A)))
+      cur_iter <- cur_iter + 1
+      print(PnEIC)
+    }
+
+    # CV regularized targeting -------------------------------------------------
+    cur_iter <- 1
+    PnEIC <- Inf
+    sn <- 0
+    beta_reg_cv <- beta
+    while (cur_iter <= max_iter & abs(PnEIC) > sn) {
+      # compute canonical gradient
+      cate_pred <- as.numeric(phi_W%*%beta_reg_cv)
+      eic_np <- eic_ate(QW1 = theta+(1-g1W)*cate_pred,
+                        QW0 = theta-g1W*cate_pred,
+                        psi = mean(cate_pred),
+                        A = A,
+                        g1W = g1W,
+                        Y = Y,
+                        QWA = theta+(A-g1W)*cate_pred)
+      PnEIC <- mean(eic_np)
+
+      # obtain current score matrix
+      score_mat <- (Y-theta-(A-g1W)*cate_pred)*(A-g1W)*phi_W
+
+      # project gradient onto the current score space (regularized)
+      proj_fit <- cv.glmnet(x = score_mat,
+                            y = eic_np,
+                            intercept = FALSE,
+                            alpha = 1)
+      direction <- as.numeric(coef(proj_fit, s = "lambda.min")[-1])
+
+      # update beta
+      beta_reg_cv <- beta_reg_cv + dx*sign(PnEIC)*direction
+      sn <- sqrt(var(eic_np, na.rm = TRUE))/(sqrt(length(A)) * log(length(A)))
+      cur_iter <- cur_iter + 1
+      #print(PnEIC)
+    }
+
+    # weakly regularized targeting ---------------------------------------------
     cur_iter <- 1
     PnEIC <- Inf
     sn <- 0
@@ -126,16 +186,26 @@ learn_tau_A <- function(W,
     beta_relax[is.na(beta_relax)] <- 0
 
   } else {
-    beta_reg <- beta_relax <- mean(pseudo_outcome[delta == 1])
+    beta_os <- beta_reg_cv <- beta_reg <- beta_relax <- mean(pseudo_outcome[delta == 1])
   }
 
   x_basis <- make_counter_design_matrix(basis_list = basis_list,
                                         X_counterfactual = as.matrix(X),
                                         X_unpenalized = NULL)
+  pred_os <- as.numeric(x_basis%*%matrix(beta_os))
+  pred_reg_cv <- as.numeric(x_basis%*%matrix(beta_reg_cv))
   pred_reg <- as.numeric(x_basis%*%matrix(beta_reg))
   pred_relax <- as.numeric(x_basis%*%matrix(beta_relax))
 
-  return(list(reg = list(pred = pred_reg,
+  return(list(os = list(pred = pred_os,
+                        x_basis = x_basis,
+                        coefs = beta_os,
+                        non_zero = non_zero),
+              reg_cv = list(pred = pred_reg_cv,
+                            x_basis = x_basis,
+                            coefs = beta_reg_cv,
+                            non_zero = non_zero),
+              reg = list(pred = pred_reg,
                          x_basis = x_basis,
                          coefs = beta_reg,
                          non_zero = non_zero),

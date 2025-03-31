@@ -74,13 +74,37 @@ atmle_single <- function(data,
                        enumerate_basis_args = enumerate_basis_args,
                        dx = 1e-4,
                        max_iter = 500)
+  tau_A_os <- tau_A$os
+  tau_A_reg_cv <- tau_A$reg_cv
   tau_A_reg <- tau_A$reg
   tau_A_relax <- tau_A$relax
 
   # point estimates and inference
+  psi_os <- mean(tau_A_os$pred)
+  psi_reg_cv <- mean(tau_A_reg_cv$pred)
   psi_reg <- mean(tau_A_reg$pred)
   psi_relax <- mean(tau_A_relax$pred)
   if (ncol(tau_A_reg$x_basis) == 1) {
+    eic_proj_os <- get_eic_psi_tilde(
+      psi_tilde = tau_A_os,
+      g = g1W,
+      theta = theta,
+      Y = Y,
+      A = A,
+      n = n,
+      weights = rep(1, n),
+      eic_method = "svd_pseudo_inv"
+    )
+    eic_proj_reg_cv <- get_eic_psi_tilde(
+      psi_tilde = tau_A_reg_cv,
+      g = g1W,
+      theta = theta,
+      Y = Y,
+      A = A,
+      n = n,
+      weights = rep(1, n),
+      eic_method = "svd_pseudo_inv"
+    )
     eic_proj_reg <- get_eic_psi_tilde(
       psi_tilde = tau_A_reg,
       g = g1W,
@@ -102,6 +126,20 @@ atmle_single <- function(data,
       eic_method = "svd_pseudo_inv"
     )
   } else {
+    eic_proj_os <- grad_proj(W = W,
+                             A = A,
+                             Y = Y,
+                             theta = theta,
+                             g1W = g1W,
+                             phi_W = tau_A_os$x_basis,
+                             beta = tau_A_os$coefs)
+    eic_proj_reg_cv <- grad_proj(W = W,
+                                 A = A,
+                                 Y = Y,
+                                 theta = theta,
+                                 g1W = g1W,
+                                 phi_W = tau_A_reg_cv$x_basis,
+                                 beta = tau_A_reg_cv$coefs)
     eic_proj_reg <- grad_proj(W = W,
                               A = A,
                               Y = Y,
@@ -118,6 +156,26 @@ atmle_single <- function(data,
                                 beta = tau_A_relax$coefs)
   }
 
+  eic_delta_os <- get_eic_psi_tilde(
+    psi_tilde = tau_A_os,
+    g = g1W,
+    theta = theta,
+    Y = Y,
+    A = A,
+    n = n,
+    weights = rep(1, n),
+    eic_method = "svd_pseudo_inv"
+  )
+  eic_delta_reg_cv <- get_eic_psi_tilde(
+    psi_tilde = tau_A_reg_cv,
+    g = g1W,
+    theta = theta,
+    Y = Y,
+    A = A,
+    n = n,
+    weights = rep(1, n),
+    eic_method = "svd_pseudo_inv"
+  )
   eic_delta_reg <- get_eic_psi_tilde(
     psi_tilde = tau_A_reg,
     g = g1W,
@@ -139,27 +197,49 @@ atmle_single <- function(data,
     eic_method = "svd_pseudo_inv"
   )
 
+  se_proj_os <- sqrt(var(eic_proj_os, na.rm = TRUE) / n)
+  se_proj_reg_cv <- sqrt(var(eic_proj_reg_cv, na.rm = TRUE) / n)
   se_proj_reg <- sqrt(var(eic_proj_reg, na.rm = TRUE) / n)
   se_proj_relax <- sqrt(var(eic_proj_relax, na.rm = TRUE) / n)
+  se_delta_os <- sqrt(var(eic_delta_os, na.rm = TRUE) / n)
+  se_delta_reg_cv <- sqrt(var(eic_delta_reg_cv, na.rm = TRUE) / n)
   se_delta_reg <- sqrt(var(eic_delta_reg, na.rm = TRUE) / n)
   se_delta_relax <- sqrt(var(eic_delta_relax, na.rm = TRUE) / n)
+  lower_proj_os <- psi_os - 1.96 * se_proj_os
+  lower_proj_reg_cv <- psi_reg_cv - 1.96 * se_proj_reg_cv
   lower_proj_reg <- psi_reg - 1.96 * se_proj_reg
   lower_proj_relax <- psi_relax - 1.96 * se_proj_relax
+  lower_delta_os <- psi_os - 1.96 * se_delta_os
+  lower_delta_reg_cv <- psi_reg_cv - 1.96 * se_delta_reg_cv
   lower_delta_reg <- psi_reg - 1.96 * se_delta_reg
   lower_delta_relax <- psi_relax - 1.96 * se_delta_relax
+  upper_proj_os <- psi_os + 1.96 * se_proj_os
+  upper_proj_reg_cv <- psi_reg_cv + 1.96 * se_proj_reg_cv
   upper_proj_reg <- psi_reg + 1.96 * se_proj_reg
   upper_proj_relax <- psi_relax + 1.96 * se_proj_relax
+  upper_delta_os <- psi_os + 1.96 * se_delta_os
+  upper_delta_reg_cv <- psi_reg_cv + 1.96 * se_delta_reg_cv
   upper_delta_reg <- psi_reg + 1.96 * se_delta_reg
   upper_delta_relax <- psi_relax + 1.96 * se_delta_relax
 
-  return(list(psi_reg = psi_reg,
+  return(list(psi_os = psi_os,
+              psi_reg_cv = psi_reg_cv,
+              psi_reg = psi_reg,
               psi_relax = psi_relax,
+              lower_proj_os = lower_proj_os,
+              lower_proj_reg_cv = lower_proj_reg_cv,
               lower_proj_reg = lower_proj_reg,
               lower_proj_relax = lower_proj_relax,
+              lower_delta_os = lower_delta_os,
+              lower_delta_reg_cv = lower_delta_reg_cv,
               lower_delta_reg = lower_delta_reg,
               lower_delta_relax = lower_delta_relax,
+              upper_proj_os = upper_proj_os,
+              upper_proj_reg_cv = upper_proj_reg_cv,
               upper_proj_reg = upper_proj_reg,
               upper_proj_relax = upper_proj_relax,
+              upper_delta_os = upper_delta_os,
+              upper_delta_reg_cv = upper_delta_reg_cv,
               upper_delta_reg = upper_delta_reg,
               upper_delta_relax = upper_delta_relax))
 }

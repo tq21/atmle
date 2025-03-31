@@ -153,6 +153,32 @@ eic_ate <- function(QW1,
   return(W_comp + Y_comp)
 }
 
+eic_ate_wm <- function(x_basis,
+                       g1W,
+                       A,
+                       Y,
+                       theta,
+                       tau,
+                       eic_method = "svd_pseudo_inv") {
+
+  IM <- t(x_basis) %*% diag(g1W * (1 - g1W)) %*% x_basis / nrow(x_basis)
+  if (dim(x_basis)[2] == 1) {
+    IM_inv <- solve(IM)
+  } else {
+    if (eic_method == "svd_pseudo_inv") {
+      # SVD-based pseudo-inverse
+      IM_inv <- svd_pseudo_inv(IM)
+    } else if (eic_method == "diag") {
+      IM_inv <- solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+    }
+  }
+  D_beta <- as.vector(x_basis %*% IM_inv %*% colMeans(x_basis)*(A-g1W)*(Y-theta-(A-g1W)*tau))
+  W_comp <- tau - mean(tau)
+
+  return(W_comp + D_beta)
+}
+
+
 eic_psi <- function(S,
                     A,
                     Y,
