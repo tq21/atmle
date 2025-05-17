@@ -140,3 +140,24 @@ get_eic_psi_nonparametric <- function(Q, Pi, g, S, A, Y, psi_est, weights) {
   Q_comp <- (S / Pi$pred) * (A / g - (1 - A) / (1 - g)) * weights * (Y_tmp - Q$pred)
   return(W_comp + Q_comp)
 }
+
+
+get_beta_h_T <- function(x_basis,
+                         g1W,
+                         eic_method = "svd_pseudo_inv") {
+  n <- nrow(x_basis)
+  IM <- t(x_basis) %*% diag(g1W*(1-g1W)) %*% x_basis / n
+  if (dim(x_basis)[2] == 1) {
+    IM_inv <- solve(IM)
+  } else {
+    if (eic_method == "svd_pseudo_inv") {
+      # SVD-based pseudo-inverse
+      IM_inv <- svd_pseudo_inv(IM)
+    } else if (eic_method == "diag") {
+      IM_inv <- solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+    }
+  }
+  beta_h <- as.vector(colMeans(x_basis) %*% IM_inv)
+  return(beta_h)
+}
+

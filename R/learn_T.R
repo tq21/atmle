@@ -40,7 +40,11 @@ learn_T <- function(W,
                     weights,
                     enumerate_basis_args,
                     fit_hal_args,
-                    pooled_working_model_formula) {
+                    pooled_working_model_formula,
+                    target_method = "steps",
+                    dx = 0.00001,
+                    max_iter = 2000,
+                    verbose = FALSE) {
 
   # R-transformations
   pseudo_outcome <- ifelse(abs(A - g) < 1e-10, 0, (Y - theta_tilde) / (A - g))
@@ -66,16 +70,73 @@ learn_T <- function(W,
     x_basis <- as.matrix(model.matrix(cov_only_formula, data = W))
     pred <- as.numeric(x_basis %*% matrix(coefs))
   } else if (method == "glmnet") {
-    fit <- cv.glmnet(
-      x = as.matrix(W[delta == 1, ]), y = pseudo_outcome[delta == 1],
-      family = "gaussian", weights = pseudo_weights[delta == 1],
-      keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE
-    )
-    non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
-    coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
-    x_basis <- as.matrix(cbind(1, W)[, non_zero, drop = FALSE])
-    pred <- as.numeric(x_basis %*% matrix(coefs))
+    browser()
+    fit <- cv.glmnet(x = as.matrix(W[delta == 1, ]),
+                     y = pseudo_outcome[delta == 1],
+                     weights = pseudo_weights[delta == 1],
+                     family = "gaussian", keep = TRUE, nfolds = v_folds,
+                     alpha = 1)
+    non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
+    coefs <- coef(fit, s = "lambda.min")[non_zero]
+    x_basis <- as.matrix(cbind(1, W)[, non_zero, drop=FALSE])
+    if (length(non_zero) > 1) {
+      if (target_method == "relaxed") {
+        # use relaxed fit as targeted fit
+        fit <- glm(pseudo_outcome[delta == 1] ~ -1+.,
+                   family = "gaussian",
+                   data = data.frame(x_basis[delta == 1,,drop=FALSE]),
+                   weights = pseudo_weights[delta == 1])
+        coefs <- as.numeric(coef(fit))
+        na_idx <- which(is.na(coefs[-1]))
+        if (length(na_idx) > 0) {
+          coefs <- coefs[!is.na(coefs)]
+          x_basis <- x_basis[, -na_idx, drop=FALSE]
+        }
+      } else if (target_method == "steps") {
+        direction <- get_beta_h_T(x_basis = x_basis, g1W = g)
+        n <- length(Y)
+        sn <- 0
+        cur_iter <- 1
+        cate_pred <- drop(x_basis %*% coefs)
+        eic <- get_eic_psi_tilde(psi_tilde = list(x_basis = x_basis,
+                                                  pred = cate_pred),
+                                 g = g,
+                                 theta = theta_tilde,
+                                 Y = Y,
+                                 A = A,
+                                 n = n,
+                                 weights = weights)
+        PnEIC_prev <- mean(eic)
+        prev_pos <- (PnEIC_prev >= 0)
+        while (cur_iter <= max_iter && abs(PnEIC_prev) > sn) {
+          coefs <- coefs + dx * sign(PnEIC_prev) * direction
+          cate_pred <- drop(x_basis %*% coefs)
+          eic <- get_eic_psi_tilde(psi_tilde = list(x_basis = x_basis,
+                                                    pred = cate_pred),
+                                   g = g,
+                                   theta = theta_tilde,
+                                   Y = Y,
+                                   A = A,
+                                   n = n,
+                                   weights = weights)
+          PnEIC_cur <- mean(eic)
+          cur_pos <- (PnEIC_cur >= 0)
+          if (cur_pos != prev_pos) dx <- dx / 10
+          if (abs(PnEIC_cur - PnEIC_prev) < 1e-5) dx <- dx * 10
+          prev_pos  <- cur_pos
+          PnEIC_prev <- PnEIC_cur
+          sn <- 0.01 * sqrt(var(eic, na.rm = TRUE))/(sqrt(n) * log(n))
+          if (verbose) message(sprintf("iter %d: PnEIC = %g", cur_iter, PnEIC_cur))
+          cur_iter <- cur_iter + 1
+        }
+      }
+    } else {
+      coefs <- mean(pseudo_outcome[delta == 1])
+    }
+    pred <- drop(x_basis %*% coefs)
   } else if (method == "HAL") {
+
+    browser()
 
     # check arguments
     enumerate_basis_default_args <- list(
@@ -117,32 +178,68 @@ learn_T <- function(W,
 
     # non-zero bases
     non_zero <- which(as.numeric(coef(fit, s = "lambda.min"))[-1] != 0)
+    coefs <- coef(fit, s = "lambda.min")[coef(fit, s = "lambda.min") != 0]
     basis_list <- basis_list[non_zero]
-    X_hal_selected <- X_hal[, non_zero, drop = FALSE]
+    x_basis <- as.matrix(cbind(1, X_hal[, non_zero, drop = FALSE]))
 
     if (length(non_zero) > 0) {
-      # fit relaxed HAL
-      fit <- glm(pseudo_outcome[delta == 1] ~ .,
-                 family = "gaussian",
-                 data = data.frame(as.matrix(X_hal_selected)),
-                 weights = pseudo_weights[delta == 1])
-      coefs <- as.numeric(coef(fit))
-      na_idx <- which(is.na(coefs[-1]))
-      if (length(na_idx) > 0) {
-        coefs <- coefs[!is.na(coefs)]
-        basis_list <- basis_list[-na_idx]
-        X_hal_selected <- X_hal_selected[, -na_idx, drop = FALSE]
+      if (target_method == "relaxed") {
+        # fit relaxed HAL
+        relaxed_fit <- glm(pseudo_outcome[delta == 1] ~ -1+.,
+                           family = "gaussian",
+                           data = data.frame(x_basis),
+                           weights = pseudo_weights[delta == 1])
+        coefs <- as.numeric(coef(relaxed_fit))
+        na_idx <- which(is.na(coefs))
+        if (length(na_idx) > 0) {
+          coefs <- coefs[!is.na(coefs)]
+          basis_list <- basis_list[-(na_idx-1)]
+          x_basis <- x_basis[, -na_idx, drop = FALSE]
+        }
+      } else if (target_method == "steps") {
+        browser()
+        direction <- get_beta_h_T(x_basis = x_basis, g1W = g)
+        n <- length(Y)
+        sn <- 0
+        cur_iter <- 1
+        cate_pred <- drop(x_basis %*% coefs)
+        eic <- get_eic_psi_tilde(psi_tilde = list(x_basis = x_basis,
+                                                  pred = cate_pred),
+                                 g = g,
+                                 theta = theta_tilde,
+                                 Y = Y,
+                                 A = A,
+                                 n = n,
+                                 weights = weights)
+        PnEIC_prev <- mean(eic)
+        prev_pos <- (PnEIC_prev >= 0)
+        while (cur_iter <= max_iter && abs(PnEIC_prev) > sn) {
+          coefs <- coefs + dx * sign(PnEIC_prev) * direction
+          cate_pred <- drop(x_basis %*% coefs)
+          eic <- get_eic_psi_tilde(psi_tilde = list(x_basis = x_basis,
+                                                    pred = cate_pred),
+                                   g = g,
+                                   theta = theta_tilde,
+                                   Y = Y,
+                                   A = A,
+                                   n = n,
+                                   weights = weights)
+          PnEIC_cur <- mean(eic)
+          cur_pos <- (PnEIC_cur >= 0)
+          if (cur_pos != prev_pos) dx <- dx / 10
+          if (abs(PnEIC_cur - PnEIC_prev) < 1e-6) dx <- dx * 10
+          prev_pos  <- cur_pos
+          PnEIC_prev <- PnEIC_cur
+          sn <- 0.01 * sqrt(var(eic, na.rm = TRUE))/(sqrt(n) * log(n))
+          if (verbose) message(sprintf("iter %d: PnEIC = %g", cur_iter, PnEIC_cur))
+          cur_iter <- cur_iter + 1
+        }
+        browser()
       }
     } else {
       coefs <- mean(pseudo_outcome[delta == 1])
     }
-
-    x_basis <- make_counter_design_matrix(
-      basis_list = basis_list,
-      X_counterfactual = as.matrix(X),
-      X_unpenalized = NULL
-    )
-    pred <- as.numeric(x_basis %*% matrix(coefs))
+    pred <- drop(x_basis %*% coefs)
   }
 
   return(list(
