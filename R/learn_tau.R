@@ -56,7 +56,11 @@ learn_tau <- function(S,
                       enumerate_basis_args,
                       fit_hal_args,
                       weights,
-                      bias_working_model_formula) {
+                      bias_working_model_formula,
+                      target_method = "relaxed",
+                      dx = 0.00001,
+                      max_iter = 2000,
+                      verbose = TRUE) {
 
   pred <- NULL
   A1 <- numeric(length = length(A))
@@ -161,41 +165,167 @@ learn_tau <- function(S,
 
   } else if (method == "glmnet") {
     if (controls_only) {
-      fit <- cv.glmnet(
-        x = as.matrix(X[delta[A == 0] == 1, , drop = FALSE]),
-        y = pseudo_outcome[delta[A == 0] == 1], intercept = TRUE,
-        family = "gaussian", weights = pseudo_weights[delta[A == 0] == 1],
-        keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE
-      )
-    } else {
-      fit <- cv.glmnet(
-        x = as.matrix(X[delta == 1, , drop = FALSE]),
-        y = pseudo_outcome[delta == 1], intercept = TRUE,
-        family = "gaussian", weights = pseudo_weights[delta == 1],
-        keep = TRUE, nfolds = v_folds, alpha = 1, relax = TRUE
-      )
-    }
-
-    non_zero <- which(as.numeric(coef(fit, s = "lambda.min", gamma = 0)) != 0)
-    coefs <- coef(fit, s = "lambda.min", gamma = 0)[non_zero]
-
-    if (controls_only) {
-      # selected counterfactual bases
+      # TODO: check
+      fit <- cv.glmnet(x = as.matrix(X[delta[A == 0] == 1, , drop = FALSE]),
+                       y = pseudo_outcome[delta[A == 0] == 1],
+                       weights = pseudo_weights[delta[A == 0] == 1],
+                       family = "gaussian", keep = TRUE, nfolds = v_folds,
+                       alpha = 1)
+      non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
+      coefs <- coef(fit, s = "lambda.min")[non_zero]
       x_basis <- x_basis_A0 <- as.matrix(cbind(1, W_aug)[, non_zero, drop = FALSE])
+      X_select <- as.matrix(cbind(1, X)[delta[A == 0] == 1, non_zero, drop = FALSE])
 
-      # predictions
-      pred <- A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
+      # targeting
+      if (length(non_zero) > 1) {
+        if (target_method == "relaxed") {
+          # use relaxed fit as targeted fit
+          relaxed_fit <- glm(pseudo_outcome[delta[A == 0] == 1] ~ -1+.,
+                             family = "gaussian",
+                             data = data.frame(X_select[delta[A == 0] == 1,,drop=FALSE]),
+                             weights = pseudo_weights[delta[A == 0] == 1])
+          coefs <- as.numeric(coef(relaxed_fit))
+          na_idx <- which(is.na(coefs))
+          if (length(na_idx) > 0) {
+            coefs <- coefs[!is.na(coefs)]
+            x_basis <- x_basis[, -na_idx, drop=FALSE]
+          }
+          A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
+          psi_pound_est <- mean((1-Pi$A0)*A0)
+          eic <- get_eic_psi_pound(Pi = Pi,
+                                   tau = list(A0 = A0,
+                                              x_basis = x_basis,
+                                              x_basis_A0 = x_basis_A0),
+                                   g = g,
+                                   theta = theta,
+                                   psi_pound_est = psi_pound_est,
+                                   S = S,
+                                   A = A,
+                                   Y = Y,
+                                   n = length(Y),
+                                   controls_only = controls_only,
+                                   weights = weights)
+        } else if (target_method == "onestep") {
+          # TODO
+        }
+      } else {
+        coefs <- mean(pseudo_outcome[delta == 1])
+      }
     } else {
-      # selected counterfactual bases
+      fit <- cv.glmnet(x = as.matrix(X[delta == 1, , drop = FALSE]),
+                       y = pseudo_outcome[delta == 1],
+                       weights = pseudo_weights[delta == 1],
+                       family = "gaussian", keep = TRUE, nfolds = v_folds,
+                       alpha = 1)
+      non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
+      coefs <- coef(fit, s = "lambda.min")[non_zero]
       x_basis <- as.matrix(cbind(1, X)[, non_zero, drop = FALSE])
-      x_basis_A1 <- as.matrix(X_A1_counter[, non_zero, drop = FALSE])
       x_basis_A0 <- as.matrix(X_A0_counter[, non_zero, drop = FALSE])
+      x_basis_A1 <- as.matrix(X_A1_counter[, non_zero, drop = FALSE])
 
-      # predictions
-      A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
-      A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
-      pred[A == 1] <- A1[A == 1]
-      pred[A == 0] <- A0[A == 0]
+      # targeting
+      if (length(non_zero) > 1) {
+        if (target_method == "relaxed") {
+          # use relaxed fit as targeted fit
+          relaxed_fit <- glm(pseudo_outcome[delta == 1] ~ -1+.,
+                             family = "gaussian",
+                             data = data.frame(x_basis[delta == 1,,drop=FALSE]),
+                             weights = pseudo_weights[delta == 1])
+          coefs <- as.numeric(coef(relaxed_fit))
+          na_idx <- which(is.na(coefs))
+          if (length(na_idx) > 0) {
+            coefs <- coefs[!is.na(coefs)]
+            x_basis <- x_basis[, -na_idx, drop=FALSE]
+            x_basis_A1 <- x_basis_A1[, -na_idx, drop=FALSE]
+            x_basis_A0 <- x_basis_A0[, -na_idx, drop=FALSE]
+          }
+          A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
+          A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
+          pred <- as.numeric(x_basis %*% matrix(coefs))
+          psi_pound_est <- mean((1-Pi$A0)*A0-(1-Pi$A1)*A1)
+          eic <- get_eic_psi_pound(Pi = Pi,
+                                   tau = list(pred = pred,
+                                              A0 = A0,
+                                              A1 = A1,
+                                              x_basis = x_basis,
+                                              x_basis_A0 = x_basis_A0,
+                                              x_basis_A1 = x_basis_A1),
+                                   g = g,
+                                   theta = theta,
+                                   psi_pound_est = psi_pound_est,
+                                   S = S,
+                                   A = A,
+                                   Y = Y,
+                                   n = length(Y),
+                                   controls_only = controls_only,
+                                   weights = weights)
+        } else if (target_method == "onestep") {
+          # TODO: closed-form
+          direction <- get_beta_h(x_basis = x_basis,
+                                  x_basis_A0 = x_basis_A0,
+                                  x_basis_A1 = x_basis_A1,
+                                  Pi = Pi)
+          n <- length(Y)
+          sn <- 0
+          cur_iter <- 1
+          A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
+          A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
+          pred <- as.numeric(x_basis %*% matrix(coefs))
+          psi_pound_est <- mean((1-Pi$A0)*A0-(1-Pi$A1)*A1)
+          eic <- get_eic_psi_pound(Pi = Pi,
+                                   tau = list(pred = pred,
+                                              A0 = A0,
+                                              A1 = A1,
+                                              x_basis = x_basis,
+                                              x_basis_A0 = x_basis_A0,
+                                              x_basis_A1 = x_basis_A1),
+                                   g = g,
+                                   theta = theta,
+                                   psi_pound_est = psi_pound_est,
+                                   S = S,
+                                   A = A,
+                                   Y = Y,
+                                   n = length(Y),
+                                   controls_only = controls_only,
+                                   weights = weights)
+          PnEIC_prev <- mean(eic)
+          prev_pos <- (PnEIC_prev >= 0)
+          while (cur_iter <= max_iter && abs(PnEIC_prev) > sn) {
+            coefs <- coefs + dx * sign(PnEIC_prev) * direction
+            A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
+            A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
+            pred <- as.numeric(x_basis %*% matrix(coefs))
+            psi_pound_est <- mean((1-Pi$A0)*A0-(1-Pi$A1)*A1)
+            eic <- get_eic_psi_pound(Pi = Pi,
+                                     tau = list(pred = pred,
+                                                A0 = A0,
+                                                A1 = A1,
+                                                x_basis = x_basis,
+                                                x_basis_A0 = x_basis_A0,
+                                                x_basis_A1 = x_basis_A1),
+                                     g = g,
+                                     theta = theta,
+                                     psi_pound_est = psi_pound_est,
+                                     S = S,
+                                     A = A,
+                                     Y = Y,
+                                     n = length(Y),
+                                     controls_only = controls_only,
+                                     weights = weights)
+            PnEIC_cur <- mean(eic)
+            cur_pos <- (PnEIC_cur >= 0)
+            if (cur_pos != prev_pos) dx <- dx / 10
+            if (abs(PnEIC_cur - PnEIC_prev) < 1e-6) dx <- dx * 10
+            prev_pos  <- cur_pos
+            PnEIC_prev <- PnEIC_cur
+            sn <- 0.01 * sqrt(var(eic, na.rm = TRUE))/(sqrt(n) * log(n))
+            if (verbose) message(sprintf("iter %d: PnEIC = %g", cur_iter, PnEIC_cur))
+            cur_iter <- cur_iter + 1
+          }
+        }
+      } else {
+        coefs <- mean(pseudo_outcome[delta == 1])
+      }
     }
   } else if (method == "HAL") {
 
@@ -318,6 +448,7 @@ learn_tau <- function(S,
     pseudo_weights = pseudo_weights,
     x_basis_all = as.matrix(cbind(1, X)),
     x_basis_A1_all = as.matrix(X_A1_counter),
-    x_basis_A0_all = as.matrix(X_A0_counter)
+    x_basis_A0_all = as.matrix(X_A0_counter),
+    eic = eic
   ))
 }

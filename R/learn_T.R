@@ -41,7 +41,7 @@ learn_T <- function(W,
                     enumerate_basis_args,
                     fit_hal_args,
                     pooled_working_model_formula,
-                    target_method = "steps",
+                    target_method = "relaxed",
                     dx = 0.00001,
                     max_iter = 2000,
                     verbose = FALSE) {
@@ -70,7 +70,6 @@ learn_T <- function(W,
     x_basis <- as.matrix(model.matrix(cov_only_formula, data = W))
     pred <- as.numeric(x_basis %*% matrix(coefs))
   } else if (method == "glmnet") {
-    browser()
     fit <- cv.glmnet(x = as.matrix(W[delta == 1, ]),
                      y = pseudo_outcome[delta == 1],
                      weights = pseudo_weights[delta == 1],
@@ -87,12 +86,13 @@ learn_T <- function(W,
                    data = data.frame(x_basis[delta == 1,,drop=FALSE]),
                    weights = pseudo_weights[delta == 1])
         coefs <- as.numeric(coef(fit))
-        na_idx <- which(is.na(coefs[-1]))
+        na_idx <- which(is.na(coefs))
         if (length(na_idx) > 0) {
           coefs <- coefs[!is.na(coefs)]
           x_basis <- x_basis[, -na_idx, drop=FALSE]
         }
-      } else if (target_method == "steps") {
+      } else if (target_method == "onestep") {
+        # TODO: closed-form
         direction <- get_beta_h_T(x_basis = x_basis, g1W = g)
         n <- length(Y)
         sn <- 0
@@ -135,8 +135,6 @@ learn_T <- function(W,
     }
     pred <- drop(x_basis %*% coefs)
   } else if (method == "HAL") {
-
-    browser()
 
     # check arguments
     enumerate_basis_default_args <- list(
@@ -197,7 +195,6 @@ learn_T <- function(W,
           x_basis <- x_basis[, -na_idx, drop = FALSE]
         }
       } else if (target_method == "steps") {
-        browser()
         direction <- get_beta_h_T(x_basis = x_basis, g1W = g)
         n <- length(Y)
         sn <- 0
@@ -234,7 +231,6 @@ learn_T <- function(W,
           if (verbose) message(sprintf("iter %d: PnEIC = %g", cur_iter, PnEIC_cur))
           cur_iter <- cur_iter + 1
         }
-        browser()
       }
     } else {
       coefs <- mean(pseudo_outcome[delta == 1])

@@ -19,6 +19,71 @@
 #' @param weights A vector of (e.g. inverse-censoring) weights.
 #'
 #' @return A vector of efficient influence function values.
+# get_eic_psi_pound <- function(Pi,
+#                               tau,
+#                               g,
+#                               theta,
+#                               psi_pound_est,
+#                               S,
+#                               A,
+#                               Y,
+#                               n,
+#                               controls_only,
+#                               weights,
+#                               eic_method = "svd_pseudo_inv") {
+#
+#   Y_tmp <- Y
+#   Y_tmp[is.na(Y)] <- 0
+#
+#   if (controls_only) {
+#     W_comp <- (1 - Pi$A0) * tau$A0 - psi_pound_est
+#     Pi_comp <- -1 / (1 - g) * tau$A0 * (S - Pi$pred)
+#     IM <- t(tau$x_basis) %*% diag(Pi$pred * (1 - Pi$pred)) %*% tau$x_basis / n
+#     if (dim(tau$x_basis)[2] == 1) {
+#       IM_inv <- solve(IM)
+#     } else {
+#       if (eic_method == "svd_pseudo_inv") {
+#         # SVD-based pseudo-inverse
+#         IM_inv <- svd_pseudo_inv(IM)
+#       } else if (eic_method == "diag") {
+#         IM_inv <- solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+#       }
+#     }
+#     IM_A0 <- IM_inv %*% colMeans(tau$x_basis_A0 * (1 - Pi$A0))
+#     beta_comp <- as.numeric(tau$x_basis %*% IM_A0) *
+#       (S - Pi$pred) *
+#       (Y_tmp - theta - (S - Pi$pred) * tau$A0) *
+#       weights
+#   } else {
+#     W_comp <- (1 - Pi$A0) * tau$A0 - (1 - Pi$A1) * tau$A1 - psi_pound_est
+#     Pi_comp <- (A / g * tau$A1 - (1 - A) / (1 - g) * tau$A0) * (S - Pi$pred)
+#     IM <- t(tau$x_basis) %*% diag(Pi$pred * (1 - Pi$pred)) %*% tau$x_basis / n
+#     if (dim(tau$x_basis)[2] == 1) {
+#       IM_inv <- solve(IM)
+#     } else {
+#       if (eic_method == "svd_pseudo_inv") {
+#         # SVD-based pseudo-inverse
+#         IM_inv <- svd_pseudo_inv(IM)
+#       } else if (eic_method == "diag") {
+#         IM_inv <- solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+#       }
+#     }
+#     D_mat <- tau$x_basis %*% IM_inv *
+#       (S - Pi$pred) *
+#       (Y_tmp - theta - (S - Pi$pred) * tau$pred) *
+#       weights
+#     if (ncol(D_mat) > 1) {
+#       beta_comp <- (rowSums(D_mat %*% diag(colMeans((1 - Pi$A0) * tau$x_basis_A0))) -
+#                       rowSums(D_mat %*% diag(colMeans((1 - Pi$A1) * tau$x_basis_A1))))
+#     } else {
+#       beta_comp <- (rowSums(D_mat * colMeans((1 - Pi$A0) * tau$x_basis_A0)) -
+#                       rowSums(D_mat * colMeans((1 - Pi$A1) * tau$x_basis_A1)))
+#     }
+#   }
+#
+#   return(W_comp + Pi_comp + beta_comp)
+# }
+
 get_eic_psi_pound <- function(Pi,
                               tau,
                               g,
@@ -29,59 +94,34 @@ get_eic_psi_pound <- function(Pi,
                               Y,
                               n,
                               controls_only,
-                              weights,
-                              eic_method = "svd_pseudo_inv") {
+                              weights) {
+  W_comp <- NULL # W-component of the EIC
+  Pi_comp <- NULL # Pi-component of the EIC
+  beta_comp <- NULL # beta-component of the EIC
+
   Y_tmp <- Y
   Y_tmp[is.na(Y)] <- 0
 
   if (controls_only) {
     W_comp <- (1 - Pi$A0) * tau$A0 - psi_pound_est
     Pi_comp <- -1 / (1 - g) * tau$A0 * (S - Pi$pred)
-    IM <- t(tau$x_basis) %*% diag(Pi$pred * (1 - Pi$pred)) %*% tau$x_basis / n
-    if (dim(tau$x_basis)[2] == 1) {
-      IM_inv <- solve(IM)
-    } else {
-      if (eic_method == "svd_pseudo_inv") {
-        # SVD-based pseudo-inverse
-        IM_inv <- svd_pseudo_inv(IM)
-      } else if (eic_method == "diag") {
-        IM_inv <- solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
-      }
-    }
-    IM_A0 <- IM_inv %*% colMeans(tau$x_basis_A0 * (1 - Pi$A0))
-    beta_comp <- as.numeric(tau$x_basis %*% IM_A0) *
-      (S - Pi$pred) *
-      (Y_tmp - theta - (S - Pi$pred) * tau$A0) *
-      weights
+    IM <- solve(t(tau$x_basis) %*% diag((Pi$pred * (1 - Pi$pred))) %*% tau$x_basis / n)
+    IM_A0 <- IM %*% colMeans(tau$x_basis_A0 * (1 - Pi$A0))
+    beta_comp <- as.numeric(tau$x_basis %*% IM_A0) * (S - Pi$pred) * (Y_tmp - theta - (S - Pi$pred) * tau$A0) * weights
   } else {
     W_comp <- (1 - Pi$A0) * tau$A0 - (1 - Pi$A1) * tau$A1 - psi_pound_est
     Pi_comp <- (A / g * tau$A1 - (1 - A) / (1 - g) * tau$A0) * (S - Pi$pred)
-    IM <- t(tau$x_basis) %*% diag(Pi$pred * (1 - Pi$pred)) %*% tau$x_basis / n
-    if (dim(tau$x_basis)[2] == 1) {
-      IM_inv <- solve(IM)
+    IM <- t(tau$x_basis) %*% diag((Pi$pred * (1 - Pi$pred))) %*% tau$x_basis / n
+    D <- tau$x_basis %*% solve(IM) * (S - Pi$pred) * (Y_tmp - theta - (S - Pi$pred) * tau$pred) * weights
+    beta_comp <- NULL
+    if (ncol(D) > 1) {
+      beta_comp <- (rowSums(D %*% diag(colMeans((1 - Pi$A0) * tau$x_basis_A0))) - rowSums(D %*% diag(colMeans((1 - Pi$A1) * tau$x_basis_A1))))
     } else {
-      if (eic_method == "svd_pseudo_inv") {
-        # SVD-based pseudo-inverse
-        IM_inv <- svd_pseudo_inv(IM)
-      } else if (eic_method == "diag") {
-        IM_inv <- solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
-      }
-    }
-    D_mat <- tau$x_basis %*% IM_inv *
-      (S - Pi$pred) *
-      (Y_tmp - theta - (S - Pi$pred) * tau$pred) *
-      weights
-    if (ncol(D_mat) > 1) {
-      beta_comp <- (rowSums(D_mat %*% diag(colMeans((1 - Pi$A0) * tau$x_basis_A0))) -
-                      rowSums(D_mat %*% diag(colMeans((1 - Pi$A1) * tau$x_basis_A1))))
-    } else {
-      beta_comp <- (rowSums(D_mat * colMeans((1 - Pi$A0) * tau$x_basis_A0)) -
-                      rowSums(D_mat * colMeans((1 - Pi$A1) * tau$x_basis_A1)))
+      beta_comp <- (rowSums(D * colMeans((1 - Pi$A0) * tau$x_basis_A0)) - rowSums(D * colMeans((1 - Pi$A1) * tau$x_basis_A1)))
     }
   }
-
-  return(W_comp + Pi_comp + beta_comp)
 }
+
 
 #' @title Efficient influence function for the pooled-ATE projection parameter
 #' @description Computes the efficient influence function for the pooled-ATE
@@ -141,7 +181,6 @@ get_eic_psi_nonparametric <- function(Q, Pi, g, S, A, Y, psi_est, weights) {
   return(W_comp + Q_comp)
 }
 
-
 get_beta_h_T <- function(x_basis,
                          g1W,
                          eic_method = "svd_pseudo_inv") {
@@ -160,4 +199,28 @@ get_beta_h_T <- function(x_basis,
   beta_h <- as.vector(colMeans(x_basis) %*% IM_inv)
   return(beta_h)
 }
+
+get_beta_h <- function(x_basis,
+                       x_basis_A0,
+                       x_basis_A1,
+                       Pi,
+                       eic_method = "svd_pseudo_inv") {
+
+  n <- nrow(x_basis)
+  IM <- t(x_basis) %*% diag((Pi$pred * (1 - Pi$pred))) %*% x_basis / n
+  if (dim(x_basis)[2] == 1) {
+    IM_inv <- solve(IM)
+  } else {
+    if (eic_method == "svd_pseudo_inv") {
+      # SVD-based pseudo-inverse
+      IM_inv <- svd_pseudo_inv(IM)
+    } else if (eic_method == "diag") {
+      IM_inv <- solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+    }
+  }
+  beta_h <- as.vector(colMeans(x_basis_A0*(1-Pi$A0)-x_basis_A1*(1-Pi$A1)) %*% IM_inv)
+  return(beta_h)
+}
+
+
 
