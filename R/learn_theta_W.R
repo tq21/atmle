@@ -36,6 +36,7 @@
 learn_theta_W <- function(W,
                           Y,
                           delta,
+                          weights,
                           method,
                           folds,
                           family,
@@ -65,7 +66,7 @@ learn_theta_W <- function(W,
         Lrnr_cv_selector$new(loss_squared_error)
       )
       task_train <- sl3_Task$new(
-        data = data.table(W, Y = Y)[delta == 1],
+        data = data.table(W, Y = Y)[delta == 1], weights = weights[delta == 1],
         covariates = colnames(W), outcome = "Y", outcome_type = "continuous"
       )
       Y_tmp <- Y
@@ -80,7 +81,7 @@ learn_theta_W <- function(W,
         Lrnr_cv_selector$new(loss_loglik_binomial)
       )
       task_train <- sl3_Task$new(
-        data = data.table(W, Y = Y)[delta == 1],
+        data = data.table(W, Y = Y)[delta == 1], weights = weights[delta == 1],
         covariates = colnames(W), outcome = "Y", outcome_type = "binomial"
       )
       Y_tmp <- Y
@@ -103,6 +104,7 @@ learn_theta_W <- function(W,
         valid_idx <- .x$validation_set
         fit <- glm(Y[train_idx][delta[train_idx] == 1] ~ .,
           data = X[train_idx, ][delta[train_idx] == 1, ],
+          weights = weights[train_idx][delta[train_idx] == 1],
           family = family
         )
         pred[valid_idx] <<- .bound(as.numeric(predict(
@@ -112,7 +114,9 @@ learn_theta_W <- function(W,
       })
     } else {
       # no cross fit
-      fit <- glm(Y[delta == 1] ~ ., data = X[delta == 1, ], family = family)
+      fit <- glm(Y[delta == 1] ~ ., data = X[delta == 1, ],
+                 weights = weights[delta == 1],
+                 family = family)
       pred <- .bound(
         as.numeric(predict(fit, newdata = X, type = "response")),
         theta_bounds
@@ -129,7 +133,8 @@ learn_theta_W <- function(W,
         fit <- cv.glmnet(
           x = X[train_idx, ][delta[train_idx] == 1, ],
           y = Y[train_idx][delta[train_idx] == 1], keep = TRUE,
-          alpha = 1, nfolds = length(folds), family = family
+          alpha = 1, nfolds = length(folds), family = family,
+          weights = weights[train_idx][delta[train_idx] == 1]
         )
         pred[valid_idx] <<- .bound(as.numeric(predict(
           fit,
@@ -140,7 +145,8 @@ learn_theta_W <- function(W,
       # no cross fit
       fit <- cv.glmnet(
         x = X[delta == 1, ], y = Y[delta == 1], keep = TRUE,
-        alpha = 1, nfolds = length(folds), family = family
+        alpha = 1, nfolds = length(folds), family = family,
+        weights = weights[delta == 1]
       )
       pred <- .bound(as.numeric(predict(
         fit,

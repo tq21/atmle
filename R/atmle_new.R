@@ -208,36 +208,6 @@ atmle_new <- function(data,
   }))
   foldid <- foldid[idx]
 
-  # estimate bias psi_pound ----------------------------------------------------
-  # learn nuisance parts
-  if (verbose) cat("learning \U03B8(W,A)=E(Y|W,A)...")
-  theta_WA <- learn_theta_W(W = as.matrix(cbind(W, A=A)),
-                            Y = Y,
-                            delta = delta,
-                            method = theta_tilde_method,
-                            folds = folds,
-                            family = family,
-                            theta_bounds = theta_bounds,
-                            cross_fit_nuisance = cross_fit_nuisance)
-  if (verbose) cat("Done!\n")
-
-  if (verbose) cat("learning g(1|W)=P(A=1|W)...")
-  g1W <- learn_g(S = S,
-                 W = W,
-                 A = A,
-                 method = g_method,
-                 controls_only = controls_only,
-                 folds = folds,
-                 g_bounds = g_bounds,
-                 cross_fit_nuisance = cross_fit_nuisance)
-  if (verbose) cat("Done!\n")
-
-  if (verbose) cat("learning \U03A0(S=1|W,A)=P(S=1|W,A)...")
-  Pi <- learn_Pi(g = g1W,
-                 A = A,
-                 Pi_bounds = Pi_bounds)
-  if (verbose) cat("Done!\n")
-
   if (sum(delta) < n) {
     # outcome has missing
     if (verbose) cat("learning g(\U0394=1|S,W,A)=P(\U0394=1|S,W,A)...")
@@ -268,6 +238,39 @@ atmle_new <- function(data,
   # censoring weights
   weights <- delta/g_delta$pred
   weights_tilde <- delta/g_delta_tilde$pred
+
+  # estimate bias psi_pound ----------------------------------------------------
+  # learn nuisance parts
+  if (verbose) cat("learning \U03B8(W,A)=E(Y|W,A)...")
+  theta_WA <- learn_theta_W(W = as.matrix(cbind(W, A=A)),
+                            Y = Y,
+                            delta = delta,
+                            weights = weights,
+                            method = theta_tilde_method,
+                            folds = folds,
+                            family = family,
+                            theta_bounds = theta_bounds,
+                            cross_fit_nuisance = cross_fit_nuisance)
+  if (verbose) cat("Done!\n")
+
+  if (verbose) cat("learning g(1|W)=P(A=1|W)...")
+  g1W <- learn_g(S = S,
+                 W = W,
+                 A = A,
+                 method = g_method,
+                 controls_only = controls_only,
+                 folds = folds,
+                 g_bounds = g_bounds,
+                 cross_fit_nuisance = cross_fit_nuisance)
+  if (verbose) cat("Done!\n")
+
+  if (verbose) cat("learning \U03A0(S=1|W,A)=P(S=1|W,A)...")
+  Pi <- learn_Pi(g = g1W,
+                 A = A,
+                 Pi_bounds = Pi_bounds)
+  if (verbose) cat("Done!\n")
+
+
 
   # learn working model tau for bias
   if (verbose) cat("learning \U03C4(W,A)=E(Y|S=1,W,A)-E(Y|S=0,W,A)...")
@@ -302,6 +305,7 @@ atmle_new <- function(data,
                               W = W,
                               A = A,
                               Y = Y,
+                              delta = delta,
                               g1W = g1W$pred,
                               Pi = Pi,
                               theta_WA = theta_WA,
@@ -364,6 +368,7 @@ atmle_new <- function(data,
   theta_W <- learn_theta_W(W = W,
                            Y = Y,
                            delta = delta,
+                           weights = weights_tilde,
                            method = theta_tilde_method,
                            folds = folds,
                            family = family,

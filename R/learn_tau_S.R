@@ -269,9 +269,9 @@ learn_tau_S <- function(S,
                   A = S[delta == 1],
                   Y = Y[delta == 1],,
                   g1W = Pi$pred[delta == 1],
-                  theta = theta_WA,
-                  foldid = foldid,
-                  weights = weights,
+                  theta = theta_WA[delta == 1],
+                  foldid = foldid[delta == 1],
+                  weights = weights[delta == 1],
                   enumerate_basis_args = enumerate_basis_args,
                   use_weight = TRUE) # much faster, no need to compute (S-Pi)*phi_WA
 

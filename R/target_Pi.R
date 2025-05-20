@@ -30,6 +30,7 @@ target_Pi <- function(S,
                       W,
                       A,
                       Y,
+                      delta,
                       g1W,
                       Pi,
                       theta_WA,
@@ -94,8 +95,8 @@ target_Pi <- function(S,
   }
 
   # update relevant parts of tau_S
-  tau_S$pseudo_outcome <- ifelse(abs(S-Pi_star$pred) < 1e-10, 0, (Y-theta_WA)/(S-Pi_star$pred))
-  tau_S$pseudo_weights <- (S-Pi_star$pred)^2*weights
+  tau_S$pseudo_outcome <- ifelse(abs(S[delta == 1]-Pi_star$pred[delta == 1]) < 1e-10, 0, (Y[delta == 1]-theta_WA[delta == 1])/(S[delta == 1]-Pi_star$pred[delta == 1]))
+  tau_S$pseudo_weights <- (S[delta == 1]-Pi_star$pred[delta == 1])^2*weights[delta == 1]
 
   return(list(Pi = Pi_star,
               tau_S = tau_S))

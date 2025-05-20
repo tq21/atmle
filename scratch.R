@@ -32,13 +32,18 @@ sim_data <- function(ate,
 
   # bias term for RWD data
   if (bias == "a") {
-    b <- 0.2+0.1*W1*(1-A)
+    #b <- 0.2+0.1*W1*(1-A)
+    b <- 0.2+1*W1*(1-A)
   } else if (bias == "b") {
     b <- 0.5+3.1*W1*(1-A)+0.8*W3
   }
 
+  obs_prob <- plogis(2)#plogis(2+0.5*W1)
+  delta <- rbinom(n, 1, obs_prob)
+
   # outcome
   Y <- 2.5+0.9*W1+1.1*W2+2.7*W3+ate*A+UY+(1-S)*b
+  #Y[delta == 0] <- NA
 
   # data frames combining RCT and RWD
   data <- data.frame(S = S,
@@ -51,19 +56,19 @@ sim_data <- function(ate,
   return(data)
 }
 
-controls_only <- TRUE
+controls_only <- FALSE
 
 data_rct <- sim_data(ate = 1.5,
-                     n = 1000,
+                     n = 10000,
                      rct = TRUE,
                      g_rct = 0.67,
-                     bias = "b",
+                     bias = "a",
                      controls_only = controls_only)
 data_rwd <- sim_data(ate = 1.5,
-                     n = 5000,
+                     n = 10000,
                      rct = FALSE,
                      g_rct = 0.67,
-                     bias = "b",
+                     bias = "a",
                      controls_only = controls_only)
 data <- rbind(data_rct, data_rwd)
 
@@ -89,14 +94,17 @@ res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
                           family = "gaussian",
                           Q.SL.library = c("SL.glm"),
                           g.SL.library = c("SL.glm"),
+                          d.SL.library.RCT = c("SL.glm"),
+                          d.SL.library.RWD = c("SL.glm"),
                           Q.discreteSL = TRUE,
                           g.discreteSL = TRUE,
+                          d.discreteSL = TRUE,
                           V = 5)
 
 res$upper-res$lower
 as.numeric(res_escvtmle$CI$b2v[2]-res_escvtmle$CI$b2v[1])
-print(mean(res$eic))
-
+res$est
+res_escvtmle
 
 library(devtools)
 load_all()
