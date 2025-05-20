@@ -51,19 +51,19 @@ sim_data <- function(ate,
   return(data)
 }
 
-controls_only <- FALSE
+controls_only <- TRUE
 
 data_rct <- sim_data(ate = 1.5,
-                     n = 300,
+                     n = 1000,
                      rct = TRUE,
                      g_rct = 0.67,
-                     bias = "a",
+                     bias = "b",
                      controls_only = controls_only)
 data_rwd <- sim_data(ate = 1.5,
-                     n = 2000,
+                     n = 5000,
                      rct = FALSE,
                      g_rct = 0.67,
-                     bias = "a",
+                     bias = "b",
                      controls_only = controls_only)
 data <- rbind(data_rct, data_rwd)
 
@@ -74,6 +74,7 @@ res <- atmle_new(data = data,
                  Y = "Y",
                  controls_only = controls_only,
                  family = "gaussian",
+                 target_gwt = TRUE,
                  verbose = FALSE,
                  browse = FALSE)
 

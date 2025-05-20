@@ -58,42 +58,6 @@ learn_tau_S <- function(S,
                         bias_working_model_formula,
                         verbose = TRUE) {
 
-  if (controls_only) {
-    pred <- numeric(length = length(A))
-
-    # R-transformations, only controls
-    pseudo_outcome <- (Y[A == 0] - theta_WA[A == 0]) / (S[A == 0] - Pi$pred[A == 0])
-    pseudo_weights <- (S[A == 0] - Pi$pred[A == 0])^2 * weights[A == 0]
-
-    # augment design matrix if needed
-    if (max_degree > 1) {
-      W_aug <- model.matrix(as.formula(paste0("~ -1+(.)^", max_degree)), data = W)
-    } else {
-      W_aug <- W
-    }
-
-    # design matrix
-    X <- W_aug[A == 0, ]
-
-    # counterfactual design matrices
-    X_A1_counter <- X_A0_counter <- cbind(1, W_aug)
-  } else {
-    pred <- numeric(length = length(A))
-
-    # R-transformations
-    pseudo_outcome <- (Y - theta_WA) / (S - Pi$pred)
-    pseudo_weights <- (S - Pi$pred)^2 * weights
-
-    W_aug <- W
-
-    # design matrix
-    X <- data.frame(W_aug, A, W_aug * A)
-
-    # counterfactual design matrices
-    X_A1_counter <- data.frame(1, W_aug, 1, W_aug)
-    X_A0_counter <- data.frame(1, W_aug, 0, W_aug * 0)
-  }
-
   if (!is.null(bias_working_model_formula)) {
     cov_only_formula <- as.formula(paste0("~ ", bias_working_model_formula))
     cov_only_no_intercept_formula <- as.formula(paste0("~ ", bias_working_model_formula, " - 1"))

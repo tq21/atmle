@@ -211,16 +211,14 @@ atmle_new <- function(data,
   # estimate bias psi_pound ----------------------------------------------------
   # learn nuisance parts
   if (verbose) cat("learning \U03B8(W,A)=E(Y|W,A)...")
-  theta_WA <- learn_theta_WA(W = W,
-                             A = A,
-                             Y = Y,
-                             delta = delta,
-                             controls_only = controls_only,
-                             method = theta_method,
-                             folds = folds,
-                             family = family,
-                             theta_bounds = theta_bounds,
-                             cross_fit_nuisance = cross_fit_nuisance)
+  theta_WA <- learn_theta_W(W = as.matrix(cbind(W, A=A)),
+                            Y = Y,
+                            delta = delta,
+                            method = theta_tilde_method,
+                            folds = folds,
+                            family = family,
+                            theta_bounds = theta_bounds,
+                            cross_fit_nuisance = cross_fit_nuisance)
   if (verbose) cat("Done!\n")
 
   if (verbose) cat("learning g(1|W)=P(A=1|W)...")
@@ -323,6 +321,7 @@ atmle_new <- function(data,
                                       weights = weights,
                                       controls_only = controls_only)
     PnEIC <- mean(psi_pound_eic)
+    sn <- 0.001*sqrt(var(psi_pound_eic, na.rm = TRUE))/(sqrt(length(Y)) * log(length(Y)))
     if (abs(PnEIC) <= sn) {
       break
     }

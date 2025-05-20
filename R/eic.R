@@ -254,9 +254,13 @@ eic_psi_pound_wm <- function(S,
   if (controls_only) {
     psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0)
     W_comp <- (1-Pi$A0)*tau_S$cate_W0-psi_pound_est
-    Pi_comp <- -1/(1-g1W)*tau_S$cate_W0*(S-Pi$pred)
-    IM_A0 <- IM %*% colMeans(tau_S$phi_W0*(1-Pi$A0))
-    beta_comp <- as.numeric(tau_S$phi_WA %*% IM_A0)*(S-Pi$pred)*(Y_tmp-theta_WA-(S-Pi$pred)*tau_S$cate_W0)*weights
+    Pi_comp <- -(1-A)/(1-g1W)*tau_S$cate_W0*(S-Pi$pred)
+    D <- tau_S$phi_WA %*% IM_inv*(S-Pi$pred)*(Y_tmp-theta_WA-(S-Pi$pred)*tau_S$cate_WA)*weights
+    if (ncol(D) > 1) {
+      beta_comp <- (rowSums(D %*% diag(colMeans((1-Pi$A0)*tau_S$phi_W0))))
+    } else {
+      beta_comp <- (rowSums(D * colMeans((1-Pi$A0)*tau_S$phi_W0)))
+    }
   } else {
     psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1)
     W_comp <- (1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1-psi_pound_est
@@ -269,8 +273,8 @@ eic_psi_pound_wm <- function(S,
     }
   }
 
-  #print(paste("Pi_comp", mean(Pi_comp)))
-  #print(paste("beta_comp", mean(beta_comp)))
+  print(paste("Pi_comp", mean(Pi_comp)))
+  print(paste("beta_comp", mean(beta_comp)))
 
   return(W_comp+Pi_comp+beta_comp)
 }

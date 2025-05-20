@@ -43,26 +43,26 @@ target_Pi <- function(S,
 
   if (controls_only) {
     if (target_gwt) {
-      wt <- 1/(1-g1W[A == 0])
-      H0_n <- tau_S$cate_W0[A == 0]
+      wt <- (1-A)/(1-g1W)
+      HAW <- -tau_S$cate_W0
     } else {
-      wt <- rep(1, length(A[A == 0]))
-      H0_n <- 1/(1-g1W[A == 0])*tau_S$cate_W0[A == 0]
+      wt <- rep(1, length(A))
+      HAW <- -(1-A)/(1-g1W)*tau_S$cate_W0
     }
 
     # logistic submodel, controls only
-    epsilon <- coef(glm(S[A == 0] ~ -1 + offset(qlogis(Pi$pred[A == 0])) + H0_n,
+    epsilon <- coef(glm(S ~ -1 + offset(qlogis(Pi$A0)) + HAW,
                         family = "quasibinomial", weights = wt
     ))
     epsilon[is.na(epsilon)] <- 0
 
     # TMLE update
     if (target_gwt) {
-      Pi_star$pred[A == 0] <- .bound(plogis(qlogis(Pi$pred[A == 0]) + epsilon[1] * H0_n), Pi_bounds)
-      Pi_star$A0[A == 0] <- .bound(plogis(qlogis(Pi$A0[A == 0]) + epsilon[1] * H0_n), Pi_bounds)
+      Pi_star$A0 <- .bound(plogis(qlogis(Pi$A0) + epsilon[1] * HAW), Pi_bounds)
+      Pi_star$pred[A == 0] <- Pi_star$A0[A == 0]
     } else {
-      Pi_star$pred[A == 0] <- .bound(plogis(qlogis(Pi$pred[A == 0]) + epsilon[1] * H0_n), Pi_bounds)
-      Pi_star$A0[A == 0] <- .bound(plogis(qlogis(Pi$A0[A == 0]) + epsilon[1] * H0_n), Pi_bounds)
+      Pi_star$A0 <- .bound(plogis(qlogis(Pi$A0) + epsilon[1] * (-1/(1-g1W)*tau_S$cate_W0)), Pi_bounds)
+      Pi_star$pred[A == 0] <- Pi_star$A0[A == 0]
     }
   } else {
     if (target_gwt) {
