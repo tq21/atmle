@@ -102,24 +102,87 @@ theta_WA <- learn_theta_WA(W = W,
                            theta_bounds = NULL,
                            cross_fit_nuisance = TRUE)
 
-tau <- learn_tau_S(S = S,
-                   W = W,
-                   A = A,
-                   Y = Y,
-                   Pi = Pi,
-                   theta = theta_WA,
-                   g1W = g1W,
-                   delta = rep(1, length(Y)),
-                   controls_only = controls_only,
-                   method = "HAL",
-                   v_folds = 5,
-                   min_working_model = NULL,
-                   target_gwt = FALSE,
-                   Pi_bounds = c(0, 1),
-                   enumerate_basis_args = list(max_degree = 2,
-                                               smoothness_orders = 1,
-                                               num_knots = c(20, 5)),
-                   weights = rep(1, length(Y)),
-                   bias_working_model_formula = NULL,
-                   target_method = "oneshot",
-                   verbose = TRUE)
+tau_S <- learn_tau_S(S = S,
+                     W = W,
+                     A = A,
+                     Y = Y,
+                     Pi = Pi,
+                     theta = theta_WA,
+                     g1W = g1W,
+                     delta = rep(1, length(Y)),
+                     controls_only = controls_only,
+                     method = "HAL",
+                     v_folds = 5,
+                     min_working_model = NULL,
+                     target_gwt = FALSE,
+                     Pi_bounds = c(0, 1),
+                     enumerate_basis_args = list(max_degree = 2,
+                                                 smoothness_orders = 1,
+                                                 num_knots = c(20, 5)),
+                     weights = rep(1, length(Y)),
+                     bias_working_model_formula = NULL,
+                     verbose = TRUE)
+eic <- eic_psi_pound_wm(S = S,
+                        Y = Y,
+                        A = A,
+                        g1W = g1W$pred,
+                        theta_WA = theta_WA,
+                        Pi = Pi,
+                        tau_S = tau_S,
+                        weights = rep(1, length(Y)),
+                        controls_only = controls_only)
+
+for (i in 1:10) {
+  Pi_and_tau_S <- target_Pi(S = S,
+                            W = W,
+                            A = A,
+                            g1W = g1W$pred,
+                            Pi = Pi,
+                            theta_WA = theta_WA,
+                            tau_S = tau_S,
+                            controls_only = controls_only,
+                            target_gwt = TRUE,
+                            weights = rep(1, length(Y)),
+                            Pi_bounds = c(0, 1))
+  Pi <- Pi_and_tau_S$Pi; tau_S <- Pi_and_tau_S$tau_S
+  eic <- eic_psi_pound_wm(S = S,
+                          Y = Y,
+                          A = A,
+                          g1W = g1W$pred,
+                          theta_WA = theta_WA,
+                          Pi = Pi,
+                          tau_S = tau_S,
+                          weights = rep(1, length(Y)),
+                          controls_only = controls_only)
+
+  tau_S <- target_beta_S(S = S,
+                         W = W,
+                         A = A,
+                         Y = Y,
+                         g1W = g1W,
+                         Pi = Pi,
+                         theta_WA = theta_WA,
+                         tau_S = tau_S,
+                         weights = rep(1, length(Y)),
+                         controls_only = controls_only,
+                         target_method = "relaxed")
+
+  eic <- eic_psi_pound_wm(S = S,
+                          Y = Y,
+                          A = A,
+                          g1W = g1W$pred,
+                          theta_WA = theta_WA,
+                          Pi = Pi,
+                          tau_S = tau_S,
+                          weights = rep(1, length(Y)),
+                          controls_only = controls_only)
+}
+
+
+mean(eic)
+
+
+
+
+
+

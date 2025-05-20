@@ -26,26 +26,27 @@
 #' \item{pred}{Targeted estimates of trial enrollment probabilities;}
 #' \item{A1}{Targeted estimates of trial enrollment probabilities under treatment;}
 #' \item{A0}{Targeted estimates of trial enrollment probabilities under control.}
-Pi_tmle <- function(S,
-                    W,
-                    A,
-                    g,
-                    tau,
-                    Pi,
-                    controls_only,
-                    target_gwt,
-                    Pi_bounds) {
+target_Pi <- function(S,
+                      W,
+                      A,
+                      g1W,
+                      Pi,
+                      theta_WA,
+                      tau_S,
+                      controls_only,
+                      target_gwt,
+                      weights,
+                      Pi_bounds) {
+
   Pi_star <- Pi
 
   if (controls_only) {
-    wt <- NULL
-    H0_n <- NULL
     if (target_gwt) {
-      wt <- 1 / (1 - g[A == 0])
-      H0_n <- tau$A0[A == 0]
+      wt <- 1/(1-g1W[A == 0])
+      H0_n <- tau_S$cate_W0[A == 0]
     } else {
       wt <- rep(1, length(A[A == 0]))
-      H0_n <- 1 / (1 - g[A == 0]) * tau$A0[A == 0]
+      H0_n <- 1/(1-g1W[A == 0])*tau_S$cate_W0[A == 0]
     }
 
     # logistic submodel, controls only
@@ -63,18 +64,14 @@ Pi_tmle <- function(S,
       Pi_star$A0[A == 0] <- .bound(plogis(qlogis(Pi$A0[A == 0]) + epsilon[1] * H0_n), Pi_bounds)
     }
   } else {
-    wt <- NULL
-    H1_n <- NULL
-    H0_n <- NULL
-
     if (target_gwt) {
-      wt <- A / g + (1 - A) / (1 - g)
-      H1_n <- tau$A1 * A
-      H0_n <- tau$A0 * (1 - A)
+      wt <- A/g1W+(1-A)/(1-g1W)
+      H1_n <- tau_S$cate_W1*A
+      H0_n <- tau_S$cate_W0*(1-A)
     } else {
       wt <- rep(1, length(A))
-      H1_n <- A / g * tau$A1
-      H0_n <- (1 - A) / (1 - g) * tau$A0
+      H1_n <- A/g1W*tau_S$cate_W1
+      H0_n <- (1-A)/(1-g1W)*tau_S$cate_W0
     }
 
     # logistic submodel, both treated and controls
@@ -86,14 +83,19 @@ Pi_tmle <- function(S,
     # TMLE updates
     if (target_gwt) {
       Pi_star$pred <- .bound(plogis(qlogis(Pi$pred) + epsilon[1] * H0_n + epsilon[2] * H1_n), Pi_bounds)
-      Pi_star$A0 <- .bound(plogis(qlogis(Pi$A0) + epsilon[1] * tau$A0), Pi_bounds)
-      Pi_star$A1 <- .bound(plogis(qlogis(Pi$A1) + epsilon[2] * tau$A1), Pi_bounds)
+      Pi_star$A0 <- .bound(plogis(qlogis(Pi$A0) + epsilon[1] * tau_S$cate_W0), Pi_bounds)
+      Pi_star$A1 <- .bound(plogis(qlogis(Pi$A1) + epsilon[2] * tau_S$cate_W1), Pi_bounds)
     } else {
       Pi_star$pred <- .bound(plogis(qlogis(Pi$pred) + epsilon[1] * H0_n + epsilon[2] * H1_n), Pi_bounds)
-      Pi_star$A0 <- .bound(plogis(qlogis(Pi$A0) + epsilon[1] * tau$A0/(1-g)), Pi_bounds)
-      Pi_star$A1 <- .bound(plogis(qlogis(Pi$A1) + epsilon[2] * tau$A1/g), Pi_bounds)
+      Pi_star$A0 <- .bound(plogis(qlogis(Pi$A0) + epsilon[1] * tau_S$cate_W0/(1-g1W)), Pi_bounds)
+      Pi_star$A1 <- .bound(plogis(qlogis(Pi$A1) + epsilon[2] * tau_S$cate_W1/g1W), Pi_bounds)
     }
   }
 
-  return(Pi_star)
+  # update relevant parts of tau_S
+  tau_S$pseudo_outcome <- ifelse(abs(S-Pi_star$pred) < 1e-10, 0, (Y-theta_WA)/(S-Pi_star$pred))
+  tau_S$pseudo_weights <- (S-Pi_star$pred)^2*weights
+
+  return(list(Pi = Pi_star,
+              tau_S = tau_S))
 }
