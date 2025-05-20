@@ -222,5 +222,92 @@ get_beta_h <- function(x_basis,
   return(beta_h)
 }
 
+eic_psi_pound_wm <- function(S,
+                             Y,
+                             A,
+                             phi_WA,
+                             phi_W1,
+                             phi_W0,
+                             g1W,
+                             theta,
+                             Pi,
+                             Pi_star,
+                             cate_WA,
+                             cate_W0,
+                             cate_W1,
+                             weights,
+                             controls_only,
+                             IM_inv = NULL,
+                             eic_method = "svd_pseudo_inv") {
+  browser()
+  Y_tmp <- Y
+  Y_tmp[is.na(Y)] <- 0
 
+  if (is.null(IM_inv)) {
+    IM <- t(phi_WA) %*% diag(Pi$pred*(1-Pi$pred)) %*% phi_WA / length(Y)
+    IM_inv <- tryCatch({
+      solve(IM)
+    }, error = function(e) {
+      if (eic_method == "svd_pseudo_inv") {
+        svd_pseudo_inv(IM)
+      } else if (eic_method == "diag") {
+        solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+      } else {
+        stop("Unknown eic_method specified.")
+      }
+    })
+  }
 
+  if (controls_only) {
+    psi_pound_est <- mean((1-Pi_star$A0)*cate_W0)
+    W_comp <- (1-Pi_star$A0)*cate_W0-psi_pound_est
+    Pi_comp <- -1/(1-g1W)*cate_W0*(S-Pi_star$pred)
+    IM_A0 <- IM %*% colMeans(phi_W0*(1-Pi$A0))
+    beta_comp <- as.numeric(phi_WA %*% IM_A0)*(S-Pi$pred)*(Y_tmp-theta-(S-Pi$pred)*cate_W0)*weights
+  } else {
+    psi_pound_est <- mean((1-Pi_star$A0)*cate_W0-(1-Pi_star$A1)*cate_W1)
+    W_comp <- (1-Pi_star$A0)*cate_W0-(1-Pi_star$A1)*cate_W1-psi_pound_est
+    Pi_comp <- (A/g1W*cate_W1-(1-A)/(1-g1W)*cate_W0)*(S-Pi_star$pred)
+    D <- phi_WA %*% IM_inv*(S-Pi$pred)*(Y_tmp-theta-(S-Pi$pred)*cate_WA)*weights
+    if (ncol(D) > 1) {
+      beta_comp <- (rowSums(D %*% diag(colMeans((1-Pi$A0)*phi_W0)))-rowSums(D %*% diag(colMeans((1-Pi$A1)*phi_W1))))
+    } else {
+      beta_comp <- (rowSums(D * colMeans((1-Pi$A0)*phi_W0))-rowSums(D * colMeans((1-Pi$A1)*phi_W1)))
+    }
+  }
+
+  return(W_comp+Pi_comp+beta_comp)
+}
+
+eic_psi_tilde_wm <- function(Y,
+                             A,
+                             phi_W,
+                             g1W,
+                             theta,
+                             cate,
+                             weights,
+                             eic_method,
+                             IM_inv = NULL) {
+  Y_tmp <- Y
+  Y_tmp[is.na(Y)] <- 0
+
+  if (is.null(IM_inv)) {
+    IM <- t(phi_W) %*% diag(g1W*(1-g1W)) %*% phi_W / length(Y)
+    IM_inv <- tryCatch({
+      solve(IM)
+    }, error = function(e) {
+      if (eic_method == "svd_pseudo_inv") {
+        svd_pseudo_inv(IM)
+      } else if (eic_method == "diag") {
+        solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+      } else {
+        stop("Unknown eic_method specified.")
+      }
+    })
+  }
+  D_beta <- weights*as.vector(phi_W %*% IM_inv %*% colMeans(phi_W) *
+      (A-g1W)*(Y_tmp-theta-(A-g1W)*cate))
+  W_comp <- cate - mean(cate)
+
+  return(W_comp + D_beta)
+}

@@ -38,16 +38,16 @@
 #' @export
 #'
 #' @returns A numeric vector of the estimated values.
-learn_theta <- function(W,
-                        A,
-                        Y,
-                        delta,
-                        controls_only,
-                        method,
-                        folds,
-                        family,
-                        theta_bounds,
-                        cross_fit_nuisance) {
+learn_theta_WA <- function(W,
+                           A,
+                           Y,
+                           delta,
+                           controls_only,
+                           method,
+                           folds,
+                           family,
+                           theta_bounds,
+                           cross_fit_nuisance) {
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners(family)
   }

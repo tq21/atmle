@@ -103,14 +103,98 @@ res$upper-res$lower
 as.numeric(res_escvtmle$CI$b2v[2]-res_escvtmle$CI$b2v[1])
 
 
+library(devtools)
+load_all()
+sim_data <- function(n,
+                     counter_A = NULL) {
+  # error
+  UY <- rnorm(n, 0, 0.2)
+
+  # baseline covariates
+  W1 <- round(runif(n, -1, 1), 3)
+  W2 <- round(runif(n, -1, 1), 3)
+  W3 <- round(runif(n, -1, 1), 3)
+
+  # treatment
+  if (is.null(counter_A)) {
+    A <- rbinom(n, 1, plogis(-0.25*W1+0.5*W2))
+  } else {
+    A <- rep(counter_A, n)
+  }
+
+  # outcome
+  cate <- 0.5*as.numeric(W1 >= 0.2)*(W1-0.2)+
+    1.1*as.numeric(W2 >= 0.5)*(W2-0.5)+
+    2.1*as.numeric(W1 >= -0.5)*(W2+0.5)*as.numeric(W3 >= 0)*W3+
+    1.4*as.numeric(W2 >= 0.9)*(W2-0.9)*as.numeric(W3 >= 0.1)*(W3-0.1)
+  Y <- 1.9-0.4*A+0.9*W1+1.4*W2+2.1*W3+A*cate+UY
+
+  data <- data.frame(W1 = W1,
+                     W2 = W2,
+                     W3 = W3,
+                     A = A,
+                     Y = Y)
+
+  return(data)
+}
+
+get_truth <- function() {
+  data_A1 <- sim_data(1e7, counter_A = 1)
+  data_A0 <- sim_data(1e7, counter_A = 0)
+  return(mean(data_A1$Y- data_A0$Y))
+}
+
+theta_lasso <- function(W,
+                        Y,
+                        foldid,
+                        family) {
+
+  # fit theta=E(Y|W) and obtain cross-fitted predictions
+  theta_fit <- cv.glmnet(x = as.matrix(W),
+                         y = Y,
+                         foldid = foldid,
+                         keep = TRUE,
+                         alpha = 1,
+                         family = family)
+  non_na_idx <- !is.na(colSums(theta_fit$fit.preval))
+  lambda_min <- theta_fit$lambda[which.min(theta_fit$cvm[non_na_idx])]
+  pred <- theta_fit$fit.preval[, non_na_idx][, theta_fit$lambda[non_na_idx] == lambda_min]
+  if (family == "binomial") {
+    pred <- plogis(pred)
+  }
+
+  return(pred)
+}
+
+g_lasso <- function(W,
+                    A,
+                    foldid) {
+
+  # fit g1W=P(A=1|W) and obtain cross-fitted predictions
+  g_fit <- cv.glmnet(x = as.matrix(W),
+                     y = A,
+                     foldid = foldid,
+                     family = "binomial",
+                     keep = TRUE,
+                     alpha = 1)
+  non_na_idx <- !is.na(colSums(g_fit$fit.preval))
+  lambda_min <- g_fit$lambda[which.min(g_fit$cvm[non_na_idx])]
+  pred <- g_fit$fit.preval[, non_na_idx][, g_fit$lambda[non_na_idx] == lambda_min]
+  pred <- plogis(pred)
+
+  return(pred)
+}
+
+
 truth <- get_truth()
 
 library(origami)
 library(purrr)
 library(glmnet)
 library(hal9001)
+library(tmle)
 set.seed(123)
-n <- 10000
+n <- 5000
 data <- sim_data(n)
 W <- data[, grep("W", colnames(data))]
 A <- data$A
@@ -133,6 +217,44 @@ theta <- theta_lasso(W = W,
 g1W <- g_lasso(W = W,
                A = A,
                foldid = foldid)
+res <- learn_tau_A(W = W,
+                   A = A,
+                   Y = Y,
+                   g1W = g1W,
+                   delta = rep(1, n),
+                   theta = theta,
+                   method = "HAL",
+                   foldid = foldid,
+                   weights = rep(1, n),
+                   enumerate_basis_args = list(max_degree = 2,
+                                               smoothness_orders = 1,
+                                               num_knots = c(20, 5)),
+                   pooled_working_model_formula = NULL,
+                   target_method = "oneshot",
+                   eic_method = "svd_pseudo_inv",
+                   verbose = FALSE,
+                   browse = FALSE)
+res_relax <- learn_tau_A(W = W,
+                         A = A,
+                         Y = Y,
+                         g1W = g1W,
+                         delta = rep(1, n),
+                         theta = theta,
+                         method = "HAL",
+                         foldid = foldid,
+                         weights = rep(1, n),
+                         enumerate_basis_args = list(max_degree = 2,
+                                                     smoothness_orders = 1,
+                                                     num_knots = c(20, 5)),
+                         pooled_working_model_formula = NULL,
+                         target_method = "relaxed",
+                         eic_method = "svd_pseudo_inv",
+                         verbose = FALSE,
+                         browse = FALSE)
+res_tmle <- tmle(W = W, A = A, Y = Y, family = "gaussian",
+                 Q.SL.library = c("SL.glm", "SL.xgboost"), g.SL.library = c("SL.glm", "SL.xgboost"))
+res_tmle$estimates$ATE$psi
+
 a <- proc.time()
 tau <- rHAL(W = W,
             A = A,

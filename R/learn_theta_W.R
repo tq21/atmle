@@ -33,14 +33,14 @@
 #' bound.
 #'
 #' @returns A numeric vector of the estimated values.
-learn_theta_tilde <- function(W,
-                              Y,
-                              delta,
-                              method,
-                              folds,
-                              family,
-                              theta_bounds,
-                              cross_fit_nuisance) {
+learn_theta_W <- function(W,
+                          Y,
+                          delta,
+                          method,
+                          folds,
+                          family,
+                          theta_bounds,
+                          cross_fit_nuisance) {
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners(family)
   }

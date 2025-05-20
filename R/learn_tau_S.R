@@ -38,48 +38,26 @@
 #' under control;}
 #' \item{pred}{A numeric vector of estimated conditional effects;}
 #' \item{coefs}{A numeric vector of the working model coefficients.}
-learn_tau <- function(S,
-                      W,
-                      A,
-                      Y,
-                      Pi,
-                      theta,
-                      g,
-                      delta,
-                      controls_only,
-                      method,
-                      v_folds,
-                      max_degree,
-                      min_working_model,
-                      target_gwt,
-                      Pi_bounds,
-                      enumerate_basis_args,
-                      fit_hal_args,
-                      weights,
-                      bias_working_model_formula,
-                      target_method = "relaxed",
-                      dx = 0.00001,
-                      max_iter = 2000,
-                      verbose = TRUE) {
-
-  pred <- NULL
-  A1 <- numeric(length = length(A))
-  A0 <- numeric(length = length(A))
-  X <- NULL
-  X_A1_counter <- NULL
-  X_A0_counter <- NULL
-  x_basis <- NULL
-  x_basis_A1 <- NULL
-  x_basis_A0 <- NULL
-  coefs <- NULL
-  non_zero <- NULL
-
-  pseudo_outcome <- NULL
-  pseudo_weights <- NULL
-
-  if (max_degree > ncol(W)) {
-    max_degree <- ncol(W)
-  }
+learn_tau_S <- function(S,
+                        W,
+                        A,
+                        Y,
+                        Pi,
+                        Pi_star,
+                        theta,
+                        g1W,
+                        delta,
+                        controls_only,
+                        method,
+                        v_folds,
+                        min_working_model,
+                        target_gwt,
+                        Pi_bounds,
+                        enumerate_basis_args,
+                        weights,
+                        bias_working_model_formula,
+                        target_method = "oneshot",
+                        verbose = TRUE) {
 
   if (controls_only) {
     pred <- numeric(length = length(A))
@@ -107,12 +85,7 @@ learn_tau <- function(S,
     pseudo_outcome <- (Y - theta) / (S - Pi$pred)
     pseudo_weights <- (S - Pi$pred)^2 * weights
 
-    # augment design matrix if needed
-    if (max_degree > 1) {
-      W_aug <- model.matrix(as.formula(paste0("~ -1+(.)^", max_degree)), data = W)
-    } else {
-      W_aug <- W
-    }
+    W_aug <- W
 
     # design matrix
     X <- data.frame(W_aug, A, W_aug * A)
@@ -328,24 +301,104 @@ learn_tau <- function(S,
       }
     }
   } else if (method == "HAL") {
+    browser()
+    # HAL-based R learner
+    tau_S_obj <- rHAL(W = as.matrix(cbind(W, A=A)[delta == 1,,drop=FALSE]),
+                      A = S[delta == 1],
+                      Y = Y[delta == 1],,
+                      g1W = Pi$pred[delta == 1],
+                      theta = theta,
+                      foldid = foldid,
+                      weights = weights,
+                      enumerate_basis_args = enumerate_basis_args,
+                      use_weight = TRUE) # much faster, no need to compute (A-g1W)*phi_W
 
-    # check arguments
-    enumerate_basis_default_args <- list(
-      max_degree = 2,
-      smoothness_orders = 1,
-      num_knots = 20
-    )
-    enumerate_basis_args <- modifyList(
-      enumerate_basis_default_args,
-      enumerate_basis_args
-    )
+    # counterfactual predictions
+    phi_WA_train <- tau_S_obj$phi_W
+    phi_WA <- as.matrix(cbind(1, make_design_matrix(X = as.matrix(cbind(W, A=A)), blist = tau_S_obj$basis_list)))
+    phi_W0 <- as.matrix(cbind(1, make_design_matrix(X = as.matrix(cbind(W, A=0)), blist = tau_S_obj$basis_list)))
+    phi_W1 <- as.matrix(cbind(1, make_design_matrix(X = as.matrix(cbind(W, A=1)), blist = tau_S_obj$basis_list)))
 
-    # make data formula
-    if (max_degree > 1) {
-      aug_formula <- as.formula("~-1+(.)^" %+% max_degree)
-    } else {
-      aug_formula <- as.formula("~-1+(.)")
+    # targeting
+    if (target_method == "relaxed") {
+      # relaxed-fit targeting
+      relaxed_fit <- glm(tau_S_obj$pseudo_outcome ~ -1+.,
+                         family = "gaussian",
+                         data = as.data.frame(phi_WA_train),
+                         weights = tau_S_obj$pseudo_weights)
+      beta <- as.numeric(coef(relaxed_fit))
+      na_idx <- which(is.na(beta))
+      if (length(na_idx) > 0) {
+        beta <- beta[!is.na(beta)]
+        phi_W <- phi_W[, -na_idx, drop = FALSE]
+      }
+      IM <- t(phi_WA) %*% diag(Pi$pred*(1-Pi$pred)) %*% phi_WA / length(Y)
+      IM_inv <- tryCatch({
+        solve(IM)
+      }, error = function(e) {
+        # TODO: add helpful message if verbose
+        if (eic_method == "svd_pseudo_inv") {
+          svd_pseudo_inv(IM)
+        } else if (eic_method == "diag") {
+          solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+        } else {
+          stop("Unknown eic_method specified.")
+        }
+      })
+    } else if (target_method == "oneshot") {
+      # TODO: implement target in a sequence of WMs
+      IM <- t(phi_WA) %*% diag(Pi$pred*(1-Pi$pred)) %*% phi_WA / length(Y)
+      IM_inv <- tryCatch({
+        solve(IM)
+      }, error = function(e) {
+        # TODO: add helpful message if verbose
+        if (eic_method == "svd_pseudo_inv") {
+          svd_pseudo_inv(IM)
+        } else if (eic_method == "diag") {
+          solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+        } else {
+          stop("Unknown eic_method specified.")
+        }
+      })
+      beta <- as.vector(tau_A_obj$beta)
+      clever_cov <- as.vector(IM_inv %*% colMeans(phi_W))
+      H <- (A-g1W)*as.vector(phi_W %*% clever_cov)
+      tau <- as.vector(phi_W %*% beta)
+      R <- Y-theta-(A-g1W)*tau
+      epsilon <- sum(H*R)/sum(H*H)
+      beta <- beta+epsilon*clever_cov
     }
+
+    # compute EIC
+    cate_WA <- as.vector(phi_WA %*% beta)
+    cate_W0 <- as.vector(phi_W0 %*% beta)
+    cate_W1 <- as.vector(phi_W1 %*% beta)
+    eic <- eic_psi_pound_wm(S = S,
+                            Y = Y,
+                            A = A,
+                            phi_WA = phi_WA,
+                            phi_W1 = phi_W1,
+                            phi_W0 = phi_W0,
+                            g1W = g1W$pred,
+                            theta = theta,
+                            Pi = Pi,
+                            cate_WA = cate_WA,
+                            cate_W0 = cate_W0,
+                            cate_W1 = cate_W1,
+                            weights = weights,
+                            controls_only = controls_only,
+                            IM_inv = IM_inv)
+
+    eic <- eic_psi_tilde_wm(Y = Y,
+                            A = A,
+                            phi_W = phi_W,
+                            g1W = g1W,
+                            theta = theta,
+                            cate = cate,
+                            weights = weights,
+                            eic_method = eic_method,
+                            IM_inv = IM_inv)
+
 
     if (controls_only) {
       X <- data.frame(W[A == 0, , drop = FALSE])
