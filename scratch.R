@@ -101,3 +101,57 @@ res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
 
 res$upper-res$lower
 as.numeric(res_escvtmle$CI$b2v[2]-res_escvtmle$CI$b2v[1])
+
+
+truth <- get_truth()
+
+library(origami)
+library(purrr)
+library(glmnet)
+library(hal9001)
+set.seed(123)
+n <- 10000
+data <- sim_data(n)
+W <- data[, grep("W", colnames(data))]
+A <- data$A
+Y <- data$Y
+
+# make folds
+folds <- make_folds(n = n, V = 10, strata_ids = A)
+foldid <- unlist(map(folds, function(.fold) {
+  rep(.fold$v, length(.fold$validation_set))
+}))
+idx <- unlist(map(folds, function(.fold) {
+  .fold$validation_set
+}))
+foldid <- foldid[idx]
+
+theta <- theta_lasso(W = W,
+                     Y = Y,
+                     foldid = foldid,
+                     family = "gaussian")
+g1W <- g_lasso(W = W,
+               A = A,
+               foldid = foldid)
+a <- proc.time()
+tau <- rHAL(W = W,
+            A = A,
+            Y = Y,
+            g1W = g1W,
+            theta = theta,
+            foldid = foldid,
+            use_weight = TRUE)
+b <- proc.time()
+tau_weight <- rHAL(W = W,
+                   A = A,
+                   Y = Y,
+                   g1W = g1W,
+                   theta = theta,
+                   foldid = foldid,
+                   use_weight = FALSE)
+c <- proc.time()
+mean(tau$pred)
+mean(tau_weight$pred)
+
+predict((tau), newx = W[1:10,])
+predict((tau_weight), newx = W[1:10,])
