@@ -16,8 +16,8 @@
 #' @param Y A vector of outcomes.
 #' @param Pi A vector of estimated trial enrollment probabilities,
 #' \eqn{\Pi(W,A)=\mathbb{P}(S=1\mid W,A)}.
-#' @param theta A vector of estimated conditional mean of outcome given
-#' baseline covariates and treatment, \eqn{\theta(W,A)=\mathbb{E}(Y\mid W,A)}.
+#' @param theta_WA A vector of estimated conditional mean of outcome given
+#' baseline covariates and treatment, \eqn{\theta_WA(W,A)=\mathbb{E}(Y\mid W,A)}.
 #' @param controls_only A logical indicating whether the external data has only
 #' control-arm observations.
 #' @param method Working model type. Either \code{"glmnet"} for lasso-based
@@ -43,12 +43,13 @@ learn_tau_S <- function(S,
                         A,
                         Y,
                         Pi,
-                        theta,
+                        theta_WA,
                         g1W,
                         delta,
                         controls_only,
                         method,
                         v_folds,
+                        foldid,
                         min_working_model,
                         target_gwt,
                         Pi_bounds,
@@ -61,7 +62,7 @@ learn_tau_S <- function(S,
     pred <- numeric(length = length(A))
 
     # R-transformations, only controls
-    pseudo_outcome <- (Y[A == 0] - theta[A == 0]) / (S[A == 0] - Pi$pred[A == 0])
+    pseudo_outcome <- (Y[A == 0] - theta_WA[A == 0]) / (S[A == 0] - Pi$pred[A == 0])
     pseudo_weights <- (S[A == 0] - Pi$pred[A == 0])^2 * weights[A == 0]
 
     # augment design matrix if needed
@@ -80,7 +81,7 @@ learn_tau_S <- function(S,
     pred <- numeric(length = length(A))
 
     # R-transformations
-    pseudo_outcome <- (Y - theta) / (S - Pi$pred)
+    pseudo_outcome <- (Y - theta_WA) / (S - Pi$pred)
     pseudo_weights <- (S - Pi$pred)^2 * weights
 
     W_aug <- W
@@ -168,7 +169,7 @@ learn_tau_S <- function(S,
                                               x_basis = x_basis,
                                               x_basis_A0 = x_basis_A0),
                                    g = g,
-                                   theta = theta,
+                                   theta_WA = theta_WA,
                                    psi_pound_est = psi_pound_est,
                                    S = S,
                                    A = A,
@@ -222,7 +223,7 @@ learn_tau_S <- function(S,
                                               x_basis_A0 = x_basis_A0,
                                               x_basis_A1 = x_basis_A1),
                                    g = g,
-                                   theta = theta,
+                                   theta_WA = theta_WA,
                                    psi_pound_est = psi_pound_est,
                                    S = S,
                                    A = A,
@@ -251,7 +252,7 @@ learn_tau_S <- function(S,
                                               x_basis_A0 = x_basis_A0,
                                               x_basis_A1 = x_basis_A1),
                                    g = g,
-                                   theta = theta,
+                                   theta_WA = theta_WA,
                                    psi_pound_est = psi_pound_est,
                                    S = S,
                                    A = A,
@@ -275,7 +276,7 @@ learn_tau_S <- function(S,
                                                 x_basis_A0 = x_basis_A0,
                                                 x_basis_A1 = x_basis_A1),
                                      g = g,
-                                     theta = theta,
+                                     theta_WA = theta_WA,
                                      psi_pound_est = psi_pound_est,
                                      S = S,
                                      A = A,
@@ -300,27 +301,26 @@ learn_tau_S <- function(S,
     }
   } else if (method == "HAL") {
     # HAL-based R learner
-    tau_S_obj <- rHAL(W = as.matrix(cbind(W, A=A)[delta == 1,,drop=FALSE]),
-                      A = S[delta == 1],
-                      Y = Y[delta == 1],,
-                      g1W = Pi$pred[delta == 1],
-                      theta = theta,
-                      foldid = foldid,
-                      weights = weights,
-                      enumerate_basis_args = enumerate_basis_args,
-                      use_weight = TRUE) # much faster, no need to compute (A-g1W)*phi_W
+    tau_S <- rHAL(W = as.matrix(cbind(W, A=A)[delta == 1,,drop=FALSE]),
+                  A = S[delta == 1],
+                  Y = Y[delta == 1],,
+                  g1W = Pi$pred[delta == 1],
+                  theta = theta_WA,
+                  foldid = foldid,
+                  weights = weights,
+                  enumerate_basis_args = enumerate_basis_args,
+                  use_weight = TRUE) # much faster, no need to compute (S-Pi)*phi_WA
 
     # counterfactual predictions
-    phi_WA_train <- tau_S_obj$phi_W
-    tau_S_obj$phi_WA <- as.matrix(cbind(1, make_design_matrix(X = as.matrix(cbind(W, A=A)), blist = tau_S_obj$basis_list)))
-    tau_S_obj$phi_W0 <- as.matrix(cbind(1, make_design_matrix(X = as.matrix(cbind(W, A=0)), blist = tau_S_obj$basis_list)))
-    tau_S_obj$phi_W1 <- as.matrix(cbind(1, make_design_matrix(X = as.matrix(cbind(W, A=1)), blist = tau_S_obj$basis_list)))
-    tau_S_obj$cate_WA <- as.vector(tau_S_obj$phi_WA %*% tau_S_obj$beta)
-    tau_S_obj$cate_W0 <- as.vector(tau_S_obj$phi_W0 %*% tau_S_obj$beta)
-    tau_S_obj$cate_W1 <- as.vector(tau_S_obj$phi_W1 %*% tau_S_obj$beta)
+    tau_S$phi_WA <- as.matrix(cbind(1, make_design_matrix(X = as.matrix(cbind(W, A=A)), blist = tau_S$basis_list)))
+    tau_S$phi_W0 <- as.matrix(cbind(1, make_design_matrix(X = as.matrix(cbind(W, A=0)), blist = tau_S$basis_list)))
+    tau_S$phi_W1 <- as.matrix(cbind(1, make_design_matrix(X = as.matrix(cbind(W, A=1)), blist = tau_S$basis_list)))
+    tau_S$cate_WA <- as.vector(tau_S$phi_WA %*% tau_S$beta)
+    tau_S$cate_W0 <- as.vector(tau_S$phi_W0 %*% tau_S$beta)
+    tau_S$cate_W1 <- as.vector(tau_S$phi_W1 %*% tau_S$beta)
   } else {
     stop("bias_working_model must be either 'glmnet' or 'HAL'")
   }
 
-  return(tau_S_obj)
+  return(tau_S)
 }

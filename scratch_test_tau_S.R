@@ -178,7 +178,6 @@ for (i in 1:10) {
                           controls_only = controls_only)
 }
 
-
 mean(eic)
 
 

@@ -29,6 +29,7 @@
 target_Pi <- function(S,
                       W,
                       A,
+                      Y,
                       g1W,
                       Pi,
                       theta_WA,

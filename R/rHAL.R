@@ -57,7 +57,7 @@ rHAL <- function(W,
 
   ret_obj = list(tau_fit = tau_fit,
                  beta = beta,
-                 phi_W = phi_W,
+                 phi_train = phi_W,
                  basis_list = basis_list,
                  pred = pred,
                  pseudo_outcome = pseudo_outcome,

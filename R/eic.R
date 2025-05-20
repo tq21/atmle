@@ -269,18 +269,17 @@ eic_psi_pound_wm <- function(S,
     }
   }
 
-  print(paste("Pi_comp", mean(Pi_comp)))
-  print(paste("beta_comp", mean(beta_comp)))
+  #print(paste("Pi_comp", mean(Pi_comp)))
+  #print(paste("beta_comp", mean(beta_comp)))
 
   return(W_comp+Pi_comp+beta_comp)
 }
 
 eic_psi_tilde_wm <- function(Y,
                              A,
-                             phi_W,
                              g1W,
-                             theta,
-                             cate,
+                             theta_W,
+                             tau_A,
                              weights,
                              eic_method,
                              IM_inv = NULL) {
@@ -288,7 +287,7 @@ eic_psi_tilde_wm <- function(Y,
   Y_tmp[is.na(Y)] <- 0
 
   if (is.null(IM_inv)) {
-    IM <- t(phi_W) %*% diag(g1W*(1-g1W)) %*% phi_W / length(Y)
+    IM <- t(tau_A$phi_W) %*% diag(g1W*(1-g1W)) %*% tau_A$phi_W / length(Y)
     IM_inv <- tryCatch({
       solve(IM)
     }, error = function(e) {
@@ -301,9 +300,9 @@ eic_psi_tilde_wm <- function(Y,
       }
     })
   }
-  D_beta <- weights*as.vector(phi_W %*% IM_inv %*% colMeans(phi_W) *
-      (A-g1W)*(Y_tmp-theta-(A-g1W)*cate))
-  W_comp <- cate - mean(cate)
+  D_beta <- weights*as.vector(tau_A$phi_W %*% IM_inv %*% colMeans(tau_A$phi_W) *
+      (A-g1W)*(Y_tmp-theta_W-(A-g1W)*tau_A$cate))
+  W_comp <- tau_A$cate-mean(tau_A$cate)
 
-  return(W_comp + D_beta)
+  return(W_comp+D_beta)
 }

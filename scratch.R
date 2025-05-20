@@ -54,35 +54,28 @@ sim_data <- function(ate,
 controls_only <- FALSE
 
 data_rct <- sim_data(ate = 1.5,
-                     n = 400,
+                     n = 300,
                      rct = TRUE,
                      g_rct = 0.67,
-                     bias = "b",
+                     bias = "a",
                      controls_only = controls_only)
 data_rwd <- sim_data(ate = 1.5,
                      n = 2000,
                      rct = FALSE,
                      g_rct = 0.67,
-                     bias = "b",
+                     bias = "a",
                      controls_only = controls_only)
 data <- rbind(data_rct, data_rwd)
 
-res <- atmle(data = data,
-             S = "S",
-             W = c("W1", "W2", "W3"),
-             A = "A",
-             Y = "Y",
-             controls_only = controls_only,
-             atmle_pooled = TRUE,
-             family = "gaussian",
-             theta_method = "glm",
-             g_method = "glm",
-             theta_tilde_method = "glm",
-             bias_working_model = "glmnet",
-             pooled_working_model = "glmnet",
-             max_degree = 1,
-             verbose = FALSE,
-             browse = FALSE)
+res <- atmle_new(data = data,
+                 S = "S",
+                 W = c("W1", "W2", "W3"),
+                 A = "A",
+                 Y = "Y",
+                 controls_only = controls_only,
+                 family = "gaussian",
+                 verbose = FALSE,
+                 browse = FALSE)
 
 res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,
@@ -101,6 +94,7 @@ res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
 
 res$upper-res$lower
 as.numeric(res_escvtmle$CI$b2v[2]-res_escvtmle$CI$b2v[1])
+print(mean(res$eic))
 
 
 library(devtools)
@@ -199,6 +193,9 @@ data <- sim_data(n)
 W <- data[, grep("W", colnames(data))]
 A <- data$A
 Y <- data$Y
+
+
+
 
 # make folds
 folds <- make_folds(n = n, V = 10, strata_ids = A)
