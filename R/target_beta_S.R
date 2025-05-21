@@ -11,6 +11,7 @@ target_beta_S <- function(S,
                           target_method,
                           browse = FALSE) {
   if (browse) browser()
+  # TODO: implement target in a sequence of WMs
 
   # targeting
   if (target_method == "relaxed") {
@@ -29,8 +30,7 @@ target_beta_S <- function(S,
       tau_S$phi_W1 <- tau_S$phi_W1[, -na_idx, drop = FALSE]
     }
   } else if (target_method == "oneshot") {
-    # TODO: implement target in a sequence of WMs
-    IM <- t(phi_WA) %*% diag(Pi$pred*(1-Pi$pred)) %*% phi_WA / length(Y)
+    IM <- t(tau_S$phi_WA) %*% diag(Pi$pred*(1-Pi$pred)) %*% tau_S$phi_WA / length(Y)
     IM_inv <- tryCatch({
       solve(IM)
     }, error = function(e) {
@@ -43,13 +43,15 @@ target_beta_S <- function(S,
         stop("Unknown eic_method specified.")
       }
     })
-    beta <- as.vector(tau_A_obj$beta)
-    clever_cov <- as.vector(IM_inv %*% colMeans(phi_W))
-    H <- (A-g1W)*as.vector(phi_W %*% clever_cov)
-    tau <- as.vector(phi_W %*% beta)
-    R <- Y-theta_WA-(A-g1W)*tau
+    if (controls_only) {
+      clever_cov <- as.vector(IM_inv %*% colMeans((1-Pi$A0)*tau_S$phi_W0))
+    } else {
+      clever_cov <- as.vector(IM_inv %*% colMeans((1-Pi$A0)*tau_S$phi_W0-(1-Pi$A1)*tau_S$phi_W1))
+    }
+    H <- (S-Pi$pred)*as.vector(tau_S$phi_WA %*% clever_cov)
+    R <- Y-theta_WA-(S-Pi$pred)*tau_S$cate_WA
     epsilon <- sum(H*R)/sum(H*H)
-    beta <- beta+epsilon*clever_cov
+    tau_S$beta <- tau_S$beta+epsilon*clever_cov
   }
 
   tau_S$cate_WA <- as.vector(tau_S$phi_WA %*% tau_S$beta)

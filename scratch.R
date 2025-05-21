@@ -32,8 +32,7 @@ sim_data <- function(ate,
 
   # bias term for RWD data
   if (bias == "a") {
-    #b <- 0.2+0.1*W1*(1-A)
-    b <- 0.2+1*W1*(1-A)
+    b <- 0.2+0.2*W1*(1-A)
   } else if (bias == "b") {
     b <- 0.5+3.1*W1*(1-A)+0.8*W3
   }
@@ -56,16 +55,16 @@ sim_data <- function(ate,
   return(data)
 }
 
-controls_only <- FALSE
+controls_only <- TRUE
 
 data_rct <- sim_data(ate = 1.5,
-                     n = 10000,
+                     n = 1000,
                      rct = TRUE,
                      g_rct = 0.67,
                      bias = "a",
                      controls_only = controls_only)
 data_rwd <- sim_data(ate = 1.5,
-                     n = 10000,
+                     n = 5000,
                      rct = FALSE,
                      g_rct = 0.67,
                      bias = "a",
@@ -81,6 +80,7 @@ res <- atmle_new(data = data,
                  family = "gaussian",
                  target_gwt = TRUE,
                  verbose = FALSE,
+                 target_method = "oneshot",
                  browse = FALSE)
 
 res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
