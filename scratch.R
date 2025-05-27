@@ -55,35 +55,35 @@ sim_data <- function(ate,
   return(data)
 }
 
-controls_only <- TRUE
+controls_only <- FALSE
 
 data_rct <- sim_data(ate = 1.5,
-                     n = 1000,
+                     n = 200,
                      rct = TRUE,
                      g_rct = 0.67,
                      bias = "a",
                      controls_only = controls_only)
 data_rwd <- sim_data(ate = 1.5,
-                     n = 5000,
+                     n = 1000,
                      rct = FALSE,
                      g_rct = 0.67,
                      bias = "a",
                      controls_only = controls_only)
 data <- rbind(data_rct, data_rwd)
 
-res <- atmle_new(data = data,
-                 S = "S",
-                 W = c("W1", "W2", "W3"),
-                 A = "A",
-                 Y = "Y",
-                 controls_only = controls_only,
-                 family = "gaussian",
-                 bias_working_model = "glmnet",
-                 pooled_working_model = "glmnet",
-                 target_gwt = TRUE,
-                 verbose = FALSE,
-                 target_method = "oneshot",
-                 browse = FALSE)
+res <- atmle(data = data,
+             S = "S",
+             W = c("W1", "W2", "W3"),
+             A = "A",
+             Y = "Y",
+             controls_only = controls_only,
+             family = "gaussian",
+             bias_working_model = "glmnet",
+             pooled_working_model = "glmnet",
+             target_gwt = TRUE,
+             verbose = FALSE,
+             target_method = "oneshot",
+             browse = FALSE)
 
 res_escvtmle <- ES.cvtmle(txinrwd = !controls_only,
                           data = data,

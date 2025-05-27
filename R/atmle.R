@@ -139,10 +139,10 @@ atmle <- function(data,
                   cross_fit_nuisance = TRUE,
                   min_working_model = FALSE,
                   max_degree = 1,
-                  v_folds = 10,
-                  g_bounds = c(0.01, 0.99), # TODO: data adaptive
-                  Pi_bounds = c(0.01, 0.99), # TODO: data adaptive
-                  theta_bounds = c(-Inf, Inf),
+                  v_folds = NULL,
+                  g_bounds = NULL,
+                  Pi_bounds = NULL,
+                  theta_bounds = NULL,
                   target_gwt = TRUE,
                   verbose = TRUE,
                   max_iter = 50,
@@ -165,7 +165,26 @@ atmle <- function(data,
   A <- data[[A]]
   Y <- data[[Y]]
   delta <- as.integer(!is.na(Y))
+  n_eff <- sum(delta)
   n <- nrow(data)
+
+  # data-adaptive bounds
+  if (is.null(g_bounds)) g_bounds <- c(5/sqrt(n_eff)/log(n_eff), 1-5/sqrt(n_eff)/log(n_eff))
+  if (is.null(Pi_bounds)) Pi_bounds <- c(5/sqrt(n_eff)/log(n_eff), 1-5/sqrt(n_eff)/log(n_eff))
+  if (is.null(theta_bounds)) theta_bounds <- c(-Inf, Inf)
+
+  # cross-validation scheme (based on tmle R package)
+  if (n_eff <= 30){
+    v_folds <- n.effective
+  } else if (n_eff <= 500) {
+    v_folds <- 20
+  } else if (n_eff <= 1000) {
+    v_folds <- 10
+  } else if (n_eff <= 10000){
+    v_folds <- 5
+  } else {
+    v_folds <- 2
+  }
 
   # validate controls_only argument
   if (controls_only & 1 %in% A[S == 0]) {
