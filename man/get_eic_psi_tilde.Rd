@@ -4,7 +4,16 @@
 \alias{get_eic_psi_tilde}
 \title{Efficient influence function for the pooled-ATE projection parameter}
 \usage{
-get_eic_psi_tilde(psi_tilde, g, theta, Y, A, n, weights)
+get_eic_psi_tilde(
+  psi_tilde,
+  g,
+  theta,
+  Y,
+  A,
+  n,
+  weights,
+  eic_method = "svd_pseudo_inv"
+)
 }
 \arguments{
 \item{psi_tilde}{Results from \code{\link{learn_psi_tilde}}.}

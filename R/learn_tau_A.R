@@ -63,16 +63,17 @@ learn_tau_A <- function(W,
     x_basis <- as.matrix(model.matrix(cov_only_formula, data = W))
     pred <- as.numeric(x_basis %*% matrix(coefs))
   } else if (method == "glmnet") {
-    fit <- cv.glmnet(x = as.matrix(W[delta == 1, ]),
-                     y = pseudo_outcome[delta == 1],
-                     weights = pseudo_weights[delta == 1],
-                     family = "gaussian", keep = TRUE, nfolds = v_folds,
-                     alpha = 1)
-    non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
-    coefs <- coef(fit, s = "lambda.min")[non_zero]
-    x_basis <- as.matrix(cbind(1, W)[, non_zero, drop=FALSE])
-
-    pred <- drop(x_basis %*% coefs)
+    # main-term lasso-based R learner
+    tau_A <- rlasso(W = as.matrix(W[delta == 1,,drop=FALSE]),
+                    A = A[delta == 1],
+                    Y = Y[delta == 1],,
+                    g1W = g1W[delta == 1],
+                    theta = theta_W[delta == 1],
+                    foldid = foldid[delta == 1],
+                    weights = weights[delta == 1],
+                    use_weight = TRUE) # much faster, no need to compute (A-g1W)*phi_W
+    tau_A$phi_W <- as.matrix(cbind(1, W[, tau_A$non_zero, drop=FALSE]))
+    tau_A$cate_W <- as.vector(tau_A$phi_W %*% tau_A$beta)
   } else if (method == "HAL") {
     # HAL-based R learner
     tau_A <- rHAL(W = as.matrix(W[delta == 1,,drop=FALSE]),

@@ -100,169 +100,23 @@ learn_tau_S <- function(S,
     }
 
   } else if (method == "glmnet") {
-    if (controls_only) {
-      # TODO: check
-      fit <- cv.glmnet(x = as.matrix(X[delta[A == 0] == 1, , drop = FALSE]),
-                       y = pseudo_outcome[delta[A == 0] == 1],
-                       weights = pseudo_weights[delta[A == 0] == 1],
-                       family = "gaussian", keep = TRUE, nfolds = v_folds,
-                       alpha = 1)
-      non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
-      coefs <- coef(fit, s = "lambda.min")[non_zero]
-      x_basis <- x_basis_A0 <- as.matrix(cbind(1, W_aug)[, non_zero, drop = FALSE])
-      X_select <- as.matrix(cbind(1, X)[delta[A == 0] == 1, non_zero, drop = FALSE])
+    # main-term lasso-based R learner
+    tau_S <- rlasso(W = as.matrix(cbind(W, A=A, W*A)[delta == 1,,drop=FALSE]),
+                    A = S[delta == 1],
+                    Y = Y[delta == 1],,
+                    g1W = Pi$pred[delta == 1],
+                    theta = theta_WA[delta == 1],
+                    foldid = foldid[delta == 1],
+                    weights = weights[delta == 1],
+                    use_weight = TRUE) # much faster, no need to compute (S-Pi)*phi_WA
 
-      # targeting
-      if (length(non_zero) > 1) {
-        if (target_method == "relaxed") {
-          # use relaxed fit as targeted fit
-          relaxed_fit <- glm(pseudo_outcome[delta[A == 0] == 1] ~ -1+.,
-                             family = "gaussian",
-                             data = data.frame(X_select[delta[A == 0] == 1,,drop=FALSE]),
-                             weights = pseudo_weights[delta[A == 0] == 1])
-          coefs <- as.numeric(coef(relaxed_fit))
-          na_idx <- which(is.na(coefs))
-          if (length(na_idx) > 0) {
-            coefs <- coefs[!is.na(coefs)]
-            x_basis <- x_basis[, -na_idx, drop=FALSE]
-          }
-          A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
-          psi_pound_est <- mean((1-Pi$A0)*A0)
-          eic <- get_eic_psi_pound(Pi = Pi,
-                                   tau = list(A0 = A0,
-                                              x_basis = x_basis,
-                                              x_basis_A0 = x_basis_A0),
-                                   g = g,
-                                   theta_WA = theta_WA,
-                                   psi_pound_est = psi_pound_est,
-                                   S = S,
-                                   A = A,
-                                   Y = Y,
-                                   n = length(Y),
-                                   controls_only = controls_only,
-                                   weights = weights)
-        } else if (target_method == "onestep") {
-          # TODO
-        }
-      } else {
-        coefs <- mean(pseudo_outcome[delta == 1])
-      }
-    } else {
-      fit <- cv.glmnet(x = as.matrix(X[delta == 1, , drop = FALSE]),
-                       y = pseudo_outcome[delta == 1],
-                       weights = pseudo_weights[delta == 1],
-                       family = "gaussian", keep = TRUE, nfolds = v_folds,
-                       alpha = 1)
-      non_zero <- which(as.numeric(coef(fit, s = "lambda.min")) != 0)
-      coefs <- coef(fit, s = "lambda.min")[non_zero]
-      x_basis <- as.matrix(cbind(1, X)[, non_zero, drop = FALSE])
-      x_basis_A0 <- as.matrix(X_A0_counter[, non_zero, drop = FALSE])
-      x_basis_A1 <- as.matrix(X_A1_counter[, non_zero, drop = FALSE])
-
-      # targeting
-      if (length(non_zero) > 1) {
-        if (target_method == "relaxed") {
-          # use relaxed fit as targeted fit
-          relaxed_fit <- glm(pseudo_outcome[delta == 1] ~ -1+.,
-                             family = "gaussian",
-                             data = data.frame(x_basis[delta == 1,,drop=FALSE]),
-                             weights = pseudo_weights[delta == 1])
-          coefs <- as.numeric(coef(relaxed_fit))
-          na_idx <- which(is.na(coefs))
-          if (length(na_idx) > 0) {
-            coefs <- coefs[!is.na(coefs)]
-            x_basis <- x_basis[, -na_idx, drop=FALSE]
-            x_basis_A1 <- x_basis_A1[, -na_idx, drop=FALSE]
-            x_basis_A0 <- x_basis_A0[, -na_idx, drop=FALSE]
-          }
-          A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
-          A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
-          pred <- as.numeric(x_basis %*% matrix(coefs))
-          psi_pound_est <- mean((1-Pi$A0)*A0-(1-Pi$A1)*A1)
-          eic <- get_eic_psi_pound(Pi = Pi,
-                                   tau = list(pred = pred,
-                                              A0 = A0,
-                                              A1 = A1,
-                                              x_basis = x_basis,
-                                              x_basis_A0 = x_basis_A0,
-                                              x_basis_A1 = x_basis_A1),
-                                   g = g,
-                                   theta_WA = theta_WA,
-                                   psi_pound_est = psi_pound_est,
-                                   S = S,
-                                   A = A,
-                                   Y = Y,
-                                   n = length(Y),
-                                   controls_only = controls_only,
-                                   weights = weights)
-        } else if (target_method == "onestep") {
-          # TODO: closed-form
-          direction <- get_beta_h(x_basis = x_basis,
-                                  x_basis_A0 = x_basis_A0,
-                                  x_basis_A1 = x_basis_A1,
-                                  Pi = Pi)
-          n <- length(Y)
-          sn <- 0
-          cur_iter <- 1
-          A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
-          A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
-          pred <- as.numeric(x_basis %*% matrix(coefs))
-          psi_pound_est <- mean((1-Pi$A0)*A0-(1-Pi$A1)*A1)
-          eic <- get_eic_psi_pound(Pi = Pi,
-                                   tau = list(pred = pred,
-                                              A0 = A0,
-                                              A1 = A1,
-                                              x_basis = x_basis,
-                                              x_basis_A0 = x_basis_A0,
-                                              x_basis_A1 = x_basis_A1),
-                                   g = g,
-                                   theta_WA = theta_WA,
-                                   psi_pound_est = psi_pound_est,
-                                   S = S,
-                                   A = A,
-                                   Y = Y,
-                                   n = length(Y),
-                                   controls_only = controls_only,
-                                   weights = weights)
-          PnEIC_prev <- mean(eic)
-          prev_pos <- (PnEIC_prev >= 0)
-          while (cur_iter <= max_iter && abs(PnEIC_prev) > sn) {
-            coefs <- coefs + dx * sign(PnEIC_prev) * direction
-            A0 <- as.numeric(x_basis_A0 %*% matrix(coefs))
-            A1 <- as.numeric(x_basis_A1 %*% matrix(coefs))
-            pred <- as.numeric(x_basis %*% matrix(coefs))
-            psi_pound_est <- mean((1-Pi$A0)*A0-(1-Pi$A1)*A1)
-            eic <- get_eic_psi_pound(Pi = Pi,
-                                     tau = list(pred = pred,
-                                                A0 = A0,
-                                                A1 = A1,
-                                                x_basis = x_basis,
-                                                x_basis_A0 = x_basis_A0,
-                                                x_basis_A1 = x_basis_A1),
-                                     g = g,
-                                     theta_WA = theta_WA,
-                                     psi_pound_est = psi_pound_est,
-                                     S = S,
-                                     A = A,
-                                     Y = Y,
-                                     n = length(Y),
-                                     controls_only = controls_only,
-                                     weights = weights)
-            PnEIC_cur <- mean(eic)
-            cur_pos <- (PnEIC_cur >= 0)
-            if (cur_pos != prev_pos) dx <- dx / 10
-            if (abs(PnEIC_cur - PnEIC_prev) < 1e-6) dx <- dx * 10
-            prev_pos  <- cur_pos
-            PnEIC_prev <- PnEIC_cur
-            sn <- 0.01 * sqrt(var(eic, na.rm = TRUE))/(sqrt(n) * log(n))
-            if (verbose) message(sprintf("iter %d: PnEIC = %g", cur_iter, PnEIC_cur))
-            cur_iter <- cur_iter + 1
-          }
-        }
-      } else {
-        coefs <- mean(pseudo_outcome[delta == 1])
-      }
-    }
+    # counterfactual predictions
+    tau_S$phi_WA <- as.matrix(cbind(1, cbind(W, A=A, W*A)[,tau_S$non_zero,drop=FALSE]))
+    tau_S$phi_W0 <- as.matrix(cbind(1, cbind(W, A=0, W*0)[,tau_S$non_zero,drop=FALSE]))
+    tau_S$phi_W1 <- as.matrix(cbind(1, cbind(W, A=1, W*1)[,tau_S$non_zero,drop=FALSE]))
+    tau_S$cate_WA <- as.vector(tau_S$phi_WA %*% tau_S$beta)
+    tau_S$cate_W0 <- as.vector(tau_S$phi_W0 %*% tau_S$beta)
+    tau_S$cate_W1 <- as.vector(tau_S$phi_W1 %*% tau_S$beta)
   } else if (method == "HAL") {
     # HAL-based R learner
     tau_S <- rHAL(W = as.matrix(cbind(W, A=A)[delta == 1,,drop=FALSE]),

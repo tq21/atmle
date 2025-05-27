@@ -273,8 +273,8 @@ eic_psi_pound_wm <- function(S,
     }
   }
 
-  print(paste("Pi_comp", mean(Pi_comp)))
-  print(paste("beta_comp", mean(beta_comp)))
+  #print(paste("Pi_comp", mean(Pi_comp)))
+  #print(paste("beta_comp", mean(beta_comp)))
 
   return(W_comp+Pi_comp+beta_comp)
 }
