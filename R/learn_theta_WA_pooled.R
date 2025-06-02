@@ -33,14 +33,14 @@
 #' bound.
 #'
 #' @returns A numeric vector of the estimated values.
-learn_theta_tilde <- function(W,
-                              Y,
-                              delta,
-                              method,
-                              folds,
-                              family,
-                              theta_bounds,
-                              cross_fit_nuisance) {
+learn_theta_WA_pooled <- function(W,
+                                  Y,
+                                  delta,
+                                  method,
+                                  folds,
+                                  family,
+                                  theta_bounds,
+                                  cross_fit_nuisance) {
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners(family)
   }
@@ -102,8 +102,8 @@ learn_theta_tilde <- function(W,
         train_idx <- .x$training_set
         valid_idx <- .x$validation_set
         fit <- glm(Y[train_idx][delta[train_idx] == 1] ~ .,
-          data = X[train_idx, ][delta[train_idx] == 1, ],
-          family = family
+                   data = X[train_idx, ][delta[train_idx] == 1, ],
+                   family = family
         )
         pred[valid_idx] <<- .bound(as.numeric(predict(
           fit,

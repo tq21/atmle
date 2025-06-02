@@ -12,28 +12,31 @@ atmle(
   Y,
   controls_only,
   family,
-  atmle_pooled = TRUE,
   theta_method = "glmnet",
   Pi_method = "glmnet",
   g_method = "glmnet",
   g_delta_method = "glmnet",
   theta_tilde_method = "glmnet",
-  Q_method = "glmnet",
-  bias_working_model = "glmnet",
+  bias_working_model = "HAL",
   bias_working_model_formula = NULL,
-  pooled_working_model = "glmnet",
+  pooled_working_model = "HAL",
   pooled_working_model_formula = NULL,
   cross_fit_nuisance = TRUE,
   min_working_model = FALSE,
   max_degree = 1,
-  v_folds = 5,
-  g_bounds = c(0.01, 0.99),
-  Pi_bounds = c(0.01, 0.99),
-  theta_bounds = c(-Inf, Inf),
+  v_folds = NULL,
+  g_bounds = NULL,
+  Pi_bounds = NULL,
+  theta_bounds = NULL,
   target_gwt = TRUE,
   verbose = TRUE,
-  enumerate_basis_args = list(),
-  fit_hal_args = list()
+  max_iter = 50,
+  target_method = "relaxed",
+  eic_method = "svd_pseudo_inv",
+  alpha = 0.05,
+  enumerate_basis_args = list(max_degree = 2, smoothness_orders = 1, num_knots = c(20,
+    5)),
+  browse = FALSE
 )
 }
 \arguments{
@@ -50,11 +53,6 @@ only control-arm or both control-arm and treatment-arm.}
 \item{family}{A character string specifying the family of the outcome
 \eqn{Y}. Currently only \code{"gaussian"} and \code{"binomial"} are
 supported.}
-
-\item{atmle_pooled}{A logical indicating whether to also use A-TMLE for the
-pooled-ATE estimand If set to \code{FALSE}, use a regular TMLE for the
-pooled-ATE, but A-TMLE for the bias-estimand.
-Default is \code{TRUE}.}
 
 \item{theta_method}{The method to estimate the nuisance function
 \eqn{\theta(W,A)=\mathbb{E}(Y\mid W,A)}.
@@ -86,13 +84,6 @@ learner, or a \code{list} of \code{sl3} learners. Default is \code{"glmnet"}.
 \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
 \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
 learners. Default is \code{"glmnet"}.}
-
-\item{Q_method}{The method to estimate the nuisance function
-\eqn{Q(A,W)=\mathbb{E}(Y\mid W,A)}.
-\code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-\code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
-learners. Default is \code{"glmnet"}. Only applicable when \code{atmle_pooled}
-is set to \code{FALSE}.}
 
 \item{bias_working_model}{The working model for the bias estimand.
 Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
@@ -135,6 +126,18 @@ Default is \code{TRUE}.}
 
 \item{g_rct}{The probability of receiving the active treatment in the
 randomized controlled trial.}
+
+\item{atmle_pooled}{A logical indicating whether to also use A-TMLE for the
+pooled-ATE estimand If set to \code{FALSE}, use a regular TMLE for the
+pooled-ATE, but A-TMLE for the bias-estimand.
+Default is \code{TRUE}.}
+
+\item{Q_method}{The method to estimate the nuisance function
+\eqn{Q(A,W)=\mathbb{E}(Y\mid W,A)}.
+\code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+\code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+learners. Default is \code{"glmnet"}. Only applicable when \code{atmle_pooled}
+is set to \code{FALSE}.}
 }
 \value{
 A \code{list} containing the following elements:
