@@ -18,7 +18,7 @@ target_beta_S <- function(S,
     # relaxed-fit targeting
     relaxed_fit <- glm(tau_S$pseudo_outcome ~ -1+.,
                        family = "gaussian",
-                       data = as.data.frame(tau_S$phi_train),
+                       data = data.frame(tau_S$phi_train),
                        weights = tau_S$pseudo_weights)
     tau_S$beta <- as.numeric(coef(relaxed_fit))
     na_idx <- which(is.na(tau_S$beta))

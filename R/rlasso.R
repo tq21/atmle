@@ -1,5 +1,11 @@
-# Code is adapted from rlearner:
-# R-learner for Quasi-Oracle Estimation of Heterogeneous Treatment Effects
+#' @title R-learner for Quasi-Oracle Estimation of Heterogeneous Treatment
+#' Effects
+#'
+#' @description Code is adapted from \url{https://github.com/xnie/rlearner}
+#'
+#' @importFrom glmnet cv.glmnet
+#'
+#' @export
 rlasso <- function(W,
                    A,
                    Y,
@@ -62,6 +68,9 @@ rlasso <- function(W,
   return(ret_obj)
 }
 
+#' @title Predict method for rlasso objects
+#'
+#' @export
 predict.rlasso <- function(object,
                            newx = NULL) {
   if (!is.null(newx)) {

@@ -140,6 +140,7 @@ atmle <- function(data,
                   min_working_model = FALSE,
                   max_degree = 1,
                   v_folds = NULL,
+                  stratify = TRUE,
                   g_bounds = NULL,
                   Pi_bounds = NULL,
                   theta_bounds = NULL,
@@ -174,16 +175,18 @@ atmle <- function(data,
   if (is.null(theta_bounds)) theta_bounds <- c(-Inf, Inf)
 
   # cross-validation scheme (based on tmle R package)
-  if (n_eff <= 30){
-    v_folds <- n.effective
-  } else if (n_eff <= 500) {
-    v_folds <- 20
-  } else if (n_eff <= 1000) {
-    v_folds <- 10
-  } else if (n_eff <= 10000){
-    v_folds <- 5
-  } else {
-    v_folds <- 2
+  if (is.null(v_folds)) {
+    if (n_eff <= 30){
+      v_folds <- n.effective
+    } else if (n_eff <= 500) {
+      v_folds <- 20
+    } else if (n_eff <= 1000) {
+      v_folds <- 10
+    } else if (n_eff <= 10000){
+      v_folds <- 5
+    } else {
+      v_folds <- 2
+    }
   }
 
   # validate controls_only argument
@@ -201,16 +204,24 @@ atmle <- function(data,
 
   # cross fitting schemes
   if (family == "gaussian") {
-    if (sum(delta) < n) {
-      cv_strata <- paste0(S, "-", A, "-", delta)
+    if (stratify) {
+      if (sum(delta) < n) {
+        cv_strata <- paste0(S, "-", A, "-", delta)
+      } else {
+        cv_strata <- paste0(S, "-", A)
+      }
     } else {
-      cv_strata <- paste0(S, "-", A)
+      cv_strata <- rep(1, n)
     }
   } else if (family == "binomial") {
-    if (sum(delta) < n) {
-      cv_strata <- paste0(S, "-", A, "-", Y, "-", delta)
+    if (stratify) {
+      if (sum(delta) < n) {
+        cv_strata <- paste0(S, "-", A, "-", Y, "-", delta)
+      } else {
+        cv_strata <- paste0(S, "-", A, "-", Y)
+      }
     } else {
-      cv_strata <- paste0(S, "-", A, "-", Y)
+      cv_strata <- rep(1, n)
     }
   }
   suppressWarnings({
@@ -288,8 +299,6 @@ atmle <- function(data,
                  A = A,
                  Pi_bounds = Pi_bounds)
   if (verbose) cat("Done!\n")
-
-
 
   # learn working model tau for bias
   if (verbose) cat("learning \U03C4(W,A)=E(Y|S=1,W,A)-E(Y|S=0,W,A)...")
@@ -371,7 +380,7 @@ atmle <- function(data,
                                       weights = weights,
                                       controls_only = controls_only)
     PnEIC <- mean(psi_pound_eic)
-    sn <- 0.001*sqrt(var(psi_pound_eic, na.rm = TRUE))/(sqrt(length(Y)) * log(length(Y)))
+    sn <- sqrt(var(psi_pound_eic, na.rm = TRUE))/(sqrt(length(Y)) * log(length(Y)))
     cur_iter <- cur_iter + 1
     if (verbose) print(PnEIC)
   }

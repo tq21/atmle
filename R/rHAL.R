@@ -1,5 +1,13 @@
-# Code is adapted from rlearner:
-# R-learner for Quasi-Oracle Estimation of Heterogeneous Treatment Effects
+#' @title R-learner for Quasi-Oracle Estimation of Heterogeneous Treatment
+#' Effects
+#'
+#' @description Code is adapted from \url{https://github.com/xnie/rlearner}
+#'
+#' @importFrom hal9001 enumerate_basis
+#' @importFrom hal9001 make_design_matrix
+#' @importFrom glmnet cv.glmnet
+#'
+#' @export
 rHAL <- function(W,
                  A,
                  Y,
@@ -66,6 +74,11 @@ rHAL <- function(W,
   return(ret_obj)
 }
 
+#' @title Predict method for rHAL objects
+#'
+#' @importFrom hal9001 make_design_matrix
+#'
+#' @export
 predict.rHAL <- function(object,
                          newx = NULL) {
   if (!is.null(newx)) {
