@@ -27,7 +27,8 @@ Imports:
   hal9001,
   origami,
   purrr,
-  tmle
+  tmle,
+  sl3
 Suggests: 
   covr,
   testthat (>= 3.0.0)
