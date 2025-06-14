@@ -66,7 +66,7 @@ learn_theta_W <- function(W,
         Lrnr_cv_selector$new(loss_squared_error)
       )
       task_train <- sl3_Task$new(
-        data = data.table(W, Y = Y)[delta == 1], weights = weights[delta == 1],
+        data = data.table(W, Y = Y, weights=weights)[delta == 1,], weights = "weights",
         covariates = colnames(W), outcome = "Y", outcome_type = "continuous"
       )
       Y_tmp <- Y
@@ -81,7 +81,7 @@ learn_theta_W <- function(W,
         Lrnr_cv_selector$new(loss_loglik_binomial)
       )
       task_train <- sl3_Task$new(
-        data = data.table(W, Y = Y)[delta == 1], weights = weights[delta == 1],
+        data = data.table(W, Y = Y, weights=weights)[delta == 1,], weights = "weights",
         covariates = colnames(W), outcome = "Y", outcome_type = "binomial"
       )
       Y_tmp <- Y
