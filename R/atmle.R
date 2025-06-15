@@ -369,6 +369,7 @@ atmle <- function(data,
                            tau_S = tau_S,
                            weights = weights,
                            controls_only = controls_only,
+                           eic_method = eic_method,
                            target_method = target_method)
     psi_pound_eic <- eic_psi_pound_wm(S = S,
                                       Y = Y,
@@ -426,6 +427,7 @@ atmle <- function(data,
                          g1W = g1W$pred,
                          theta_W = theta_W,
                          tau_A = tau_A,
+                         eic_method = eic_method,
                          target_method = target_method)
   if (verbose) cat("Done!\n\n")
 

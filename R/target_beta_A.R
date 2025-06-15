@@ -4,6 +4,7 @@ target_beta_A <- function(A,
                           theta_W,
                           tau_A,
                           target_method,
+                          eic_method,
                           browse = FALSE) {
   if (browse) browser()
 

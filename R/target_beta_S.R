@@ -9,6 +9,7 @@ target_beta_S <- function(S,
                           weights,
                           controls_only,
                           target_method,
+                          eic_method,
                           browse = FALSE) {
   if (browse) browser()
   # TODO: implement target in a sequence of WMs
