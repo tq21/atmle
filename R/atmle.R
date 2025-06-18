@@ -127,6 +127,7 @@ atmle <- function(data,
                   Y,
                   controls_only,
                   family,
+                  std_wrt_rct_W = FALSE,
                   theta_method = "glmnet",
                   Pi_method = "glmnet",
                   g_method = "glmnet",
@@ -351,7 +352,8 @@ atmle <- function(data,
                                       Pi = Pi,
                                       tau_S = tau_S,
                                       weights = weights,
-                                      controls_only = controls_only)
+                                      controls_only = controls_only,
+                                      std_wrt_rct_W = std_wrt_rct_W)
     PnEIC <- mean(psi_pound_eic)
     sn <- 0.001*sqrt(var(psi_pound_eic, na.rm = TRUE))/(sqrt(length(Y)) * log(length(Y)))
     if (abs(PnEIC) <= sn) {
@@ -379,7 +381,8 @@ atmle <- function(data,
                                       Pi = Pi,
                                       tau_S = tau_S,
                                       weights = weights,
-                                      controls_only = controls_only)
+                                      controls_only = controls_only,
+                                      std_wrt_rct_W = std_wrt_rct_W)
     PnEIC <- mean(psi_pound_eic)
     sn <- sqrt(var(psi_pound_eic, na.rm = TRUE))/(sqrt(length(Y)) * log(length(Y)))
     cur_iter <- cur_iter + 1
@@ -387,9 +390,17 @@ atmle <- function(data,
   }
 
   if (controls_only) {
-    psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0)
+    if (std_wrt_rct_W) {
+      psi_pound_est <- mean((S/mean(S))*(1-Pi$A0)*tau_S$cate_W0)
+    } else {
+      psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0)
+    }
   } else {
-    psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1)
+    if (std_wrt_rct_W) {
+      psi_pound_est <- mean((S/mean(S))*(1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1)
+    } else {
+      psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1)
+    }
   }
 
   # estimate pooled-ATE psi_tilde ----------------------------------------------
@@ -432,14 +443,20 @@ atmle <- function(data,
   if (verbose) cat("Done!\n\n")
 
   # estimates
-  psi_tilde_est <- mean(tau_A$cate_W)
-  psi_tilde_eic <- eic_psi_tilde_wm(Y = Y,
+  if (std_wrt_rct_W) {
+    psi_tilde_est <- mean(tau_A$cate_W)
+  } else {
+    psi_tilde_est <- mean((S/mean(S))*tau_A$cate_W,)
+  }
+  psi_tilde_eic <- eic_psi_tilde_wm(S = S,
+                                    Y = Y,
                                     A = A,
                                     g1W = g1W$pred,
                                     theta_W = theta_W,
                                     tau_A = tau_A,
                                     weights = weights_tilde,
-                                    eic_method = eic_method)
+                                    eic_method = eic_method,
+                                    std_wrt_rct_W = std_wrt_rct_W)
 
   # final estimates ------------------------------------------------------------
   psi_pound_se <- sqrt(var(psi_pound_eic, na.rm = TRUE)/n)
@@ -451,8 +468,8 @@ atmle <- function(data,
   est <- psi_tilde_est-psi_pound_est
   eic <- psi_tilde_eic-psi_pound_eic
   se <- sqrt(var(eic, na.rm = TRUE)/n)
-  lower <- est-1.96*se
-  upper <- est+1.96*se
+  lower <- est+qnorm(alpha/2)*se
+  upper <- est+qnorm(1-alpha/2)*se
 
   results <- list(est = est,
                   lower = lower,
