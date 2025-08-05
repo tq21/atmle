@@ -25,6 +25,7 @@ atmle(
   min_working_model = FALSE,
   max_degree = 1,
   v_folds = NULL,
+  stratify = TRUE,
   g_bounds = NULL,
   Pi_bounds = NULL,
   theta_bounds = NULL,

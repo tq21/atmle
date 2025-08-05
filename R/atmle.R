@@ -178,7 +178,7 @@ atmle <- function(data,
   # cross-validation scheme (based on tmle R package)
   if (is.null(v_folds)) {
     if (n_eff <= 30){
-      v_folds <- n.effective
+      v_folds <- n_eff
     } else if (n_eff <= 500) {
       v_folds <- 20
     } else if (n_eff <= 1000) {
@@ -446,7 +446,7 @@ atmle <- function(data,
   if (std_wrt_rct_W) {
     psi_tilde_est <- mean(tau_A$cate_W)
   } else {
-    psi_tilde_est <- mean((S/mean(S))*tau_A$cate_W,)
+    psi_tilde_est <- mean((S/mean(S))*tau_A$cate_W)
   }
   psi_tilde_eic <- eic_psi_tilde_wm(S = S,
                                     Y = Y,

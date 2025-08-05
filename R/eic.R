@@ -173,12 +173,28 @@ get_eic_psi_tilde_2 <- function(g, Q_A1, Q_A0, A, Y) {
   return(D_A1 - D_A0 + Q_A1 - Q_A0 - mean(Q_A1 - Q_A0))
 }
 
-get_eic_psi_nonparametric <- function(Q, Pi, g, S, A, Y, psi_est, weights) {
-  Y_tmp <- Y
-  Y_tmp[is.na(Y)] <- 0
-  W_comp <- Q$S1A1 - Q$S1A0 - psi_est
-  Q_comp <- (S / Pi$pred) * (A / g - (1 - A) / (1 - g)) * weights * (Y_tmp - Q$pred)
-  return(W_comp + Q_comp)
+get_np_eic_pooled_W <- function(Q,
+                                Pi,
+                                g11W,
+                                S,
+                                A,
+                                Y,
+                                psi) {
+  W_comp <- Q$Q1W1-Q$Q1W0-psi
+  Q_comp <- (S/Pi)*(A/g11W-(1-A)/(1-g11W))*(Y-Q$Q1WA)
+  return(W_comp+Q_comp)
+}
+
+get_np_eic_rct_W <- function(Q,
+                             pS,
+                             g11W,
+                             S,
+                             A,
+                             Y,
+                             psi) {
+  W_comp <- (S/pS)*(Q$Q1W1-Q$Q1W0-psi)
+  Q_comp <- (S/pS)*(A/g11W-(1-A)/(1-g11W))*(Y-Q$Q1WA)
+  return(W_comp+Q_comp)
 }
 
 get_beta_h_T <- function(x_basis,
