@@ -30,21 +30,16 @@ nonparametric <- function(data,
   # cross fitting schemes
   if (family == "gaussian") {
     cv_strata <- paste0(S, "-", A)
+    cv_strata_S1 <- A[S == 1]
   } else if (family == "binomial") {
     cv_strata <- paste0(S, "-", A, "-", Y)
+    cv_strata_S1 <- paste0(A[S == 1], "-", Y[S == 1])
   }
   suppressWarnings({
     folds <- make_folds(n = n, V = v_folds,
                         strata_ids = as.integer(factor(cv_strata)))
-  })
-  folds_S1 <- map(folds, function(.fold) {
-    train_idx <- .fold$training_set
-    valid_idx <- .fold$validation_set
-    train_idx <- train_idx[S[train_idx] == 1]
-    valid_idx <- valid_idx[S[valid_idx] == 1]
-    return(list(training_set = train_idx,
-                validation_set = valid_idx,
-                v = .fold$v))
+    folds_S1 <- make_folds(n = sum(S == 1), V = v_folds,
+                           strata_ids = as.integer(factor(cv_strata_S1)))
   })
 
   # estimate nuisance parts
@@ -101,7 +96,7 @@ nonparametric <- function(data,
                                       A = A,
                                       Y = Y,
                                       psi = psi_pooled_W)
-  se_pooled_W <- sqrt(var(psi_pooled_W, na.rm = TRUE)/n)
+  se_pooled_W <- sqrt(var(eic_pooled_W, na.rm = TRUE)/n)
   lower_pooled_W <- psi_pooled_W+qnorm(0.025)*se_pooled_W
   upper_pooled_W <- psi_pooled_W+qnorm(0.975)*se_pooled_W
 
@@ -115,7 +110,7 @@ nonparametric <- function(data,
                                 A = A,
                                 Y = Y,
                                 psi = psi_rct_W)
-  se_rct_W <- sqrt(var(psi_rct_W, na.rm = TRUE)/n)
+  se_rct_W <- sqrt(var(eic_rct_W, na.rm = TRUE)/n)
   lower_rct_W <- psi_rct_W+qnorm(0.025)*se_rct_W
   upper_rct_W <- psi_rct_W+qnorm(0.975)*se_rct_W
 

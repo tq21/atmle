@@ -224,12 +224,12 @@ learn_QSWA <- function(S,
     pred_Q1W0 <- fit_QSWA$predict(task_Q1W0)
   } else if (method == "glm") {
     if (pooling) {
-      fit <- glm(Y ~ ., data = data.frame(S=S, W, A=A, Y=Y), family = family)
+      fit <- glm(Y ~ .^3, data = data.frame(S=S, W, A=A, Y=Y), family = family)
       pred_Q1WA <- as.numeric(predict(fit, newdata = data.frame(S=1, W, A=A), type = "response"))
       pred_Q1W1 <- as.numeric(predict(fit, newdata = data.frame(S=1, W, A=1), type = "response"))
       pred_Q1W0 <- as.numeric(predict(fit, newdata = data.frame(S=1, W, A=0), type = "response"))
     } else {
-      fit <- glm(Y ~ ., data = data.frame(W, A=A, Y=Y)[S == 1,], family = family)
+      fit <- glm(Y ~ .^2, data = data.frame(W, A=A, Y=Y)[S == 1,], family = family)
       pred_Q1WA <- as.numeric(predict(fit, newdata = data.frame(W, A=A, Y=Y), type = "response"))
       pred_Q1W1 <- as.numeric(predict(fit, newdata = data.frame(W, A=1, Y=Y), type = "response"))
       pred_Q1W0 <- as.numeric(predict(fit, newdata = data.frame(W, A=0, Y=Y), type = "response"))
