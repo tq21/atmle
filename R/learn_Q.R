@@ -70,7 +70,7 @@ learn_Q <- function(W,
         covariates = c(colnames(W), "A"),
         outcome = "Y", outcome_type = "continuous"
       )
-      fit_Q <- lrnr_Q$train(task_Q)
+      suppressMessages(fit_Q <- lrnr_Q$train(task_Q))
 
       task_Q_A0 <- sl3_Task$new(
         data = data.table(W, Y = Y, A = 0),
@@ -97,7 +97,7 @@ learn_Q <- function(W,
         covariates = c(colnames(W), "A"),
         outcome = "Y", outcome_type = "binomial"
       )
-      fit_Q <- lrnr_Q$train(task_Q)
+      suppressMessages(fit_Q <- lrnr_Q$train(task_Q))
 
       task_Q_A0 <- sl3_Task$new(
         data = data.table(W, Y = Y, A = 0),

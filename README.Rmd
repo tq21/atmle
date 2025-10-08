@@ -40,59 +40,81 @@ issue](https://github.com/tq21/atmle/issues).
 
 ```{r atmle-example, message=FALSE, warning=FALSE}
 library(atmle)
-library(EScvtmle)
-options(sl3.verbose = TRUE)
-`%+%` <- function(a, b) paste0(a, b)
-set.seed(82379)
+library(sl3)
+library(ggplot2)
+seed <- 113
 
-# simulate data
-n <- 2000
-S <- rbinom(n, 1, 0.2)
-W1 <- rnorm(n); W2 <- rnorm(n); W3 <- rnorm(n)
-A <- numeric(n)
-g_rct <- 0.67
-A[S == 1] <- rbinom(sum(S), 1, g_rct)
-A[S == 0] <- rbinom(n-sum(S), 1, plogis(0.5*W1[S == 0]))
-UY <- rnorm(n, 0, 1)
-Y <- 2.5+0.9*W1+1.1*W2+2.7*W3+1.5*A+UY+(1-S)*(0.2+0.1*W1*(1-A))
-data <- data.frame(S, W1, W2, A, Y)
-true_ate <- 1.5
+data(sample_data)
 
-# run A-TMLE
-res <- atmle(data,
-             S_node = c(1),
-             W_node = c(2, 3),
-             A_node = 4,
-             Y_node = 5,
-             controls_only = FALSE,
-             family = "gaussian",
-             atmle_pooled = TRUE,
-             g_rct = 0.67,
-             verbose = FALSE)
-print("A-TMLE ATE estimate: " %+% round(res$est, 2) %+% 
-        " (" %+% round(res$lower, 2) %+% ", " %+% round(res$upper, 2) %+% ")")
-print("True ATE: " %+% true_ate)
-
-# compared to ES-CVTMLE
-escvtmle_res <- ES.cvtmle(txinrwd = TRUE,
-                          data = data,
-                          study = "S",
-                          covariates = c("W1", "W2"),
-                          treatment_var = "A",
-                          treatment = 1,
-                          outcome = "Y",
-                          pRCT = g_rct,
+sl_lib <- list(Lrnr_glm$new(),
+               Lrnr_dbarts$new(),
+               Lrnr_xgboost$new())
+set.seed(seed)
+tmle_res <- nonparametric(data = mydata,
+                          S = "S",
+                          W = c("W1", "W2", "W3", "W4"),
+                          A = "A",
+                          Y = "Y",
                           family = "gaussian",
-                          Q.SL.library = c("SL.glm"),
-                          g.SL.library = c("SL.glm"),
-                          Q.discreteSL = TRUE,
-                          g.discreteSL = TRUE,
-                          V = 5)
-print("ES-CVTMLE ATE estimate: " %+% round(escvtmle_res$ATE$b2v, 2) %+% 
-        " (" %+% round(escvtmle_res$CI$b2v[1], 2) %+% 
-        ", " %+% round(escvtmle_res$CI$b2v[2], 2) %+% ")")
-print("True ATE: " %+% true_ate)
+                          Pi_method = sl_lib,
+                          g_method = "glm",
+                          Q_method = sl_lib,
+                          Q_pooling = TRUE,
+                          v_folds = 5)
 ```
+
+```{r}
+set.seed(seed)
+atmle_res <- atmle(data = mydata, 
+                   S = "S", 
+                   W = c("W1", "W2", "W3", "W4"), 
+                   A = "A",
+                   Y = "Y",
+                   controls_only = FALSE,
+                   family = "gaussian",
+                   theta_method = sl_lib, 
+                   Pi_method = sl_lib, 
+                   g_method = sl_lib, 
+                   theta_tilde_method = sl_lib, 
+                   bias_working_model = "HAL",
+                   pooled_working_model = "HAL",
+                   target_method = "oneshot",
+                   enumerate_basis_args = list(max_degree = 3,
+                                               smoothness_orders = 1),
+                   v_folds = 5)
+```
+
+```{r}
+df_plot <- data.frame(Estimator = c("Standard TMLE",
+                                    "Pooled-ATE", 
+                                    "Bias-corrected ATE (A-TMLE)"),
+                      Estimate = c(tmle_res$psi_pooled_W, 
+                                   atmle_res$psi_tilde_est, 
+                                   atmle_res$est),
+                      Lower = c(tmle_res$lower_pooled_W, 
+                                atmle_res$psi_tilde_lower, 
+                                atmle_res$lower),
+                      Upper = c(tmle_res$upper_pooled_W, 
+                                atmle_res$psi_tilde_upper, 
+                                atmle_res$upper))
+df_plot$Estimator <- factor(df_plot$Estimator, 
+                            levels = c("Standard TMLE",
+                                       "Bias-corrected ATE (A-TMLE)", 
+                                       "Pooled-ATE"))
+ggplot(df_plot, aes(x = Estimator, y = Estimate, fill = Estimator)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.2, size = 0.8) +
+  geom_hline(yintercept = 0.3, linetype = "dashed", color = "red") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray") +
+  theme_minimal(base_size = 13) +
+  labs(title = "Point Estimates with 95% Confidence Intervals",
+       y = "Estimate",
+       x = "") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5)) +
+  coord_flip()
+```
+
 
 ---
 

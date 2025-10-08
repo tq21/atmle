@@ -2,7 +2,8 @@
 % Please edit documentation in R/nonparametric.R
 \name{nonparametric}
 \alias{nonparametric}
-\title{Nonparametric TMLE}
+\title{Nonparametric TMLE for Psi (std. over pooled-covariates) and
+Psi_2 (std. over RCT-covariates)}
 \usage{
 nonparametric(
   data,
@@ -10,22 +11,17 @@ nonparametric(
   W,
   A,
   Y,
-  controls_only,
-  family = "gaussian",
-  atmle_pooled = TRUE,
-  theta_method = "glm",
+  family,
   Pi_method = "glm",
   g_method = "glm",
-  theta_tilde_method = "glm",
   Q_method = "glm",
-  bias_working_model = "glmnet",
-  pooled_working_model = "glmnet",
-  var_method = "ic",
-  max_iter = 1,
+  Q_pooling = TRUE,
   v_folds = 5,
-  verbose = TRUE
+  verbose = FALSE,
+  browse = FALSE
 )
 }
 \description{
-Nonparametric TMLE
+Nonparametric TMLE for Psi (std. over pooled-covariates) and
+Psi_2 (std. over RCT-covariates)
 }

@@ -5,18 +5,11 @@
 \title{Learn nuisance function: conditional probability of observing the
 outcome given study indicator, baseline covariates and treatment}
 \usage{
-learn_g_delta(
-  S,
-  W,
-  A,
-  delta,
-  method,
-  folds,
-  g_bounds,
-  cross_fit_nuisance = FALSE
-)
+learn_g_delta(S, W, A, delta, method, folds, g_bounds, cross_fit_nuisance)
 }
 \arguments{
+\item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
+
 \item{W}{A matrix of baseline covariates.}
 
 \item{A}{A vector of treatment indicators.}
@@ -24,12 +17,17 @@ learn_g_delta(
 \item{delta}{A vector of missingness indicators.}
 
 \item{method}{Learning method. \code{"glm"} for main-term linear model,
-\code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
-super learner-based estimation.}
+\code{"glmnet"} for main-term lasso, or a \code{list} of \code{sl3} learners
+for super learner-based estimation.}
+
+\item{folds}{A `fold` object from `origami` package.}
 
 \item{g_bounds}{A numeric vector of lower and upper bounds for the
 missingness mechanism. The first element is the lower bound, and the second
 element is the upper bound.}
+
+\item{cross_fit_nuisance}{A logical indicating whether to use cross-fitting
+when estimating the nuisance function.}
 }
 \value{
 A numeric vector of the estimated values.
@@ -37,7 +35,7 @@ A numeric vector of the estimated values.
 \description{
 Function to learn the conditional probability of observing the
 outcome given baseline covariates and treatment,
-\eqn{g_\Delta(1\mid S,W,A)=\mathbb{P}(\Delta=1\mid S,W,A)}. Only applicable when
-the outcome is subject to missingness.
+\eqn{g_\Delta(1\mid S,W,A)=\mathbb{P}(\Delta=1\mid S,W,A)}. Only applicable
+when the outcome is subject to missingness.
 }
 \keyword{nuisance}

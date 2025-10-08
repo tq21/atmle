@@ -39,6 +39,7 @@ learn_theta_W <- function(W,
                           weights,
                           method,
                           folds,
+                          folds_obs,
                           family,
                           theta_bounds,
                           cross_fit_nuisance) {
@@ -67,13 +68,15 @@ learn_theta_W <- function(W,
       )
       task_train <- sl3_Task$new(
         data = data.table(W, Y = Y, weights=weights)[delta == 1,], weights = "weights",
-        covariates = colnames(W), outcome = "Y", outcome_type = "continuous"
+        covariates = colnames(W), outcome = "Y", outcome_type = "continuous",
+        folds = folds_obs
       )
       Y_tmp <- Y
       Y_tmp[delta == 0] <- 0
       task_pred <- sl3_Task$new(
         data = data.table(W, Y = Y_tmp),
-        covariates = colnames(W), outcome = "Y", outcome_type = "continuous"
+        covariates = colnames(W), outcome = "Y", outcome_type = "continuous",
+        folds = folds
       )
     } else if (family == "binomial") {
       lrnr_theta_tilde <- make_learner(
@@ -82,17 +85,19 @@ learn_theta_W <- function(W,
       )
       task_train <- sl3_Task$new(
         data = data.table(W, Y = Y, weights=weights)[delta == 1,], weights = "weights",
-        covariates = colnames(W), outcome = "Y", outcome_type = "binomial"
+        covariates = colnames(W), outcome = "Y", outcome_type = "binomial",
+        folds = folds_obs
       )
       Y_tmp <- Y
       Y_tmp[delta == 0] <- 0
       task_pred <- sl3_Task$new(
         data = data.table(W, Y = Y_tmp),
-        covariates = colnames(W), outcome = "Y", outcome_type = "binomial"
+        covariates = colnames(W), outcome = "Y", outcome_type = "binomial",
+        folds = folds
       )
     }
 
-    fit_theta_tilde <- lrnr_theta_tilde$train(task_train)
+    suppressMessages(fit_theta_tilde <- lrnr_theta_tilde$train(task_train))
     pred <- .bound(fit_theta_tilde$predict(task_pred), theta_bounds)
   } else if (method == "glm") {
     X <- data.frame(W) # USE MODEL MATRIX, SOMETIMES CHARACTERS MESS UP

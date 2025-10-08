@@ -14,7 +14,4 @@ Either \code{"gaussian"} or \code{"binomial"}.}
 Function to get a default super learner library for a given
 family of the outcome.
 }
-\examples{
-lrnrs <- get_default_sl3_learners("gaussian")
-}
 \keyword{internal}

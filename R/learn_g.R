@@ -5,30 +5,28 @@
 #'
 #' @keywords nuisance
 #'
+#' @import sl3
 #' @importFrom glmnet cv.glmnet
 #' @importFrom data.table data.table
-#' @importFrom sl3 Stack
-#' @importFrom sl3 make_learner
-#' @importFrom sl3 sl3_Task
-#' @importFrom sl3 Pipeline
-#' @importFrom sl3 Lrnr_cv
-#' @importFrom sl3 Lrnr_cv_selector
-#' @importFrom sl3 loss_loglik_binomial
 #' @importFrom purrr walk
 #'
 #' @param S A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.
 #' @param W A matrix of baseline covariates.
 #' @param A A vector of treatment indicators, \eqn{A=1} for treatment-arm,
 #' \eqn{A=0} for control-arm.
-#' @param g_rct A numeric of treatment probability in RCT.
+#' @param method Learning method. \code{"glm"} for main-term linear model,
+#' \code{"glmnet"} for main-term lasso, or a \code{list} of \code{sl3} learners
+#' for super learner-based estimation.
 #' @param controls_only A logical indicating whether the external data has only
 #' control-arm observations.
-#' @param method Learning method. \code{"glm"} for main-term linear model,
-#' \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
-#' super learner-based estimation.
+#' @param folds A `fold` object from `origami` package.
+#' @param folds_S1 A `fold` object (RCT) from `origami` package.
+#' @param folds_S0 A `fold` object (RWD) from `origami` package.
 #' @param g_bounds A numeric vector of lower and upper bounds for the
 #' treatment mechanism. The first element is the lower bound, and the second
 #' element is the upper bound.
+#' @param cross_fit_nuisance A logical indicating whether to use cross-fitting
+#' when estimating the nuisance function.
 #'
 #' @returns A numeric vector of estimated treatment probabilities.
 #'
@@ -37,15 +35,14 @@
 #' treatment mechanism into the following form:
 #' \deqn{g(A\mid W)=\mathbb{P}(A=1\mid S=1,W)\mathbb{P}(S=1\mid W)+
 #' \mathbb{P}(A=1\mid S=0,W)\mathbb{P}(S=0\mid W).}
-#' This form allows us to use the RCT randomization probability
-#' (typically known) for the term \eqn{\mathbb{P}(A=1\mid S=1,W)}.
-#' The rest of the terms are estimated using methods specified in \code{method}.
 learn_g <- function(S,
                     W,
                     A,
                     method,
                     controls_only,
                     folds,
+                    folds_S1,
+                    folds_S0,
                     g_bounds,
                     cross_fit_nuisance) {
 
@@ -67,28 +64,29 @@ learn_g <- function(S,
     task_S_W <- sl3_Task$new(
       data = data.table(W, S = S),
       covariates = colnames(W),
+      folds = folds,
       outcome = "S", outcome_type = "binomial"
     )
-    fit_S_W <- lrnr$train(task_S_W)
+    suppressMessages(fit_S_W <- lrnr$train(task_S_W))
     pred_S_W <- fit_S_W$predict(task_S_W)
 
     # P(A=1|S=1,W)
     task_A_S1_W <- sl3_Task$new(
       data = data.table(W[S == 1, ], A = A[S == 1]),
-      covariates = colnames(W),
+      covariates = colnames(W), folds = folds_S1,
       outcome = "A", outcome_type = "binomial"
     )
-    fit_A_S1_W <- lrnr$train(task_A_S1_W)
+    suppressMessages(fit_A_S1_W <- lrnr$train(task_A_S1_W))
     pred_A_S1_W <- fit_A_S1_W$predict(task_S_W)
 
     if (!controls_only) {
       # P(A=1|S=0,W)
       task_A_S0_W <- sl3_Task$new(
         data = data.table(W[S == 0, ], A = A[S == 0]),
-        covariates = colnames(W),
+        covariates = colnames(W), folds = folds_S0,
         outcome = "A", outcome_type = "binomial"
       )
-      fit_A_S0_W <- lrnr$train(task_A_S0_W)
+      suppressMessages(fit_A_S0_W <- lrnr$train(task_A_S0_W))
       pred_A_S0_W <- fit_A_S0_W$predict(task_S_W)
     }
 

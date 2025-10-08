@@ -117,7 +117,7 @@ learn_theta_WA <- function(W,
           data = data.table(W, Y = Y_tmp)[A == 0],
           covariates = colnames(W), outcome = "Y", outcome_type = "binomial"
         )
-        fit_theta <- lrnr_theta$train(task_train)
+        suppressMessages(fit_theta <- lrnr_theta$train(task_train))
         pred[A == 0] <- .bound(fit_theta$predict(task_pred), theta_bounds)
       } else {
         task_train <- sl3_Task$new(
@@ -132,7 +132,7 @@ learn_theta_WA <- function(W,
           covariates = c(colnames(W), "A"),
           outcome = "Y", outcome_type = "binomial"
         )
-        fit_theta <- lrnr_theta$train(task_train)
+        suppressMessages(fit_theta <- lrnr_theta$train(task_train))
         pred <- .bound(fit_theta$predict(task_pred), theta_bounds)
       }
     } else {

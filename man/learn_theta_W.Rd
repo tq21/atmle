@@ -12,6 +12,7 @@ learn_theta_W(
   weights,
   method,
   folds,
+  folds_obs,
   family,
   theta_bounds,
   cross_fit_nuisance

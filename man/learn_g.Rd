@@ -4,7 +4,18 @@
 \alias{learn_g}
 \title{Learn nuisance function: treatment mechanism}
 \usage{
-learn_g(S, W, A, method, controls_only, folds, g_bounds, cross_fit_nuisance)
+learn_g(
+  S,
+  W,
+  A,
+  method,
+  controls_only,
+  folds,
+  folds_S1,
+  folds_S0,
+  g_bounds,
+  cross_fit_nuisance
+)
 }
 \arguments{
 \item{S}{A vector of study indicators, \eqn{S=1} for RCT, \eqn{S=0} for RWD.}
@@ -15,17 +26,24 @@ learn_g(S, W, A, method, controls_only, folds, g_bounds, cross_fit_nuisance)
 \eqn{A=0} for control-arm.}
 
 \item{method}{Learning method. \code{"glm"} for main-term linear model,
-\code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
-super learner-based estimation.}
+\code{"glmnet"} for main-term lasso, or a \code{list} of \code{sl3} learners
+for super learner-based estimation.}
 
 \item{controls_only}{A logical indicating whether the external data has only
 control-arm observations.}
+
+\item{folds}{A `fold` object from `origami` package.}
+
+\item{folds_S1}{A `fold` object (RCT) from `origami` package.}
+
+\item{folds_S0}{A `fold` object (RWD) from `origami` package.}
 
 \item{g_bounds}{A numeric vector of lower and upper bounds for the
 treatment mechanism. The first element is the lower bound, and the second
 element is the upper bound.}
 
-\item{g_rct}{A numeric of treatment probability in RCT.}
+\item{cross_fit_nuisance}{A logical indicating whether to use cross-fitting
+when estimating the nuisance function.}
 }
 \value{
 A numeric vector of estimated treatment probabilities.
@@ -40,8 +58,5 @@ We provide some details on estimating the treatment mechanism
 treatment mechanism into the following form:
 \deqn{g(A\mid W)=\mathbb{P}(A=1\mid S=1,W)\mathbb{P}(S=1\mid W)+
 \mathbb{P}(A=1\mid S=0,W)\mathbb{P}(S=0\mid W).}
-This form allows us to use the RCT randomization probability
-(typically known) for the term \eqn{\mathbb{P}(A=1\mid S=1,W)}.
-The rest of the terms are estimated using methods specified in \code{method}.
 }
 \keyword{nuisance}

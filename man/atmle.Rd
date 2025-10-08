@@ -2,7 +2,7 @@
 % Please edit documentation in R/atmle.R
 \name{atmle}
 \alias{atmle}
-\title{Adaptive-TMLE for RCT-ATE}
+\title{Adaptive-TMLE}
 \usage{
 atmle(
   data,
@@ -22,9 +22,8 @@ atmle(
   pooled_working_model = "HAL",
   pooled_working_model_formula = NULL,
   cross_fit_nuisance = TRUE,
-  min_working_model = FALSE,
-  max_degree = 1,
   v_folds = NULL,
+  stratify = TRUE,
   g_bounds = NULL,
   Pi_bounds = NULL,
   theta_bounds = NULL,
@@ -42,13 +41,18 @@ atmle(
 \arguments{
 \item{data}{A \code{data.frame} containing baseline covariates \eqn{W},
 binary treatment indicator \eqn{A} (\eqn{A=1} for active treatment),
-outcome \eqn{Y}, and binary study indicator of whether the observation is
-from the randomized controlled trial \eqn{S=1} or from the external data
-\eqn{S=0}. If both studies are observational, then \eqn{S=1} should be the
-reference study.}
+outcome \eqn{Y}, and binary study indicator \eqn{S} of whether the
+observation is from the randomized controlled trial \eqn{S=1} or from the
+external data \eqn{S=0}. If both studies are observational, then \eqn{S=1}
+should be the reference study.}
 
-\item{controls_only}{A logical indicating whether the external data has
-only control-arm or both control-arm and treatment-arm.}
+\item{S}{The column name of the \eqn{S} node in \code{data}.}
+
+\item{W}{The column names of the \eqn{W} node in \code{data}.}
+
+\item{A}{The column name of the \eqn{A} node in \code{data}.}
+
+\item{Y}{The column name of the \eqn{Y} node in \code{data}.}
 
 \item{family}{A character string specifying the family of the outcome
 \eqn{Y}. Currently only \code{"gaussian"} and \code{"binomial"} are
@@ -73,41 +77,57 @@ learners. Default is \code{"glmnet"}.}
 learners. Default is \code{"glmnet"}.}
 
 \item{g_delta_method}{The method to estimate the nuisance function
-\eqn{\delta(W,A)=\mathbb{P}(\Delta=1\mid W,A)}. \code{"glm"} for main-term
-linear model, \code{"glmnet"} for lasso, \code{"sl3"} for default super
-learner, or a \code{list} of \code{sl3} learners. Default is \code{"glmnet"}.
-\eqn{\Delta} is the indicator of missing outcome. \code{1} - observed,
-\code{0} - missing. Only applicable when there are missing outcomes.}
+\eqn{\tilde{g}_\Delta(1\mid W,A)=\mathbb{P}(\Delta=1\mid W,A)}.
+\code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+\code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+learners. Default is \code{"glmnet"}. \eqn{\Delta} is the indicator of
+missing outcome. \code{1} - observed, \code{0} - missing.
+Only applicable when there are missing outcomes.}
 
 \item{theta_tilde_method}{The method to estimate the nuisance function
-\eqn{\tilde{\theta}(W,A)=\mathbb{E}(Y\mid W,A,S=1)}.
+\eqn{\tilde{\theta}(W)=\mathbb{E}(Y\mid W)}.
 \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
 \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
 learners. Default is \code{"glmnet"}.}
 
 \item{bias_working_model}{The working model for the bias estimand.
-Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
-highly adaptive lasso-based working model}
+Either \code{"glmnet"} for main-term lasso-based working model or
+\code{"HAL"} for highly adaptive lasso-based working model. Recommended to
+use \code{"HAL"}.}
+
+\item{bias_working_model_formula}{An optional formula to specify the
+working model for the bias estimand. If provided, this will override the
+\code{bias_working_model} argument.}
 
 \item{pooled_working_model}{The working model for the pooled-ATE estimand.
-Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
-highly adaptive lasso-based working model.}
+Either \code{"glmnet"} for main-term lasso-based working model or
+\code{"HAL"} for highly adaptive lasso-based working model. Recommended to
+use \code{"HAL"}.}
 
-\item{v_folds}{The number of folds for cross-validation (whenever necessary).
-Default is \code{5}.}
+\item{pooled_working_model_formula}{An optional formula to specify the
+working model for the pooled-ATE estimand. If provided, this will override
+the \code{pooled_working_model} argument.}
+
+\item{cross_fit_nuisance}{A logical indicating whether to use cross-fitting
+for nuisance function estimation. Default is \code{TRUE}.}
+
+\item{v_folds}{The number of folds for cross-validation (whenever necessary).}
+
+\item{stratify}{A logical indicating whether to stratify the cross-validation
+fold regime on binary variables. Default is \code{TRUE}.}
 
 \item{g_bounds}{A numeric vector of lower and upper bounds for the
 treatment mechanism. The first element is the lower bound, and the second
-element is the upper bound. Default is \code{c(0.01, 0.99)}.}
+element is the upper bound.}
 
 \item{Pi_bounds}{A numeric vector of lower and upper bounds for the
 trial enrollment probabilities. The first element is the lower bound,
-and the second element is the upper bound. Default is \code{c(0.01, 0.99)}.}
+and the second element is the upper bound.}
 
 \item{theta_bounds}{A numeric vector of lower and upper bounds for the
 conditional mean of outcome given baseline covariates and treatment.
 The first element is the lower bound, and the second element is the upper
-bound. Default is \code{c(-Inf, Inf)}.}
+bound.}
 
 \item{target_gwt}{If \code{TRUE}, the treatment mechanism is moved from the
 denominator of the clever covariate to the weight when fitting the TMLE
@@ -116,68 +136,52 @@ submodel.}
 \item{verbose}{A logical indicating whether to print out the progress.
 Default is \code{TRUE}.}
 
-\item{S_node}{The column index of the \eqn{S} node in \code{data}.}
+\item{max_iter}{Maximum number of iterations for the iterative targeting
+procedure. Default is 50.}
 
-\item{W_node}{The column indices of the \eqn{W} node in \code{data}.}
+\item{target_method}{The targeting method for the working model parameters.
+Either \code{"tmle"} for TMLE-type targeting or \code{"relaxed"} for
+relaxed targeting. Default is \code{"tmle"}.}
 
-\item{A_node}{The column index of the \eqn{A} node in \code{data}.}
+\item{eic_method}{What to do if the information matrix is near singular.
+Either \code{"svd_pseudo_inv"} for SVD-based pseudo-inverse, or \code{"diag"}
+for adding a small ridge penalty to the diagonal of the information matrix.
+Default is \code{"svd_pseudo_inv"}.}
 
-\item{Y_node}{The column index of the \eqn{Y} node in \code{data}.}
+\item{alpha}{Significance level for the confidence interval.
+Default is 0.05.}
 
-\item{g_rct}{The probability of receiving the active treatment in the
-randomized controlled trial.}
+\item{enumerate_basis_args}{A \code{list} of arguments to be passed to
+\code{enumerate_basis} function when constructing the HAL working model
+basis.}
 
-\item{atmle_pooled}{A logical indicating whether to also use A-TMLE for the
-pooled-ATE estimand If set to \code{FALSE}, use a regular TMLE for the
-pooled-ATE, but A-TMLE for the bias-estimand.
-Default is \code{TRUE}.}
-
-\item{Q_method}{The method to estimate the nuisance function
-\eqn{Q(A,W)=\mathbb{E}(Y\mid W,A)}.
-\code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-\code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
-learners. Default is \code{"glmnet"}. Only applicable when \code{atmle_pooled}
-is set to \code{FALSE}.}
+\item{browse}{A logical indicating whether to enter the browser for
+debugging. Default is \code{FALSE}.}
 }
 \value{
 A \code{list} containing the following elements:
-\item{ate}{The estimated average treatment effect;}
-\item{lower}{The lower bound of the \eqn{95\%} confidence interval for the
-average treatment effect;}
-\item{upper}{The upper bound of the \eqn{95\%} confidence interval for the
-average treatment effect;}
+\item{est}{The estimated average treatment effect;}
+\item{lower}{The lower bound of the \eqn{(1-\alpha)\%} confidence interval
+for the average treatment effect;}
+\item{upper}{The upper bound of the \eqn{(1-\alpha)\%} confidence interval
+for the average treatment effect;}
+\item{psi_pound_est}{The estimated bias parameter;}
+\item{psi_pound_lower}{The lower bound of the \eqn{(1-\alpha)\%} confidence
+interval for the bias parameter;}
+\item{psi_pound_upper}{The upper bound of the \eqn{(1-\alpha)\%} confidence
+interval for the bias parameter;}
+\item{psi_tilde_est}{The estimated pooled average treatment effect;}
+\item{psi_tilde_lower}{The lower bound of the \eqn{(1-\alpha)\%} confidence
+interval for the pooled average treatment effect;}
+\item{psi_tilde_upper}{The upper bound of the \eqn{(1-\alpha)\%} confidence
+interval for the pooled average treatment effect;}
+\item{eic}{A numeric vector of the estimated efficient influence curve;}
+\item{tau_A}{A \code{list} containing the working model fit for the
+pooled-ATE estimand;}
+\item{tau_S}{A \code{list} containing the working model fit for the bias
+estimand.}
 }
 \description{
-Adaptive-TMLE (A-TMLE) for estimating the average treatment
-effect based on combined randomized controlled trial data and real-world
-data.
-}
-\examples{
-set.seed(123)
-
-n <- 2000
-S <- rbinom(n, 1, 0.2)
-W1 <- rnorm(n)
-W2 <- rnorm(n)
-W3 <- rnorm(n)
-A <- numeric(n)
-g_rct <- 0.67
-A[S == 1] <- rbinom(sum(S), 1, g_rct)
-A[S == 0] <- rbinom(n - sum(S), 1, plogis(0.5 * W1[S == 0]))
-UY <- rnorm(n, 0, 1)
-Y <- 2.5 + 0.9 * W1 + 1.1 * W2 + 2.7 * W3 + 1.5 * A + UY + (1 - S) * (0.2 + 0.1 * W1 * (1 - A))
-data <- data.frame(S, W1, W2, A, Y)
-true_ate <- 1.5
-
-res <- atmle(data,
-  S_node = c(1),
-  W_node = c(2, 3),
-  A_node = 4,
-  Y_node = 5,
-  controls_only = FALSE,
-  family = "gaussian",
-  atmle_pooled = TRUE,
-  g_rct = g_rct,
-  verbose = FALSE
-)
+Adaptive-TMLE for estimating the average treatment effect based
+on randomized controlled trial augmented with real-world data.
 }

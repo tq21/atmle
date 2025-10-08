@@ -1,35 +1,26 @@
-#' @title Adaptive-TMLE for RCT-ATE
+#' @title Adaptive-TMLE
 #'
-#' @description Adaptive-TMLE (A-TMLE) for estimating the average treatment
-#' effect based on combined randomized controlled trial data and real-world
-#' data.
+#' @description Adaptive-TMLE for estimating the average treatment effect based
+#' on randomized controlled trial augmented with real-world data.
 #'
 #' @export
 #'
-#' @importFrom tmle tmle
-#' @importFrom origami make_folds
+#' @importFrom purrr map
+#' @importFrom origami make_folds folds2foldvec fold_from_foldvec
 #'
 #' @param data A \code{data.frame} containing baseline covariates \eqn{W},
 #' binary treatment indicator \eqn{A} (\eqn{A=1} for active treatment),
-#' outcome \eqn{Y}, and binary study indicator of whether the observation is
-#' from the randomized controlled trial \eqn{S=1} or from the external data
-#' \eqn{S=0}. If both studies are observational, then \eqn{S=1} should be the
-#' reference study.
-#' @param S_node The column index of the \eqn{S} node in \code{data}.
-#' @param W_node The column indices of the \eqn{W} node in \code{data}.
-#' @param A_node The column index of the \eqn{A} node in \code{data}.
-#' @param Y_node The column index of the \eqn{Y} node in \code{data}.
-#' @param controls_only A logical indicating whether the external data has
-#' only control-arm or both control-arm and treatment-arm.
+#' outcome \eqn{Y}, and binary study indicator \eqn{S} of whether the
+#' observation is from the randomized controlled trial \eqn{S=1} or from the
+#' external data \eqn{S=0}. If both studies are observational, then \eqn{S=1}
+#' should be the reference study.
+#' @param S The column name of the \eqn{S} node in \code{data}.
+#' @param W The column names of the \eqn{W} node in \code{data}.
+#' @param A The column name of the \eqn{A} node in \code{data}.
+#' @param Y The column name of the \eqn{Y} node in \code{data}.
 #' @param family A character string specifying the family of the outcome
 #' \eqn{Y}. Currently only \code{"gaussian"} and \code{"binomial"} are
 #' supported.
-#' @param g_rct The probability of receiving the active treatment in the
-#' randomized controlled trial.
-#' @param atmle_pooled A logical indicating whether to also use A-TMLE for the
-#' pooled-ATE estimand If set to \code{FALSE}, use a regular TMLE for the
-#' pooled-ATE, but A-TMLE for the bias-estimand.
-#' Default is \code{TRUE}.
 #' @param theta_method The method to estimate the nuisance function
 #' \eqn{\theta(W,A)=\mathbb{E}(Y\mid W,A)}.
 #' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
@@ -46,80 +37,89 @@
 #' \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
 #' learners. Default is \code{"glmnet"}.
 #' @param g_delta_method The method to estimate the nuisance function
-#' \eqn{\delta(W,A)=\mathbb{P}(\Delta=1\mid W,A)}. \code{"glm"} for main-term
-#' linear model, \code{"glmnet"} for lasso, \code{"sl3"} for default super
-#' learner, or a \code{list} of \code{sl3} learners. Default is \code{"glmnet"}.
-#' \eqn{\Delta} is the indicator of missing outcome. \code{1} - observed,
-#' \code{0} - missing. Only applicable when there are missing outcomes.
+#' \eqn{\tilde{g}_\Delta(1\mid W,A)=\mathbb{P}(\Delta=1\mid W,A)}.
+#' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
+#' \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
+#' learners. Default is \code{"glmnet"}. \eqn{\Delta} is the indicator of
+#' missing outcome. \code{1} - observed, \code{0} - missing.
+#' Only applicable when there are missing outcomes.
 #' @param theta_tilde_method The method to estimate the nuisance function
-#' \eqn{\tilde{\theta}(W,A)=\mathbb{E}(Y\mid W,A,S=1)}.
+#' \eqn{\tilde{\theta}(W)=\mathbb{E}(Y\mid W)}.
 #' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
 #' \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
 #' learners. Default is \code{"glmnet"}.
-#' @param Q_method The method to estimate the nuisance function
-#' \eqn{Q(A,W)=\mathbb{E}(Y\mid W,A)}.
-#' \code{"glm"} for main-term linear model, \code{"glmnet"} for lasso,
-#' \code{"sl3"} for default super learner, or a \code{list} of \code{sl3}
-#' learners. Default is \code{"glmnet"}. Only applicable when \code{atmle_pooled}
-#' is set to \code{FALSE}.
 #' @param bias_working_model The working model for the bias estimand.
-#' Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
-#' highly adaptive lasso-based working model
+#' Either \code{"glmnet"} for main-term lasso-based working model or
+#' \code{"HAL"} for highly adaptive lasso-based working model. Recommended to
+#' use \code{"HAL"}.
+#' @param bias_working_model_formula An optional formula to specify the
+#' working model for the bias estimand. If provided, this will override the
+#' \code{bias_working_model} argument.
 #' @param pooled_working_model The working model for the pooled-ATE estimand.
-#' Either \code{"glmnet"} for lasso-based working model or \code{"HAL"} for
-#' highly adaptive lasso-based working model.
+#' Either \code{"glmnet"} for main-term lasso-based working model or
+#' \code{"HAL"} for highly adaptive lasso-based working model. Recommended to
+#' use \code{"HAL"}.
+#' @param pooled_working_model_formula An optional formula to specify the
+#' working model for the pooled-ATE estimand. If provided, this will override
+#' the \code{pooled_working_model} argument.
+#' @param cross_fit_nuisance A logical indicating whether to use cross-fitting
+#' for nuisance function estimation. Default is \code{TRUE}.
 #' @param v_folds The number of folds for cross-validation (whenever necessary).
-#' Default is \code{5}.
+#' @param stratify A logical indicating whether to stratify the cross-validation
+#' fold regime on binary variables. Default is \code{TRUE}.
 #' @param g_bounds A numeric vector of lower and upper bounds for the
 #' treatment mechanism. The first element is the lower bound, and the second
-#' element is the upper bound. Default is \code{c(0.01, 0.99)}.
+#' element is the upper bound.
 #' @param Pi_bounds A numeric vector of lower and upper bounds for the
 #' trial enrollment probabilities. The first element is the lower bound,
-#' and the second element is the upper bound. Default is \code{c(0.01, 0.99)}.
+#' and the second element is the upper bound.
 #' @param theta_bounds A numeric vector of lower and upper bounds for the
 #' conditional mean of outcome given baseline covariates and treatment.
 #' The first element is the lower bound, and the second element is the upper
-#' bound. Default is \code{c(-Inf, Inf)}.
+#' bound.
 #' @param target_gwt If \code{TRUE}, the treatment mechanism is moved from the
 #' denominator of the clever covariate to the weight when fitting the TMLE
 #' submodel.
 #' @param verbose A logical indicating whether to print out the progress.
 #' Default is \code{TRUE}.
+#' @param max_iter Maximum number of iterations for the iterative targeting
+#' procedure. Default is 50.
+#' @param target_method The targeting method for the working model parameters.
+#' Either \code{"tmle"} for TMLE-type targeting or \code{"relaxed"} for
+#' relaxed targeting. Default is \code{"tmle"}.
+#' @param eic_method What to do if the information matrix is near singular.
+#' Either \code{"svd_pseudo_inv"} for SVD-based pseudo-inverse, or \code{"diag"}
+#' for adding a small ridge penalty to the diagonal of the information matrix.
+#' Default is \code{"svd_pseudo_inv"}.
+#' @param alpha Significance level for the confidence interval.
+#' Default is 0.05.
+#' @param enumerate_basis_args A \code{list} of arguments to be passed to
+#' \code{enumerate_basis} function when constructing the HAL working model
+#' basis.
+#' @param browse A logical indicating whether to enter the browser for
+#' debugging. Default is \code{FALSE}.
+#'
 #' @returns A \code{list} containing the following elements:
-#' \item{ate}{The estimated average treatment effect;}
-#' \item{lower}{The lower bound of the \eqn{95\%} confidence interval for the
-#' average treatment effect;}
-#' \item{upper}{The upper bound of the \eqn{95\%} confidence interval for the
-#' average treatment effect;}
-#'
-#' @examples
-#' set.seed(123)
-#'
-#' n <- 2000
-#' S <- rbinom(n, 1, 0.2)
-#' W1 <- rnorm(n)
-#' W2 <- rnorm(n)
-#' W3 <- rnorm(n)
-#' A <- numeric(n)
-#' g_rct <- 0.67
-#' A[S == 1] <- rbinom(sum(S), 1, g_rct)
-#' A[S == 0] <- rbinom(n - sum(S), 1, plogis(0.5 * W1[S == 0]))
-#' UY <- rnorm(n, 0, 1)
-#' Y <- 2.5 + 0.9 * W1 + 1.1 * W2 + 2.7 * W3 + 1.5 * A + UY + (1 - S) * (0.2 + 0.1 * W1 * (1 - A))
-#' data <- data.frame(S, W1, W2, A, Y)
-#' true_ate <- 1.5
-#'
-#' res <- atmle(data,
-#'   S_node = c(1),
-#'   W_node = c(2, 3),
-#'   A_node = 4,
-#'   Y_node = 5,
-#'   controls_only = FALSE,
-#'   family = "gaussian",
-#'   atmle_pooled = TRUE,
-#'   g_rct = g_rct,
-#'   verbose = FALSE
-#' )
+#' \item{est}{The estimated average treatment effect;}
+#' \item{lower}{The lower bound of the \eqn{(1-\alpha)\%} confidence interval
+#' for the average treatment effect;}
+#' \item{upper}{The upper bound of the \eqn{(1-\alpha)\%} confidence interval
+#' for the average treatment effect;}
+#' \item{psi_pound_est}{The estimated bias parameter;}
+#' \item{psi_pound_lower}{The lower bound of the \eqn{(1-\alpha)\%} confidence
+#' interval for the bias parameter;}
+#' \item{psi_pound_upper}{The upper bound of the \eqn{(1-\alpha)\%} confidence
+#' interval for the bias parameter;}
+#' \item{psi_tilde_est}{The estimated pooled average treatment effect;}
+#' \item{psi_tilde_lower}{The lower bound of the \eqn{(1-\alpha)\%} confidence
+#' interval for the pooled average treatment effect;}
+#' \item{psi_tilde_upper}{The upper bound of the \eqn{(1-\alpha)\%} confidence
+#' interval for the pooled average treatment effect;}
+#' \item{eic}{A numeric vector of the estimated efficient influence curve;}
+#' \item{tau_A}{A \code{list} containing the working model fit for the
+#' pooled-ATE estimand;}
+#' \item{tau_S}{A \code{list} containing the working model fit for the bias
+#' estimand.}
 atmle <- function(data,
                   S,
                   W,
@@ -137,8 +137,6 @@ atmle <- function(data,
                   pooled_working_model = "HAL",
                   pooled_working_model_formula = NULL,
                   cross_fit_nuisance = TRUE,
-                  min_working_model = FALSE,
-                  max_degree = 1,
                   v_folds = NULL,
                   stratify = TRUE,
                   g_bounds = NULL,
@@ -154,6 +152,7 @@ atmle <- function(data,
                                               smoothness_orders = 1,
                                               num_knots = c(20, 5)),
                   browse = FALSE) {
+
   if (browse) browser()
 
   if (!is.data.frame(data)) {
@@ -177,7 +176,7 @@ atmle <- function(data,
   # cross-validation scheme (based on tmle R package)
   if (is.null(v_folds)) {
     if (n_eff <= 30){
-      v_folds <- n.effective
+      v_folds <- n_eff
     } else if (n_eff <= 500) {
       v_folds <- 20
     } else if (n_eff <= 1000) {
@@ -230,13 +229,19 @@ atmle <- function(data,
       strata_ids = as.integer(factor(cv_strata))
     )
   })
-  foldid <- unlist(map(folds, function(.fold) {
-    rep(.fold$v, length(.fold$validation_set))
-  }))
-  idx <- unlist(map(folds, function(.fold) {
-    .fold$validation_set
-  }))
-  foldid <- foldid[idx]
+  foldid <- folds2foldvec(folds)
+  foldid_obs <- foldid[delta == 1]
+  folds_obs <- map(seq(v_folds), function(v) {
+    fold_from_foldvec(v = v, folds = foldid_obs)
+  })
+  foldid_S1 <- foldid[S == 1]
+  folds_S1 <- map(seq(v_folds), function(v) {
+    fold_from_foldvec(v = v, folds = foldid_S1)
+  })
+  foldid_S0 <- foldid[S == 0]
+  folds_S0 <- map(seq(v_folds), function(v) {
+    fold_from_foldvec(v = v, folds = foldid_S0)
+  })
 
   if (sum(delta) < n) {
     # outcome has missing
@@ -247,7 +252,8 @@ atmle <- function(data,
                              delta = delta,
                              method = g_delta_method,
                              folds = folds,
-                             g_bounds = g_bounds)
+                             g_bounds = g_bounds,
+                             cross_fit_nuisance = cross_fit_nuisance)
     if (verbose) cat("Done!\n")
 
     if (verbose) cat("learning g(\U0394=1|W,A)=P(\U0394=1|W,A)...")
@@ -256,7 +262,8 @@ atmle <- function(data,
                                          delta = delta,
                                          method = g_delta_method,
                                          folds = folds,
-                                         g_bounds = g_bounds)
+                                         g_bounds = g_bounds,
+                                         cross_fit_nuisance = cross_fit_nuisance)
     if (verbose) cat("Done!\n")
   } else {
     # no censoring
@@ -276,8 +283,9 @@ atmle <- function(data,
                             Y = Y,
                             delta = delta,
                             weights = weights,
-                            method = theta_tilde_method,
+                            method = theta_method,
                             folds = folds,
+                            folds_obs = folds_obs,
                             family = family,
                             theta_bounds = theta_bounds,
                             cross_fit_nuisance = cross_fit_nuisance)
@@ -290,6 +298,8 @@ atmle <- function(data,
                  method = g_method,
                  controls_only = controls_only,
                  folds = folds,
+                 folds_S1 = folds_S1,
+                 folds_S0 = folds_S0,
                  g_bounds = g_bounds,
                  cross_fit_nuisance = cross_fit_nuisance)
   if (verbose) cat("Done!\n")
@@ -400,6 +410,7 @@ atmle <- function(data,
                            weights = weights_tilde,
                            method = theta_tilde_method,
                            folds = folds,
+                           folds_obs = folds_obs,
                            family = family,
                            theta_bounds = theta_bounds,
                            cross_fit_nuisance = cross_fit_nuisance)
@@ -451,8 +462,8 @@ atmle <- function(data,
   est <- psi_tilde_est-psi_pound_est
   eic <- psi_tilde_eic-psi_pound_eic
   se <- sqrt(var(eic, na.rm = TRUE)/n)
-  lower <- est-1.96*se
-  upper <- est+1.96*se
+  lower <- est+qnorm(alpha/2)*se
+  upper <- est+qnorm(1-alpha/2)*se
 
   results <- list(est = est,
                   lower = lower,
@@ -463,12 +474,14 @@ atmle <- function(data,
                   psi_tilde_est = psi_tilde_est,
                   psi_tilde_lower = psi_tilde_lower,
                   psi_tilde_upper = psi_tilde_upper,
-                  eic = eic)
+                  eic = eic,
+                  tau_A = tau_A,
+                  tau_S = tau_S)
 
   if (verbose) {
-    cat("Pooled ATE: ", signif(results$psi_tilde_est, 3), " (", signif(results$psi_tilde_lower, 3), ", ", signif(results$psi_tilde_upper, 3), ")\n", sep = "")
-    cat("Bias: ", signif(results$psi_pound_est, 3), " (", signif(results$psi_pound_lower, 3), ", ", signif(results$psi_pound_upper, 3), ")\n", sep = "")
-    cat("Bias-corrected ATE: ", signif(results$est, 3), " (", signif(results$lower, 3), ", ", signif(results$upper, 3), ")\n", sep = "")
+    cat("Pooled ATE: ", signif(results$psi_tilde_est, 5), " (", signif(results$psi_tilde_lower, 5), ", ", signif(results$psi_tilde_upper, 5), ")\n", sep = "")
+    cat("Bias: ", signif(results$psi_pound_est, 5), " (", signif(results$psi_pound_lower, 5), ", ", signif(results$psi_pound_upper, 5), ")\n", sep = "")
+    cat("Bias-corrected ATE: ", signif(results$est, 5), " (", signif(results$lower, 5), ", ", signif(results$upper, 5), ")\n", sep = "")
   }
 
   return(results)

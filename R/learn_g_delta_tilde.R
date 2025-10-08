@@ -3,31 +3,28 @@
 #'
 #' @description Function to learn the conditional probability of observing the
 #' outcome given baseline covariates and treatment,
-#' \eqn{\tilde{g}_\Delta(1\mid W,A)=\mathbb{P}(\Delta=1\mid W,A)}. Only applicable when
-#' the outcome is subject to missingness.
+#' \eqn{\tilde{g}_\Delta(1\mid W,A)=\mathbb{P}(\Delta=1\mid W,A)}. Only
+#' applicable when the outcome is subject to missingness.
 #'
 #' @keywords nuisance
 #'
+#' @import sl3
 #' @importFrom glmnet cv.glmnet
 #' @importFrom data.table data.table
-#' @importFrom sl3 Stack
-#' @importFrom sl3 make_learner
-#' @importFrom sl3 sl3_Task
-#' @importFrom sl3 Pipeline
-#' @importFrom sl3 Lrnr_cv
-#' @importFrom sl3 Lrnr_cv_selector
-#' @importFrom sl3 loss_squared_error
 #' @importFrom purrr walk
 #'
 #' @param W A matrix of baseline covariates.
 #' @param A A vector of treatment indicators.
 #' @param delta A vector of missingness indicators.
 #' @param method Learning method. \code{"glm"} for main-term linear model,
-#' \code{"glmnet"} for lasso, or a \code{list} of \code{sl3} learners for
-#' super learner-based estimation.
+#' \code{"glmnet"} for main-term lasso, or a \code{list} of \code{sl3} learners
+#' for super learner-based estimation.
+#' @param folds A `fold` object from `origami` package.
 #' @param g_bounds A numeric vector of lower and upper bounds for the
 #' missingness mechanism. The first element is the lower bound, and the second
 #' element is the upper bound.
+#' @param cross_fit_nuisance A logical indicating whether to use cross-fitting
+#' when estimating the nuisance function.
 #'
 #' @returns A numeric vector of the estimated values.
 learn_g_delta_tilde <- function(W,
@@ -36,7 +33,7 @@ learn_g_delta_tilde <- function(W,
                                 method,
                                 folds,
                                 g_bounds,
-                                cross_fit_nuisance = FALSE) {
+                                cross_fit_nuisance) {
   if (is.character(method) && method == "sl3") {
     method <- get_default_sl3_learners("binomial")
   }
@@ -51,20 +48,20 @@ learn_g_delta_tilde <- function(W,
     )
     task_train <- sl3_Task$new(
       data = data.table(W, delta = delta, A = A),
-      covariates = c(colnames(W), "A"),
+      covariates = c(colnames(W), "A"), folds = folds,
       outcome = "delta", outcome_type = "binomial"
     )
     task_A0 <- sl3_Task$new(
       data = data.table(W, delta = delta, A = 0),
-      covariates = c(colnames(W), "A"),
+      covariates = c(colnames(W), "A"), folds = folds,
       outcome = "delta", outcome_type = "binomial"
     )
     task_A1 <- sl3_Task$new(
       data = data.table(W, delta = delta, A = 1),
-      covariates = c(colnames(W), "A"),
+      covariates = c(colnames(W), "A"), folds = folds,
       outcome = "delta", outcome_type = "binomial"
     )
-    fit_delta <- lrnr_delta$train(task_train)
+    suppressMessages(fit_delta <- lrnr_delta$train(task_train))
     pred <- fit_delta$predict(task_train)
     A0 <- fit_delta$predict(task_A0)
     A1 <- fit_delta$predict(task_A1)
