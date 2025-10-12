@@ -61,7 +61,6 @@ atmle_res <- atmle(data = mydata,
                    W = c("W1", "W2", "W3", "W4"), 
                    A = "A",
                    Y = "Y",
-                   controls_only = FALSE,
                    family = "gaussian",
                    theta_method = sl_lib, 
                    Pi_method = sl_lib, 
@@ -130,7 +129,7 @@ ggplot(df_plot, aes(x = Estimator, y = Estimate, fill = Estimator)) +
 
 ## License
 
-© 2023 [Sky Qiu](https://github.com/tq21), [Lars van der
+© 2025 [Sky Qiu](https://github.com/tq21), [Lars van der
 Laan](https://larsvanderlaan.github.io/) [Mark van der
 Laan](https://vanderlaan-lab.org/),
 
