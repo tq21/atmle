@@ -125,7 +125,6 @@ atmle <- function(data,
                   W,
                   A,
                   Y,
-                  controls_only,
                   family,
                   theta_method = "glmnet",
                   Pi_method = "glmnet",
@@ -188,12 +187,8 @@ atmle <- function(data,
     }
   }
 
-  # validate controls_only argument
-  if (controls_only & 1 %in% A[S == 0]) {
-    stop("The 'controls_only' argument is set to TRUE, but there are treated units in the external data.")
-  } else if (!controls_only & sum(A[S == 0]) == 0) {
-    stop("The 'controls_only' argument is set to FALSE, but there are only control units in the external data.")
-  }
+  # define controls_only argument
+  controls_only <- all(A[S == 0] == 0)
 
   # cv.glmnet only works when design matrix has at least 2 columns
   # append dummy column of ones if necessary
