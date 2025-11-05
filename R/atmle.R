@@ -183,7 +183,7 @@ atmle <- function(data,
     } else if (n_eff <= 10000){
       v_folds <- 5
     } else {
-      v_folds <- 2
+      v_folds <- 3
     }
   }
 
