@@ -84,6 +84,23 @@
 #   return(W_comp + Pi_comp + beta_comp)
 # }
 
+eic_ate_atmle <- function(Y,
+                          A,
+                          g1W,
+                          theta,
+                          phi_W,
+                          cate_pred,
+                          small_diag = 1e-3,
+                          fall_back_method = "svd_pseudo_inv") {
+  IM <- t(phi_W)%*%diag(g1W*(1-g1W))%*%phi_W/nrow(phi_W)
+  IM_inv <- mat_inverse(IM,
+                        small_diag = small_diag,
+                        fall_back_method = fall_back_method)
+  D_beta <- as.vector(phi_W%*%IM_inv%*%colMeans(phi_W)*(A-g1W)*(Y-theta-(A-g1W)*cate_pred))
+  D_W <- cate_pred-mean(cate_pred)
+  return(D_beta+D_W)
+}
+
 get_eic_psi_pound <- function(Pi,
                               tau,
                               g,

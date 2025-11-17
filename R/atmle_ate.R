@@ -8,26 +8,32 @@ atmle_ate <- R6Class(
     W_nodes = NULL,
     A_node = NULL,
     Y_node = NULL,
+    Delta_node = NULL,
+    family = NULL,
     W = NULL,
     A = NULL,
     Y = NULL,
+    Delta = NULL,
     n_folds = NULL,
     folds = NULL,
-    Q_method = NULL,
-    cross_fit_Q = NULL,
+    foldid = NULL,
+    folds_obs = NULL,
+    foldid_obs = NULL,
+    theta_fit = NULL,
     Q_fit = NULL,
     g_fit = NULL,
+    H = list(HAW = NA, H1W = NA, H0W = NA),
     cate_fit = list(pseudo_outcome = NA,
                     pseudo_weights = NA,
                     fit = NA,
                     phi_W = NA),
     g1W = NULL,
     g0W = NULL,
-    g_bounds = NULL,
+    g_bound = NULL,
     parallel = NULL,
     browse = NULL,
     Q = list(QAW = NA, Q1W = NA, Q0W = NA),
-    theta_pred = NULL,
+    theta = NULL,
     wm_seq = NULL,
     eic = vector(mode = "list"),
     results = NULL,
@@ -40,8 +46,8 @@ atmle_ate <- R6Class(
                           W_nodes,
                           A_node,
                           Y_node,
+                          family,
                           n_folds = NULL,
-                          g_bounds = NULL,
                           seed = 123) {
       self$data <- data
       self$W_nodes <- W_nodes
@@ -50,90 +56,59 @@ atmle_ate <- R6Class(
       self$W <- data[, W_nodes, drop = FALSE]
       self$A <- data[[A_node]]
       self$Y <- data[[Y_node]]
+      self$family <- family
       self$n_folds <- n_folds
 
-      # make folds
-      self$folds <- create_folds(n = nrow(data),
-                                 n_folds = n_folds,
-                                 seed = seed)
-
-      # compute g-bound
-      if (is.null(g_bounds)) {
-        self$g_bounds <- c(5/sqrt(nrow(data))/log(nrow(data)), 1)
-      }
     },
 
-    fit_Q = function(Q_method,
-                     family,
-                     cross_fit,
-                     discrete_SL,
-                     hal_args,
-                     parallel) {
+    create_folds = function(n_eff,
+                            n_folds,
+                            strata_ids,
+                            seed) {
 
-      if (family == "gaussian") {
-        loss_fn <- loss_squared_error
-        outcome_type <- "continuous"
-      } else if (family == "binomial") {
-        loss_fn <- loss_loglik_binomial
-        outcome_type <- "binomial"
-      }
-      if (length(Q_method) == 1) {
-        lrnr <- Q_method[[1]]
-      } else {
-        if (discrete_SL) {
-          metalearner <- Lrnr_cv_selector$new(eval_function = loss_fn)
-        } else {
-          metalearner <- Lrnr_nnls$new()
-        }
-        lrnr_stack <- Stack$new(Q_method)
-        lrnr <- Lrnr_sl$new(learners = lrnr_stack, metalearner = metalearner)
-      }
-      # TODO: use Lrnr_cv to generate cross fitted predictions
-      Q_task <- sl3_Task$new(data = self$data,
-                             covariates = c(self$W_nodes, self$A_node),
-                             outcome = self$Y_node,
-                             outcome_type = outcome_type)
-      self$Q_fit <- lrnr$train(Q_task)
+      set.seed(seed)
 
-      # make counterfactual data and predictions
-      data_A1 <- self$data; data_A1[[self$A_node]] <- 1
-      data_A0 <- self$data; data_A0[[self$A_node]] <- 0
-      Q1_task <- sl3_Task$new(data = data_A1,
-                              covariates = c(self$W_nodes, self$A_node),
-                              outcome = self$Y_node,
-                              outcome_type = outcome_type)
-      Q0_task <- sl3_Task$new(data = data_A0,
-                              covariates = c(self$W_nodes, self$A_node),
-                              outcome = self$Y_node,
-                              outcome_type = outcome_type)
-      self$Q$QAW <- self$Q_fit$predict(Q_task)
-      self$Q$Q0W <- self$Q_fit$predict(Q0_task)
-      self$Q$Q1W <- self$Q_fit$predict(Q1_task)
+
+
+      self$folds <- make_folds(n = nrow(self$data), V = n_folds,
+                               strata_ids = strata_ids)
+      self$foldid <- folds2foldvec(self$folds)
+
     },
 
-    fit_g = function(g_method,
-                     cross_fit,
-                     discrete_SL,
-                     hal_args,
-                     parallel) {
+    fit_regression = function(method,
+                              folds,
+                              covariate_nodes,
+                              outcome_node,
+                              weight_node = NULL,
+                              subset = seq(nrow(self$data)),
+                              bound = NULL) {
 
-      if (length(g_method) == 1) {
-        lrnr <- g_method[[1]]
-      } else {
-        if (discrete_SL) {
-          metalearner <- Lrnr_cv_selector$new(eval_function = loss_loglik_binomial)
-        } else {
-          metalearner <- Lrnr_nnls$new()
+      if (length(method$learners) == 1) {
+        lrnr <- method$learners[[1]]
+        if (!is.null(bound)) {
+          lrnr_bound <- Lrnr_bound$new(bound)
+          lrnr <- Pipeline$new(lrnr, lrnr_bound)
         }
-        lrnr_stack <- Stack$new(g_method)
-        lrnr <- Lrnr_sl$new(learners = lrnr_stack, metalearner = metalearner)
+      } else {
+        lrnr_stack <- Stack$new(method$learners)
+        if (!is.null(bound)) {
+          lrnr_bound <- Lrnr_bound$new(bound)
+          lrnr_stack <- Pipeline$new(lrnr_stack, lrnr_bound)
+        }
+        lrnr <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
+                             method$metalearner)
       }
-      # TODO: use Lrnr_cv to generate cross fitted predictions
-      g_task <- sl3_Task$new(data = self$data,
-                             covariates = self$W_nodes,
-                             outcome = self$A_node)
-      self$g_fit <- lrnr$train(g_task)
-      self$g1W <- self$g_fit$predict(g_task)
+      suppressWarnings({
+        task <- sl3_Task$new(data = self$data[subset, , drop = FALSE],
+                             covariates = covariate_nodes,
+                             outcome = outcome_node,
+                             weights = weight_node,
+                             folds = folds)
+      })
+      suppressMessages(fit_obj <- lrnr$train(task))
+
+      return(invisible(fit_obj))
 
     },
 
@@ -141,7 +116,7 @@ atmle_ate <- R6Class(
                         parallel) {
       # R-learner
       self$cate_fit$pseudo_outcome <- ifelse(abs(self$A-self$g1W) < 1e-10, 0,
-                                             (self$Y-self$theta_pred)/(self$A-self$g1W))
+                                             (self$Y-self$theta)/(self$A-self$g1W))
       self$cate_fit$pseudo_weights <- (self$A-self$g1W)^2
 
       # make design matrix
@@ -259,7 +234,7 @@ atmle_ate <- R6Class(
       clever_cov <- as.vector(IM_inv %*% colMeans(phi_W))
       H <- (self$A-self$g1W)*as.vector(phi_W %*% clever_cov)
       tau <- as.numeric(phi_W %*% beta)
-      R <- self$Y-self$theta_pred-(self$A-self$g1W)*tau
+      R <- self$Y-self$theta-(self$A-self$g1W)*tau
       epsilon <- sum(H*R)/sum(H*H)
       beta <- beta+epsilon*clever_cov
 
@@ -290,7 +265,7 @@ atmle_ate <- R6Class(
         self$eic[[.j]] <- eic_ate_atmle(Y = self$Y,
                                         A = self$A,
                                         g1W = self$g1W,
-                                        theta = self$theta_pred,
+                                        theta = self$theta,
                                         phi_W = phi_W_select_j,
                                         cate_pred = cur_wm$cate_pred,
                                         small_diag = small_diag,
@@ -304,38 +279,143 @@ atmle_ate <- R6Class(
       })
     },
 
-    estimate = function(Q_method,
-                        g_method,
-                        family,
-                        n_lambda = 1,
-                        cross_fit_Q = TRUE,
-                        discrete_SL_Q = TRUE,
-                        cross_fit_g = TRUE,
-                        discrete_SL_g = TRUE,
-                        cate_hal_args = list(max_degree = 3L,
-                                             smoothness_orders = 1L,
-                                             num_knots = 20L),
-                        target_method = "tmle",
-                        hal_args = NULL,
-                        parallel = FALSE,
-                        browse = FALSE) {
+    run_init_est = function(theta_method,
+                            g_method,
+                            learn_theta_via_Q = TRUE,
+                            g_bound = NULL,
+                            verbose = FALSE,
+                            browse = FALSE) {
+
       if (browse) browser()
-      self$fit_Q(Q_method = Q_method,
-                 family = family,
-                 cross_fit = cross_fit_Q,
-                 discrete_SL = discrete_SL_Q,
-                 hal_args = hal_args,
-                 parallel = parallel)
-      self$fit_g(g_method = g_method,
-                 cross_fit = cross_fit_g,
-                 discrete_SL = discrete_SL_g,
-                 hal_args = hal_args,
-                 parallel = parallel)
-      self$theta_pred <- self$Q$Q1W*self$g1W+self$Q$Q0W*(1-self$g1W)
+
+      # compute Delta ----------------------------------------------------------
+      self$Delta_node <- "__Delta"
+      i <- 1
+      while (self$Delta_node %in% colnames(self$data)) {
+        self$Delta_node <- paste0("__Delta", i)
+        i <- i + 1
+      }
+      self$Delta <- as.numeric(!is.na(self$Y))
+      n_eff <- sum(self$Delta)
+
+      # make folds -------------------------------------------------------------
+      if (is.null(self$folds_obs) | is.null(self$folds)) {
+        # rule of thumb from tmle R package
+        if (is.null(self$n_folds)) {
+          if (n_eff <= 30){
+            self$n_folds <- n_eff
+          } else if (n_eff <= 500) {
+            self$n_folds <- 20
+          } else if (n_eff <= 1000) {
+            self$n_folds <- 10
+          } else if (n_eff <= 10000){
+            self$n_folds <- 5
+          } else {
+            self$n_folds <- 3 # at least 3 for cv.glmnet to work
+          }
+        }
+        if (self$family == "binomial") {
+          strata_ids <- paste0(self$Delta, "-", self$A, "-", self$Y)
+          strata_ids_obs <- paste0(self$A[self$Delta == 1], "-", self$Y[self$Delta == 1])
+        } else {
+          strata_ids <- paste0(self$Delta, "-", self$A)
+          strata_ids_obs <- paste0(self$A[self$Delta == 1])
+        }
+        self$folds <- make_folds(n = nrow(self$data), V = self$n_folds,
+                                 strata_ids = strata_ids)
+        self$foldid <- folds2foldvec(self$folds)
+        self$folds_obs <- make_folds(n = sum(self$Delta), V = self$n_folds,
+                                     strata_ids = strata_ids_obs)
+        self$foldid_obs <- folds2foldvec(self$folds_obs)
+      }
+
+      # fit g(1|W)=P(A=1|W) ----------------------------------------------------
+      if (is.null(g_bound)) {
+        self$g_bound <- 5/sqrt(n_eff)/log(n_eff)
+      } else {
+        self$g_bound <- g_bound
+      }
+      if (is.null(self$g1W)) {
+        if (verbose) cat("Fitting g(1|W)=P(A=1|W)...\n")
+        self$g_fit <- self$fit_regression(method = g_method,
+                                          folds = self$folds,
+                                          covariate_nodes = self$W_nodes,
+                                          outcome_node = self$A_node)
+        self$g1W <- self$g_fit$predict()
+      }
+      self$g0W <- 1-self$g1W
+      self$g1W <- .bound(self$g1W, c(self$g_bound, 1))
+      self$g0W <- .bound(self$g0W, c(self$g_bound, 1))
+
+      # compute clever covariate
+      self$H$HAW <- self$A/self$g1W-(1-self$A)/self$g0W
+      self$H$H1W <- 1/self$g1W
+      self$H$H0W <- -1/self$g0W
+
+      # fit theta(W)=E(Y|W) ----------------------------------------------------
+      if (is.null(self$theta)) {
+        if (verbose) cat("Fitting theta(W)=E(Y|W)...\n")
+        if (learn_theta_via_Q) {
+          # theta(W)=E(Y|A=1,W)P(A=1|W)+E(Y|A=0,W)P(A=0|W)
+          self$Q_fit <- self$fit_regression(method = theta_method,
+                                            folds = self$folds_obs,
+                                            covariate_nodes = c(self$W_nodes,
+                                                                self$A_node),
+                                            outcome_node = self$Y_node)
+
+          # make counterfactual data and predictions
+          data_A0 <- self$data; data_A0[[self$A_node]] <- 0
+          data_A1 <- self$data; data_A1[[self$A_node]] <- 1
+          Q1W_task <- sl3_Task$new(data = data_A1,
+                                   covariates = c(self$W_nodes, self$A_node),
+                                   outcome = self$Y_node,
+                                   folds = self$folds)
+          Q0W_task <- sl3_Task$new(data = data_A0,
+                                   covariates = c(self$W_nodes, self$A_node),
+                                   outcome = self$Y_node,
+                                   folds = self$folds)
+          self$Q$QAW <- self$Q_fit$predict()
+          self$Q$Q0W <- self$Q_fit$predict(Q0W_task)
+          self$Q$Q1W <- self$Q_fit$predict(Q1W_task)
+          self$theta <- self$Q$Q1W*self$g1W+self$Q$Q0W*self$g0W
+        } else {
+          self$theta_fit <- self$fit_regression(method = theta_method,
+                                                folds = self$folds,
+                                                covariate_nodes = self$W_nodes,
+                                                outcome_node = self$Y_node)
+          self$theta <- self$theta_fit$predict()
+        }
+      }
+
+    },
+
+    run = function(theta_method,
+                   g_method,
+                   family,
+                   learn_theta_via_Q = TRUE,
+                   n_lambda = 1,
+                   cate_hal_args = list(max_degree = 3L,
+                                        smoothness_orders = 1L,
+                                        num_knots = 20L),
+                   target_method = "tmle",
+                   parallel = FALSE,
+                   browse = FALSE) {
+
+      # obtain initial estimators ----------------------------------------------
+      self$run_init_est(theta_method = theta_method,
+                        g_method = g_method,
+                        learn_theta_via_Q = learn_theta_via_Q,
+                        browse = browse)
+
+      # obtain CATE working model ----------------------------------------------
       self$fit_cate(hal_args = cate_hal_args,
                     parallel = parallel)
+
+      # perform targeting ------------------------------------------------------
       self$target(n_lambda = n_lambda,
                   method = target_method)
+
+      # point estimate and inference -------------------------------------------
       self$inference()
     }
   )
