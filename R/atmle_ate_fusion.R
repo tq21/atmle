@@ -7,11 +7,26 @@ atmle_ate_fusion <- R6Class(
   public = list(
 
     S_node = NULL,
+    S = NULL,
     Pi_star = NULL,
     tau_S = NULL,
     tau_A = NULL,
     controls_only = NULL,
     target_gwt = NULL,
+    beta_target_method = NULL,
+    tau_A_star = NULL,
+    Delta = NULL,
+    weights = NULL,
+
+    Pi_bar_fit = NULL,
+    g = list(S1 = NULL, S0 = NULL),
+    Q = list(S1 = NULL, S1A1 = NULL, S1A0 = NULL, S0A1 = NULL, S0A0 = NULL),
+    Pi = list(A = NULL, A1 = NULL, A0 = NULL),
+    Pi_bar = NULL,
+    g_bar = NULL,
+    g_bar0 = NULL,
+    Q_bar = list(A = NULL, A1 = NULL, A0 = NULL),
+    theta = NULL,
 
     initialize = function(data,
                           S_node,
@@ -19,49 +34,60 @@ atmle_ate_fusion <- R6Class(
                           A_node,
                           Y_node,
                           family,
-                          n_folds = NULL,
-                          seed = 123) {
+                          n_folds = NULL) {
 
-      self$S_node <- S_node
       super$initialize(data = data,
                        W_nodes = W_nodes,
                        A_node = A_node,
                        Y_node = Y_node,
                        family = family,
-                       n_folds = n_folds,
-                       seed = seed)
+                       n_folds = n_folds)
+      self$S_node <- S_node
+      self$S <- data[[S_node]]
+      self$Delta <- rep(1, nrow(data))
+      self$weights <- rep(1, nrow(data))
 
     },
 
+    #' Pi(1|A,W)=P(S=1|A,W)
     eval_Pi = function() {
-      numer <- self$g$S1*self$Pi_bar
-      denom <- numer+self$g$S0*(1-self$Pi_bar)
-      self$Pi <- numer/denom
+      numer_A1 <- as.numeric(self$g$S1*self$Pi_bar)
+      denom_A1 <- as.numeric(numer_A1+self$g$S0*(1-self$Pi_bar))
+      numer_A0 <- as.numeric((1-self$g$S1)*self$Pi_bar)
+      denom_A0 <- as.numeric(numer_A0+(1-self$g$S0)*(1-self$Pi_bar))
+      self$Pi$A1 <- numer_A1/denom_A1
+      self$Pi$A0 <- numer_A0/denom_A0
+      self$Pi$A <- self$A*self$Pi$A1+(1-self$A)*self$Pi$A0
 
       return(invisible(self$Pi))
     },
 
     eval_g_bar = function() {
-      self$g_bar <- self$g$S1*self$Pi_bar+self$g$S0*(1-self$Pi_bar)
+      self$g_bar <- as.numeric(self$g$S1*self$Pi_bar+self$g$S0*(1-self$Pi_bar))
+      self$g_bar0 <- 1-self$g_bar
 
       return(invisible(self$g_bar))
     },
 
+    #' Q_bar(A,W)=E(Y|A,W)
     eval_Q_bar = function() {
-      self$Q_bar$A <- self$Q$S1*self$Pi+self$Q$S0*(1-self$Pi)
-      self$Q_bar$A1 <- self$Q$S1A1*self$Pi+self$Q$S0A1*(1-self$Pi)
-      self$Q_bar$A0 <- self$Q$S1A0*self$Pi+self$Q$S0A0*(1-self$Pi)
+      self$Q_bar$A <- as.numeric(self$Q$S1*self$Pi$A+self$Q$S0*(1-self$Pi$A))
+      self$Q_bar$A1 <- as.numeric(self$Q$S1A1*self$Pi$A1+self$Q$S0A1*(1-self$Pi$A0))
+      self$Q_bar$A0 <- as.numeric(self$Q$S1A0*self$Pi$A1+self$Q$S0A0*(1-self$Pi$A0))
 
       return(invisible(self$Q_bar))
     },
 
     eval_theta = function() {
-      self$theta <- self$Q_bar$A1*self$g_bar+self$Q_bar$A0*(1-self$g_bar)
+      self$theta <- as.numeric(self$Q_bar$A1*self$g_bar+self$Q_bar$A0*(1-self$g_bar))
 
       return(invisible(self$theta))
     },
 
-    run_init_est = function(Q_bound) {
+    run_init_est = function(Q_method,
+                            Pi_bar_method,
+                            g_method,
+                            Q_bound) {
       # estimate Q(S,W,A)=E(Y|S,W,A)
       self$Q_fit <- self$fit_regression(method = Q_method,
                                         folds = self$folds_obs,
@@ -71,11 +97,16 @@ atmle_ate_fusion <- R6Class(
                                         outcome_node = self$Y_node,
                                         bound = Q_bound)
       data_1WA <- self$data; data_1WA[[self$S_node]] <- 1
+      data_0WA <- self$data; data_0WA[[self$S_node]] <- 0
       data_1W1 <- self$data; data_1W1[[self$S_node]] <- 1; data_1W1[[self$A_node]] <- 1
       data_1W0 <- self$data; data_1W0[[self$S_node]] <- 1; data_1W0[[self$A_node]] <- 0
       data_0W1 <- self$data; data_0W1[[self$S_node]] <- 0; data_0W1[[self$A_node]] <- 1
       data_0W0 <- self$data; data_0W0[[self$S_node]] <- 0; data_0W0[[self$A_node]] <- 0
       Q1WA_task <- sl3_Task$new(data = data_1WA,
+                                covariates = c(self$S_node, self$W_nodes, self$A_node),
+                                folds = self$folds,
+                                outcome = self$Y_node)
+      Q0WA_task <- sl3_Task$new(data = data_0WA,
                                 covariates = c(self$S_node, self$W_nodes, self$A_node),
                                 folds = self$folds,
                                 outcome = self$Y_node)
@@ -96,22 +127,24 @@ atmle_ate_fusion <- R6Class(
                                 folds = self$folds,
                                 outcome = self$Y_node)
       self$Q$S1 <- self$Q_fit$predict(Q1WA_task)
+      self$Q$S0 <- self$Q_fit$predict(Q0WA_task)
       self$Q$S1A1 <- self$Q_fit$predict(Q1W1_task)
       self$Q$S1A0 <- self$Q_fit$predict(Q1W0_task)
       self$Q$S0A1 <- self$Q_fit$predict(Q0W1_task)
       self$Q$S0A0 <- self$Q_fit$predict(Q0W0_task)
 
       # estimate \bar{Pi}=P(S=1|W)
-      self$fit_regression(method = Pi_bar_method,
-                          folds = self$folds,
-                          covariate_nodes = self$W_nodes,
-                          outcome_node = self$S_node)
+      self$Pi_bar_fit <- self$fit_regression(method = Pi_bar_method,
+                                             folds = self$folds,
+                                             covariate_nodes = self$W_nodes,
+                                             outcome_node = self$S_node)
+      self$Pi_bar <- self$Pi_bar_fit$predict()
 
       # estimate g(1|S,W)=P(A=1|S,W)
-      self$fit_regression(method = g_method,
-                          folds = self$folds,
-                          covariate_nodes = c(self$S_node, self$W_nodes),
-                          outcome_node = self$A_node)
+      self$g_fit <- self$fit_regression(method = g_method,
+                                        folds = self$folds,
+                                        covariate_nodes = c(self$S_node, self$W_nodes),
+                                        outcome_node = self$A_node)
       data_A1 <- self$data; data_A1[[self$A_node]] <- 1
       data_A0 <- self$data; data_A0[[self$A_node]] <- 0
       g1W_task <- sl3_Task$new(data = data_A1,
@@ -143,11 +176,11 @@ atmle_ate_fusion <- R6Class(
       cate_fit$pseudo_weights <- (A-g1W)^2
 
       # make design matrix
-      blist <- enumerate_basis(x = as.matrix(W),
-                               max_degree = hal_args$max_degree,
-                               smoothness_orders = hal_args$smoothness_orders,
-                               num_knots = hal_args$num_knots)
-      cate_fit$phi <- make_design_matrix(X = as.matrix(W), blist = blist)
+      cate_fit$blist <- enumerate_basis(x = as.matrix(W),
+                                        max_degree = hal_args$max_degree,
+                                        smoothness_orders = hal_args$smoothness_orders,
+                                        num_knots = hal_args$num_knots)
+      cate_fit$phi <- make_design_matrix(X = as.matrix(W), blist = cate_fit$blist)
 
       # fit HAL
       cate_fit$fit <- cv.glmnet(x = cate_fit$phi,
@@ -162,140 +195,111 @@ atmle_ate_fusion <- R6Class(
 
     },
 
-    target_Pi = function() {
+    target_Pi = function(cate_fit) {
 
-      self$Pi_star <- self$Pi
+      if (is.null(self$Pi_star)) {
+        self$Pi_star <- self$Pi
+      }
 
       if (self$controls_only) {
         # only controls in external data
         if (self$target_gwt) {
           wt <- (1-self$A)/self$g_bar0
-          H0W <- -self$tau_S$cate_W0
+          H0W <- -cate_fit$cate_W0
         } else {
           wt <- rep(1, length(self$A))
-          H0W <- -(1-self$A)/self$g_bar0*self$tau_S$cate_W0
+          H0W <- -(1-self$A)/self$g_bar0*cate_fit$cate_W0
         }
 
         # logistic submodel
-        epsilon <- as.numeric(coef(glm(S ~ -1+offset(qlogis(self$Pi$A))+H0W,
+        epsilon <- as.numeric(coef(glm(S ~ -1+offset(qlogis(self$Pi_star$A))+H0W,
                                        family = "quasibinomial", weights = wt)))
         epsilon[is.na(epsilon)] <- 0
 
         # update
         if (self$target_gwt) {
-          self$Pi_star$A0 <- plogis(qlogis(self$Pi$A0)+epsilon[1]*H0W)
+          self$Pi_star$A0 <- plogis(qlogis(self$Pi_star$A0)+epsilon[1]*H0W)
           self$Pi_star$A[self$A == 0] <- self$Pi_star$A0[self$A == 0]
         } else {
-          self$Pi_star$A0 <- plogis(qlogis(self$Pi$A0)+epsilon[1]*(-1/self$g_bar0*self$tau_S$cate_W0))
+          self$Pi_star$A0 <- plogis(qlogis(self$Pi_star$A0)+epsilon[1]*(-1/self$g_bar0*cate_fit$cate_W0))
           self$Pi_star$A[A == 0] <- self$Pi_star$A0[self$A == 0]
         }
       } else {
         # both treated and controls in external data
         if (self$target_gwt) {
           wt <- self$A/self$g_bar+(1-self$A)/self$g_bar0
-          H1W <- self$tau_S$cate_W1*self$A
-          H0W <- self$tau_S$cate_W0*(1-self$A)
+          H1W <- cate_fit$cate_W1*self$A
+          H0W <- cate_fit$cate_W0*(1-self$A)
         } else {
           wt <- rep(1, length(self$A))
-          H1W <- self$A/self$g_bar*self$tau_S$cate_W1
-          H0W <- -(1-self$A)/self$g_bar0*self$tau_S$cate_W0
+          H1W <- self$A/self$g_bar*cate_fit$cate_W1
+          H0W <- -(1-self$A)/self$g_bar0*cate_fit$cate_W0
         }
 
         # logistic submodel
-        epsilon <- as.numeric(coef(glm(S ~ -1+offset(qlogis(self$Pi$A))+H0W+H1W,
+        epsilon <- as.numeric(coef(glm(self$S ~ -1+offset(qlogis(self$Pi_star$A))+H0W+H1W,
                                        family = "quasibinomial", weights = wt)))
         epsilon[is.na(epsilon)] <- 0
 
         # updates
         if (self$target_gwt) {
-          self$Pi_star$A <- plogis(qlogis(self$Pi$A)+epsilon[1]*H0W+epsilon[2]*H1W)
-          self$Pi_star$A0 <- plogis(qlogis(self$Pi$A0)+epsilon[1]*self$tau_S$cate_W0)
-          self$Pi_star$A1 <- plogis(qlogis(self$Pi$A1)+epsilon[2]*self$tau_S$cate_W1)
+          self$Pi_star$A <- plogis(qlogis(self$Pi_star$A)+epsilon[1]*H0W+epsilon[2]*H1W)
+          self$Pi_star$A0 <- plogis(qlogis(self$Pi_star$A0)+epsilon[1]*cate_fit$cate_W0)
+          self$Pi_star$A1 <- plogis(qlogis(self$Pi_star$A1)+epsilon[2]*cate_fit$cate_W1)
         } else {
-          self$Pi_star$A <- plogis(qlogis(self$Pi$A)+epsilon[1]*H0W+epsilon[2]*H1W)
-          self$Pi_star$A0 <- plogis(qlogis(self$Pi$A0)+epsilon[1]*self$tau_S$cate_W0/self$g_bar0)
-          self$Pi_star$A1 <- plogis(qlogis(self$Pi$A1)+epsilon[2]*self$tau_S$cate_W1/self$g_bar)
+          self$Pi_star$A <- plogis(qlogis(self$Pi_star$A)+epsilon[1]*H0W+epsilon[2]*H1W)
+          self$Pi_star$A0 <- plogis(qlogis(self$Pi_star$A0)+epsilon[1]*cate_fit$cate_W0/self$g_bar0)
+          self$Pi_star$A1 <- plogis(qlogis(self$Pi_star$A1)+epsilon[2]*cate_fit$cate_W1/self$g_bar)
         }
       }
 
       # update relevant parts of tau_S
-      tau_S$pseudo_outcome <- ifelse(abs(self$S[self$Delta == 1]-self$Pi_star$A[self$Delta == 1]) < 1e-10, 0,
-                                     (self$Y[self$Delta == 1]-self$Q_bar$A[self$Delta == 1])/(self$S[self$Delta == 1]-self$Pi_star$A[self$Delta == 1]))
-      tau_S$pseudo_weights <- (self$S[self$Delta == 1]-self$Pi_star$A[self$Delta == 1])^2*self$weights[self$Delta == 1]
+      pseudo_outcome <- ifelse(abs(self$S[self$Delta == 1]-self$Pi_star$A[self$Delta == 1]) < 1e-10, 0,
+                               (self$Y[self$Delta == 1]-self$Q_bar$A[self$Delta == 1])/(self$S[self$Delta == 1]-self$Pi_star$A[self$Delta == 1]))
+      pseudo_weights <- (self$S[self$Delta == 1]-self$Pi_star$A[self$Delta == 1])^2*self$weights[self$Delta == 1]
 
+      return(list(pseudo_outcome = pseudo_outcome,
+                  pseudo_weights = pseudo_weights))
     },
 
-    target_tau = function(n_lambda,
-                          cate_fit,
+    target_tau = function(cate_fit,
                           tau_A) {
 
-      # target in a sequence of working models (or cv selected WM if n_lambda = 1)
-      cv_lambda <- cate_fit$fit$lambda.min
-      lambda_seq <- cate_fit$fit$lambda
-      lambda_seq <- lambda_seq[lambda_seq <= cv_lambda]
-      lambda_seq <- lambda_seq[1:min(n_lambda, length(lambda_seq))]
+      if (tau_A) {
+        phi <- cate_fit$phi_W
+      } else {
+        phi <- cate_fit$phi_WA
+      }
 
-      # extract a sequence of working models indexed by lambda
-      wm_seq <- map(lambda_seq, function(.lambda) {
-        list(non_zero = which(as.numeric(coef(cate_fit$fit, s = .lambda))[-1] != 0),
-             lambda = .lambda)
-      })
-
-      # use the CV selected fit as initial fit
-      intercept <- as.numeric(coef(cate_fit$fit, s = cv_lambda))[1]
-      beta <- as.numeric(coef(cate_fit$fit, s = cv_lambda))[-1]
-
-      # perform targeting in each working model
-      res_list <- map(seq_along(wm_seq), function(.j) {
-        cur_wm <- wm_seq[[.j]]
-        phi_select_j <- cate_fit$phi[, cur_wm$non_zero, drop = FALSE]
-        phi_select_j <- cbind(1, phi_select_j)
-        beta_j <- c(intercept, beta[cur_wm$non_zero])
-
-        if (length(cur_wm$non_zero) > 0) {
-          if (self$beta_target_method == "relaxed") {
-            beta_star <- self$target_relaxed(pseudo_outcome = self$cate_fit$pseudo_outcome,
-                                             pseudo_weights = self$cate_fit$pseudo_weights,
-                                             phi_W = phi_select_j)
-          } else if (self$beta_target_method == "tmle") {
-            if (tau_A) {
-              beta_star <- self$target_tau_A_tmle(phi_W = phi_select_j,
-                                                  beta = beta_j)
-            } else {
-              phi_W1 <- cate_fit$phi_W1[, cur_wm$non_zero, drop = FALSE]
-              phi_W1 <- cbind(1, phi_W1)
-              phi_W0 <- cate_fit$phi_W0[, cur_wm$non_zero, drop = FALSE]
-              phi_W0 <- cbind(1, phi_W0)
-              beta_star <- self$target_tau_S_tmle(phi_WA = phi_select_j,
-                                                  phi_W1 = phi_W1,
-                                                  phi_W0 = phi_W0,
-                                                  beta = beta_j)
-            }
+      # perform targeting in the provided working model
+      if (length(cate_fit$beta) > 1) {
+        if (self$beta_target_method == "relaxed") {
+          obj <- self$target_tau_relaxed(pseudo_outcome = cate_fit$pseudo_outcome,
+                                         pseudo_weights = cate_fit$pseudo_weights,
+                                         phi = phi)
+        } else if (self$beta_target_method == "tmle") {
+          if (tau_A) {
+            obj <- self$target_tau_A_tmle(phi_W = phi,
+                                          beta = cate_fit$beta)
+          } else {
+            obj <- self$target_tau_S_tmle(phi_WA = phi,
+                                          phi_W1 = cate_fit$phi_W1,
+                                          phi_W0 = cate_fit$phi_W0,
+                                          beta = cate_fit$beta)
           }
-        } else {
-          beta_star <- mean(cate_fit$pseudo_outcome)
         }
-        beta_star[is.na(beta_star)] <- 0
-        cate_pred <- as.numeric(phi_select_j %*% beta_star)
+        beta_star <- obj$beta
+        eic <- obj$eic
+      } else {
+        beta_star <- mean(cate_fit$pseudo_outcome)
+      }
+      beta_star[is.na(beta_star)] <- 0
 
-        if (tau_A) {
-          return(list(beta_star = beta_star,
-                      phi_W = phi_select_j,
-                      cate_pred = cate_pred))
-        } else {
-          cate_pred_A1 <- as.numeric(phi_W1 %*% beta_star)
-          cate_pred_A0 <- as.numeric(phi_W0 %*% beta_star)
-          return(list(beta_star = beta_star,
-                      phi_WA = phi_select_j,
-                      phi_W1 = phi_W1,
-                      phi_W0 = phi_W0,
-                      cate_pred = list(A = cate_pred,
-                                       A1 = cate_pred_A1,
-                                       A0 = cate_pred_A0)))
-        }
-      })
+      return(list(idx = cate_fit$idx,
+                  lambda = cate_fit$lambda,
+                  beta = beta_star,
+                  eic = eic))
 
-      return(res_list)
     },
 
     #' TMLE targeting of beta for tau_A
@@ -308,11 +312,19 @@ atmle_ate_fusion <- R6Class(
       clever_cov <- as.vector(IM_inv %*% colMeans(phi_W))
       H <- (self$A-self$g_bar)*as.vector(phi_W %*% clever_cov)
       tau <- as.numeric(phi_W %*% beta)
-      R <- self$Y-self$theta-(self$A-self$g1W)*tau
+      R <- self$Y-self$theta-(self$A-self$g_bar)*tau
       epsilon <- sum(H*R)/sum(H*H)
       beta <- beta+epsilon*clever_cov
 
-      return(beta)
+      # compute EIC
+      tau_star <- as.numeric(phi_W %*% beta)
+      D_beta <- as.vector(phi_W%*%IM_inv%*%colMeans(phi_W)*(self$A-self$g_bar)*
+                            (self$Y-self$theta-(self$A-self$g_bar)*tau_star))
+      W_comp <- tau_star-mean(tau_star)
+      eic <- D_beta+W_comp
+
+      return(list(beta = beta,
+                  eic = eic))
 
     },
 
@@ -325,20 +337,39 @@ atmle_ate_fusion <- R6Class(
       phi_WA <- as.matrix(phi_WA)
       phi_W1 <- as.matrix(phi_W1)
       phi_W0 <- as.matrix(phi_W0)
-      IM <- t(phi_WA) %*% diag(Pi$A*(1-Pi$A)) %*% phi_WA / nrow(phi_WA)
+      IM <- t(phi_WA) %*% diag(self$Pi_star$A*(1-self$Pi_star$A)) %*% phi_WA / nrow(phi_WA)
       IM_inv <- mat_inverse(IM)
       if (self$controls_only) {
-        clever_cov <- as.vector(IM_inv %*% colMeans((1-Pi$A0)*phi_W0))
+        clever_cov <- as.vector(IM_inv %*% colMeans((1-self$Pi_star$A0)*phi_W0))
       } else {
-        clever_cov <- as.vector(IM_inv %*% colMeans((1-Pi$A0)*phi_W0-(1-Pi$A1)*phi_W1))
+        clever_cov <- as.vector(IM_inv %*% colMeans((1-self$Pi_star$A0)*phi_W0-(1-self$Pi_star$A1)*phi_W1))
       }
-      H <- (S-Pi$A)*as.vector(phi_WA %*% clever_cov)
+      H <- (self$S-self$Pi_star$A)*as.vector(phi_WA %*% clever_cov)
       tau <- as.numeric(phi_WA %*% beta)
-      R <- self$Y-self$Q_bar$A-(S-Pi$A)*tau
+      R <- self$Y-self$Q_bar$A-(self$S-self$Pi_star$A)*tau
       epsilon <- sum(H*R)/sum(H*H)
       beta <- beta+epsilon*clever_cov
 
-      return(beta)
+      # compute EIC
+      tau_S <- list(phi_WA = phi_WA,
+                    phi_W1 = phi_W1,
+                    phi_W0 = phi_W0,
+                    cate_WA = as.numeric(phi_WA %*% beta),
+                    cate_W1 = as.numeric(phi_W1 %*% beta),
+                    cate_W0 = as.numeric(phi_W0 %*% beta))
+      eic <- eic_psi_pound_wm(S = self$S,
+                              Y = self$Y,
+                              A = self$A,
+                              g1W = self$g_bar,
+                              theta_WA = self$Q_bar$A,
+                              Pi = self$Pi_star,
+                              tau_S = tau_S,
+                              weights = self$weights,
+                              controls_only = self$controls_only,
+                              IM_inv = IM_inv)
+
+      return(list(beta = beta,
+                  eic = eic))
 
     },
 
@@ -355,78 +386,156 @@ atmle_ate_fusion <- R6Class(
       return(beta)
     },
 
+    #' Target beta_A over a sequence of working models
+    target_beta_A_seq = function(n_lambda) {
+      lambda_seq <- self$tau_A$fit$lambda
+      lambda_cv <- self$tau_A$fit$lambda.min
+      lambda_seq <- lambda_seq[lambda_seq <= lambda_cv]
+      lambda_seq <- lambda_seq[1:min(n_lambda, length(lambda_seq))]
+      beta_cv <- as.numeric(coef(self$tau_A$fit, s = lambda_cv))
+      non_zero_cv <- which(beta_cv != 0)
+      cate_W_cv <- as.numeric(cbind(1, self$tau_A$phi)[, non_zero_cv, drop = FALSE] %*% beta_cv[non_zero_cv])
+
+      res_list <- map(seq_along(lambda_seq), function(.j) {
+
+        # extract info on current working model
+        lambda <- lambda_seq[.j]
+        non_zero <- which(as.numeric(coef(self$tau_A$fit, s = lambda)) != 0)
+        cate_fit <- list(phi_W = cbind(1, self$tau_A$phi)[, non_zero, drop = FALSE],
+                         beta = beta_cv[non_zero],
+                         pseudo_outcome = self$tau_A$pseudo_outcome,
+                         pseudo_weights = self$tau_A$pseudo_weights)
+        cur_res <- self$target_tau(cate_fit = cate_fit,
+                                   tau_A = TRUE)
+        cur_res <- c(cur_res, list(idx = .j, lambda = lambda))
+
+        return(cur_res)
+      })
+
+      return(res_list)
+    },
+
     #' Iterative targeting of Pi and beta_S
-    target = function(max_iter,
-                      verbose) {
+    target_Pi_beta_S = function(n_lambda,
+                                max_iter,
+                                verbose) {
 
-      cur_iter <- 1
-      PnEIC <- Inf
-      sn <- 0
-      while (cur_iter <= max_iter & abs(PnEIC) > sn) {
-        # target Pi
-        self$target_Pi()
+      browser()
 
-        # TODO: do we need this?
-        # evaluate EIC of psi pound
-        # self$eic_psi_pound <- eic_psi_pound_wm(S = self$S,
-        #                                        Y = self$Y,
-        #                                        A = self$A,
-        #                                        g1W = g_bar,
-        #                                        theta_WA = self$Q_bar$A,
-        #                                        Pi = self$Pi_star,
-        #                                        tau_S = self$tau_S,
-        #                                        weights = self$weights,
-        #                                        controls_only = self$controls_only)
-        # PnEIC <- mean(self$eic_psi_pound)
-        # sn <- 0.001*sqrt(var(self$eic_psi_pound))/(sqrt(length(self$Y))*log(length(self$Y)))
-        # TODO: should we allow break here?
-        # if (abs(PnEIC) <= sn) {
-        #   break
-        # }
+      # target in a sequence of working models (or cv selected WM if n_lambda = 1)
+      cv_lambda <- self$tau_S$fit$lambda.min
+      lambda_seq <- self$tau_S$fit$lambda
+      lambda_seq <- lambda_seq[lambda_seq <= cv_lambda]
+      lambda_seq <- lambda_seq[1:min(n_lambda, length(lambda_seq))]
+      beta_cv <- as.numeric(coef(self$tau_S$fit, s = cv_lambda))
+      non_zero_cv <- which(beta_cv != 0)
+      phi_W1_cv <- cbind(1, self$tau_S$phi_W1)[, non_zero_cv, drop = FALSE]
+      phi_W0_cv <- cbind(1, self$tau_S$phi_W0)[, non_zero_cv, drop = FALSE]
+      phi_WA_cv <- cbind(1, self$tau_S$phi)[, non_zero_cv, drop = FALSE]
+      cate_W1_cv <- as.numeric(phi_W1_cv %*% beta_cv[non_zero_cv])
+      cate_W0_cv <- as.numeric(phi_W0_cv %*% beta_cv[non_zero_cv])
+      cate_WA_cv <- as.numeric(phi_WA_cv %*% beta_cv[non_zero_cv])
 
-        # target beta_S
-        self$target_tau(n_lambda = self$n_lambda,
-                        cate_fit = self$tau_S,
-                        tau_A = FALSE)
-        # TODO: need to do this for every tau in the wm seq
+      # for each working model, target Pi and beta_S iteratively
+      res_list <- map(seq_along(lambda_seq), function(.j) {
 
-        # re-evaluate EIC of psi pound
-        self$eic_psi_pound <- eic_psi_pound_wm(S = self$S,
-                                               Y = self$Y,
-                                               A = self$A,
-                                               g1W = g_bar,
-                                               theta_WA = self$Q_bar$A,
-                                               Pi = self$Pi_star,
-                                               tau_S = self$tau_S,
-                                               weights = self$weights,
-                                               controls_only = self$controls_only)
-        PnEIC <- mean(self$eic_psi_pound)
-        sn <- sqrt(var(self$eic_psi_pound))/(sqrt(length(self$Y))*log(length(self$Y)))
-        cur_iter <- cur_iter + 1
-        if (verbose) print(round(PnEIC, 5))
-      }
+        # extract info on current working model
+        lambda <- lambda_seq[.j]
+        non_zero <- which(as.numeric(coef(self$tau_S$fit, s = lambda)) != 0)
+        cate_fit <- list(idx = .j,
+                         lambda = lambda,
+                         phi_W1 = cbind(1, self$tau_S$phi_W1)[, non_zero, drop = FALSE],
+                         phi_W0 = cbind(1, self$tau_S$phi_W0)[, non_zero, drop = FALSE],
+                         phi_WA = cbind(1, self$tau_S$phi)[, non_zero, drop = FALSE],
+                         beta = beta_cv[non_zero],
+                         cate_W1 = cate_W1_cv,
+                         cate_W0 = cate_W0_cv,
+                         cate_WA = cate_WA_cv,
+                         pseudo_outcome = self$tau_S$pseudo_outcome,
+                         pseudo_weights = self$tau_S$pseudo_weights)
+
+        # target Pi and beta_S iteratively
+        cur_iter <- 1
+        PnEIC <- Inf
+        sn <- 0
+        while (cur_iter <= max_iter & abs(PnEIC) > sn) {
+          # target Pi
+          pseudo_list <- self$target_Pi(cate_fit)
+          cate_fit$pseudo_outcome <- pseudo_list$pseudo_outcome
+          cate_fit$pseudo_weights <- pseudo_list$pseudo_weights
+
+          # TODO: do we need this?
+          # evaluate EIC of psi pound
+          # self$eic_psi_pound <- eic_psi_pound_wm(S = self$S,
+          #                                        Y = self$Y,
+          #                                        A = self$A,
+          #                                        g1W = g_bar,
+          #                                        theta_WA = self$Q_bar$A,
+          #                                        Pi = self$Pi_star,
+          #                                        tau_S = cate_fit,
+          #                                        weights = self$weights,
+          #                                        controls_only = self$controls_only)
+          # PnEIC <- mean(self$eic_psi_pound)
+          # sn <- 0.001*sqrt(var(self$eic_psi_pound))/(sqrt(length(self$Y))*log(length(self$Y)))
+          # TODO: should we allow break here?
+          # if (abs(PnEIC) <= sn) {
+          #   break
+          # }
+
+          # target beta_S
+          obj <- self$target_tau(cate_fit = cate_fit,
+                                 tau_A = FALSE)
+          cate_fit$beta <- obj$beta
+          cate_fit$cate_W1 <- as.numeric(cate_fit$phi_W1 %*% cate_fit$beta)
+          cate_fit$cate_W0 <- as.numeric(cate_fit$phi_W0 %*% cate_fit$beta)
+          cate_fit$cate_WA <- as.numeric(cate_fit$phi_WA %*% cate_fit$beta)
+
+          PnEIC <- mean(obj$eic)
+          sn <- 1e-4*sqrt(var(obj$eic))/(sqrt(length(self$Y))*log(length(self$Y)))
+          cur_iter <- cur_iter + 1
+          if (verbose) print(round(PnEIC, 10))
+        }
+        browser()
+
+        cate_fit$Pi_star <- self$Pi_star
+        self$Pi_star <- NULL
+
+        return(cate_fit)
+      })
+
+      return(res_list)
 
     },
 
     run = function(Q_method,
-                   theta_method,
+                   Pi_bar_method,
                    g_method,
-                   Pi_method,
                    family = c("gaussian", "binomial"),
-                   metalearner = Lrnr_cv_selector$new(),
                    A_cate_hal_args = list(max_degree = 3L,
                                           smoothness_orders = 1L,
                                           num_knots = 20L),
-                   S_cate_hal_args = A_cate_hal_args,
+                   S_cate_hal_args = list(max_degree = 3L,
+                                          smoothness_orders = 1L,
+                                          num_knots = 20L),
                    target_method = "tmle",
+                   target_gwt = TRUE,
+                   Q_bound = NULL,
+                   max_iter = 50,
+                   n_lambda = 10,
+                   parallel = FALSE,
+                   verbose = TRUE,
                    browse = FALSE) {
 
       if (browse) browser()
 
       family <- match.arg(family)
+      self$controls_only <- all(self$A[self$S == 0] == 0)
 
       # initial estimation -----------------------------------------------------
-      self$run_init_est(Q_bound = Q_bound)
+      self$run_init_est(Q_method = Q_method,
+                        Pi_bar_method = Pi_bar_method,
+                        g_method = g_method,
+                        Q_bound = Q_bound)
 
       # obtain CATE working model ----------------------------------------------
       self$tau_A <- self$fit_cate(W = self$W,
@@ -434,8 +543,12 @@ atmle_ate_fusion <- R6Class(
                                   Y = self$Y,
                                   g1W = self$g_bar,
                                   theta = self$theta,
-                                  hal_args = tau_A_hal_args,
+                                  hal_args = A_cate_hal_args,
                                   parallel = parallel)
+
+      # target beta_A for each working model -----------------------------------
+      self$beta_target_method <- target_method
+      self$tau_A_star <- self$target_beta_A_seq(n_lambda = n_lambda)
 
       # obtain CARE working model ----------------------------------------------
       self$tau_S <- self$fit_cate(W = as.matrix(cbind(self$W, A=self$A)),
@@ -445,8 +558,17 @@ atmle_ate_fusion <- R6Class(
                                   theta = self$Q_bar$A,
                                   hal_args = S_cate_hal_args,
                                   parallel = parallel)
+      self$tau_S$phi_W1 <- make_design_matrix(X = as.matrix(cbind(self$W, A=1)),
+                                              blist = self$tau_S$blist)
+      self$tau_S$phi_W0 <- make_design_matrix(X = as.matrix(cbind(self$W, A=0)),
+                                              blist = self$tau_S$blist)
 
-      # TODO: targeting
+      # iterative targeting of Pi and beta_S -----------------------------------
+      self$target_gwt <- target_gwt
+      self$tau_S_star <- self$target_Pi_beta_S(n_lambda = n_lambda,
+                                               max_iter = max_iter,
+                                               verbose = verbose)
+
 
     }
   )

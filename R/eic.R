@@ -254,7 +254,7 @@ eic_psi_pound_wm <- function(S,
   Y_tmp[is.na(Y)] <- 0
 
   if (is.null(IM_inv)) {
-    IM <- t(tau_S$phi_WA) %*% diag(Pi$pred*(1-Pi$pred)) %*% tau_S$phi_WA / length(Y)
+    IM <- t(tau_S$phi_WA) %*% diag(Pi$A*(1-Pi$A)) %*% tau_S$phi_WA / length(Y)
     IM_inv <- tryCatch({
       solve(IM)
     }, error = function(e) {
@@ -271,8 +271,8 @@ eic_psi_pound_wm <- function(S,
   if (controls_only) {
     psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0)
     W_comp <- (1-Pi$A0)*tau_S$cate_W0-psi_pound_est
-    Pi_comp <- -(1-A)/(1-g1W)*tau_S$cate_W0*(S-Pi$pred)
-    D <- tau_S$phi_WA %*% IM_inv*(S-Pi$pred)*(Y_tmp-theta_WA-(S-Pi$pred)*tau_S$cate_WA)*weights
+    Pi_comp <- -(1-A)/(1-g1W)*tau_S$cate_W0*(S-Pi$A)
+    D <- tau_S$phi_WA %*% IM_inv*(S-Pi$A)*(Y_tmp-theta_WA-(S-Pi$A)*tau_S$cate_WA)*weights
     if (ncol(D) > 1) {
       beta_comp <- (rowSums(D %*% diag(colMeans((1-Pi$A0)*tau_S$phi_W0))))
     } else {
@@ -281,8 +281,8 @@ eic_psi_pound_wm <- function(S,
   } else {
     psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1)
     W_comp <- (1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1-psi_pound_est
-    Pi_comp <- (A/g1W*tau_S$cate_W1-(1-A)/(1-g1W)*tau_S$cate_W0)*(S-Pi$pred)
-    D <- tau_S$phi_WA %*% IM_inv*(S-Pi$pred)*(Y_tmp-theta_WA-(S-Pi$pred)*tau_S$cate_WA)*weights
+    Pi_comp <- (A/g1W*tau_S$cate_W1-(1-A)/(1-g1W)*tau_S$cate_W0)*(S-Pi$A)
+    D <- tau_S$phi_WA %*% IM_inv*(S-Pi$A)*(Y_tmp-theta_WA-(S-Pi$A)*tau_S$cate_WA)*weights
     if (ncol(D) > 1) {
       beta_comp <- (rowSums(D %*% diag(colMeans((1-Pi$A0)*tau_S$phi_W0)))-rowSums(D %*% diag(colMeans((1-Pi$A1)*tau_S$phi_W1))))
     } else {
@@ -295,6 +295,64 @@ eic_psi_pound_wm <- function(S,
 
   return(W_comp+Pi_comp+beta_comp)
 }
+
+
+# eic_psi_pound_wm <- function(S,
+#                              Y,
+#                              A,
+#                              g1W,
+#                              theta_WA,
+#                              Pi,
+#                              tau_S,
+#                              weights,
+#                              controls_only,
+#                              IM_inv = NULL,
+#                              eic_method = "svd_pseudo_inv") {
+#   Y_tmp <- Y
+#   Y_tmp[is.na(Y)] <- 0
+#
+#   if (is.null(IM_inv)) {
+#     IM <- t(tau_S$phi_WA) %*% diag(Pi$pred*(1-Pi$pred)) %*% tau_S$phi_WA / length(Y)
+#     IM_inv <- tryCatch({
+#       solve(IM)
+#     }, error = function(e) {
+#       if (eic_method == "svd_pseudo_inv") {
+#         svd_pseudo_inv(IM)
+#       } else if (eic_method == "diag") {
+#         solve(IM + diag(1e-3, nrow(IM), ncol(IM)))
+#       } else {
+#         stop("Unknown eic_method specified.")
+#       }
+#     })
+#   }
+#
+#   if (controls_only) {
+#     psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0)
+#     W_comp <- (1-Pi$A0)*tau_S$cate_W0-psi_pound_est
+#     Pi_comp <- -(1-A)/(1-g1W)*tau_S$cate_W0*(S-Pi$pred)
+#     D <- tau_S$phi_WA %*% IM_inv*(S-Pi$pred)*(Y_tmp-theta_WA-(S-Pi$pred)*tau_S$cate_WA)*weights
+#     if (ncol(D) > 1) {
+#       beta_comp <- (rowSums(D %*% diag(colMeans((1-Pi$A0)*tau_S$phi_W0))))
+#     } else {
+#       beta_comp <- (rowSums(D * colMeans((1-Pi$A0)*tau_S$phi_W0)))
+#     }
+#   } else {
+#     psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1)
+#     W_comp <- (1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1-psi_pound_est
+#     Pi_comp <- (A/g1W*tau_S$cate_W1-(1-A)/(1-g1W)*tau_S$cate_W0)*(S-Pi$pred)
+#     D <- tau_S$phi_WA %*% IM_inv*(S-Pi$pred)*(Y_tmp-theta_WA-(S-Pi$pred)*tau_S$cate_WA)*weights
+#     if (ncol(D) > 1) {
+#       beta_comp <- (rowSums(D %*% diag(colMeans((1-Pi$A0)*tau_S$phi_W0)))-rowSums(D %*% diag(colMeans((1-Pi$A1)*tau_S$phi_W1))))
+#     } else {
+#       beta_comp <- (rowSums(D * colMeans((1-Pi$A0)*tau_S$phi_W0))-rowSums(D * colMeans((1-Pi$A1)*tau_S$phi_W1)))
+#     }
+#   }
+#
+#   #print(paste("Pi_comp", mean(Pi_comp)))
+#   #print(paste("beta_comp", mean(beta_comp)))
+#
+#   return(W_comp+Pi_comp+beta_comp)
+# }
 
 eic_psi_tilde_wm <- function(Y,
                              A,
