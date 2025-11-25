@@ -13,7 +13,7 @@ lrnr_con <- list(learners = list(Lrnr_dbarts$new(),
                  metalearner = Lrnr_cv_selector$new(loss_squared_error))
 lrnr_glm <- list(learners = list(Lrnr_cv$new(Lrnr_glm$new())))
 
-data <- sim_data(n=500, controls_only=FALSE, family="gaussian", prop_miss=0)
+data <- sim_data(n=1000, controls_only=FALSE, family="gaussian", prop_miss=0)
 
 obj <- atmle_ate_fusion$new(data = data,
                             S_node = "S",
@@ -22,11 +22,12 @@ obj <- atmle_ate_fusion$new(data = data,
                             Y_node = "Y",
                             family = "gaussian",
                             n_folds = 5)
-obj$run(Q_method = lrnr_glm,
-        Pi_bar_method = lrnr_glm,
+obj$run(Q_method = lrnr_con,
+        Pi_bar_method = lrnr_bin,
         g_method = lrnr_glm,
         family = "gaussian",
         target_method = "tmle",
         max_iter = 50,
-        browse = TRUE)
+        n_lambda = 50,
+        browse = FALSE)
 

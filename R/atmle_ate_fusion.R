@@ -15,6 +15,7 @@ atmle_ate_fusion <- R6Class(
     target_gwt = NULL,
     beta_target_method = NULL,
     tau_A_star = NULL,
+    tau_S_star = NULL,
     Delta = NULL,
     weights = NULL,
 
@@ -27,6 +28,7 @@ atmle_ate_fusion <- R6Class(
     g_bar0 = NULL,
     Q_bar = list(A = NULL, A1 = NULL, A0 = NULL),
     theta = NULL,
+    results = NULL,
 
     initialize = function(data,
                           S_node,
@@ -272,33 +274,30 @@ atmle_ate_fusion <- R6Class(
       }
 
       # perform targeting in the provided working model
-      if (length(cate_fit$beta) > 1) {
-        if (self$beta_target_method == "relaxed") {
-          obj <- self$target_tau_relaxed(pseudo_outcome = cate_fit$pseudo_outcome,
-                                         pseudo_weights = cate_fit$pseudo_weights,
-                                         phi = phi)
-        } else if (self$beta_target_method == "tmle") {
-          if (tau_A) {
-            obj <- self$target_tau_A_tmle(phi_W = phi,
-                                          beta = cate_fit$beta)
-          } else {
-            obj <- self$target_tau_S_tmle(phi_WA = phi,
-                                          phi_W1 = cate_fit$phi_W1,
-                                          phi_W0 = cate_fit$phi_W0,
-                                          beta = cate_fit$beta)
-          }
+      if (self$beta_target_method == "relaxed") {
+        obj <- self$target_tau_relaxed(pseudo_outcome = cate_fit$pseudo_outcome,
+                                       pseudo_weights = cate_fit$pseudo_weights,
+                                       phi = phi)
+      } else if (self$beta_target_method == "tmle") {
+        if (tau_A) {
+          obj <- self$target_tau_A_tmle(phi_W = phi,
+                                        beta = cate_fit$beta)
+        } else {
+          obj <- self$target_tau_S_tmle(phi_WA = phi,
+                                        phi_W1 = cate_fit$phi_W1,
+                                        phi_W0 = cate_fit$phi_W0,
+                                        beta = cate_fit$beta)
         }
-        beta_star <- obj$beta
-        eic <- obj$eic
-      } else {
-        beta_star <- mean(cate_fit$pseudo_outcome)
       }
+      beta_star <- obj$beta
+      eic <- obj$eic
       beta_star[is.na(beta_star)] <- 0
 
       return(list(idx = cate_fit$idx,
                   lambda = cate_fit$lambda,
                   beta = beta_star,
-                  eic = eic))
+                  eic = eic,
+                  cate_W = obj$cate_W))
 
     },
 
@@ -324,7 +323,8 @@ atmle_ate_fusion <- R6Class(
       eic <- D_beta+W_comp
 
       return(list(beta = beta,
-                  eic = eic))
+                  eic = eic,
+                  cate_W = tau_star))
 
     },
 
@@ -369,7 +369,8 @@ atmle_ate_fusion <- R6Class(
                               IM_inv = IM_inv)
 
       return(list(beta = beta,
-                  eic = eic))
+                  eic = eic,
+                  cate_W = tau_S$cate_WA))
 
     },
 
@@ -407,7 +408,8 @@ atmle_ate_fusion <- R6Class(
                          pseudo_weights = self$tau_A$pseudo_weights)
         cur_res <- self$target_tau(cate_fit = cate_fit,
                                    tau_A = TRUE)
-        cur_res <- c(cur_res, list(idx = .j, lambda = lambda))
+        cur_res$idx <- .j
+        cur_res$lambda <- lambda
 
         return(cur_res)
       })
@@ -419,8 +421,6 @@ atmle_ate_fusion <- R6Class(
     target_Pi_beta_S = function(n_lambda,
                                 max_iter,
                                 verbose) {
-
-      browser()
 
       # target in a sequence of working models (or cv selected WM if n_lambda = 1)
       cv_lambda <- self$tau_S$fit$lambda.min
@@ -486,16 +486,16 @@ atmle_ate_fusion <- R6Class(
           obj <- self$target_tau(cate_fit = cate_fit,
                                  tau_A = FALSE)
           cate_fit$beta <- obj$beta
+          cate_fit$eic <- obj$eic
+          cate_fit$cate_WA <- obj$cate_W
           cate_fit$cate_W1 <- as.numeric(cate_fit$phi_W1 %*% cate_fit$beta)
           cate_fit$cate_W0 <- as.numeric(cate_fit$phi_W0 %*% cate_fit$beta)
-          cate_fit$cate_WA <- as.numeric(cate_fit$phi_WA %*% cate_fit$beta)
 
           PnEIC <- mean(obj$eic)
           sn <- 1e-4*sqrt(var(obj$eic))/(sqrt(length(self$Y))*log(length(self$Y)))
           cur_iter <- cur_iter + 1
           if (verbose) print(round(PnEIC, 10))
         }
-        browser()
 
         cate_fit$Pi_star <- self$Pi_star
         self$Pi_star <- NULL
@@ -504,6 +504,43 @@ atmle_ate_fusion <- R6Class(
       })
 
       return(res_list)
+
+    },
+
+    inference = function(alpha = 0.05) {
+
+      self$results <- map_dfr(self$tau_A_star, function(.tau_A) {
+        map_dfr(self$tau_S_star, function(.tau_S) {
+          # point estimate
+          psi_tilde <- mean(.tau_A$cate_W)
+          if (self$controls_only) {
+            psi_pound <- mean((1-.tau_S$Pi_star$A0)*.tau_S$cate_W0)
+          } else {
+            psi_pound <- mean((1-.tau_S$Pi_star$A0)*.tau_S$cate_W0-(1-.tau_S$Pi_star$A1)*.tau_S$cate_W1)
+          }
+          psi <- psi_tilde-psi_pound
+
+          # inference
+          eic <- .tau_A$eic-.tau_S$eic
+          se <- sqrt(var(eic, na.rm = TRUE)/nrow(self$data))
+          lower <- psi+qnorm(alpha/2)*se
+          upper <- psi+qnorm(1-alpha/2)*se
+
+          return(data.frame(tau_A_idx = .tau_A$idx,
+                            tau_S_idx = .tau_S$idx,
+                            tau_A_lambda = .tau_A$lambda,
+                            tau_S_lambda = .tau_S$lambda,
+                            psi_tilde = psi_tilde,
+                            psi_pound = psi_pound,
+                            psi = psi,
+                            se = se,
+                            lower = lower,
+                            upper = upper,
+                            alpha = alpha))
+        })
+      })
+
+      return(invisible(self$results))
 
     },
 
@@ -569,6 +606,8 @@ atmle_ate_fusion <- R6Class(
                                                max_iter = max_iter,
                                                verbose = verbose)
 
+      # point estimate and inference -------------------------------------------
+      self$inference()
 
     }
   )
