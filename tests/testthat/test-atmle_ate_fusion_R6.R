@@ -25,9 +25,8 @@ obj <- atmle_ate_fusion$new(data = data,
 obj$run(Q_method = lrnr_con,
         Pi_bar_method = lrnr_bin,
         g_method = lrnr_glm,
-        family = "gaussian",
         target_method = "tmle",
         max_iter = 50,
         n_lambda = 50,
-        browse = FALSE)
+        browse = TRUE)
 

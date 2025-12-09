@@ -1,6 +1,8 @@
 #' @title Adaptive-TMLE for Data Integration
 #'
 #' @import R6
+#'
+#' @export
 atmle_ate_fusion <- R6Class(
   classname = "A-TMLE for RCT + RWD",
   inherit = tmle_R6,
@@ -9,6 +11,7 @@ atmle_ate_fusion <- R6Class(
     S_node = NULL,
     S = NULL,
     Pi_star = NULL,
+    Pi_star_avg_over_S1 = NULL,
     tau_S = NULL,
     tau_A = NULL,
     controls_only = NULL,
@@ -16,9 +19,10 @@ atmle_ate_fusion <- R6Class(
     beta_target_method = NULL,
     tau_A_star = NULL,
     tau_S_star = NULL,
+    tau_A_star_avg_over_S1 = NULL,
+    tau_S_star_avg_over_S1 = NULL,
     Delta = NULL,
     weights = NULL,
-
     Pi_bar_fit = NULL,
     g = list(S1 = NULL, S0 = NULL),
     Q = list(S1 = NULL, S1A1 = NULL, S1A0 = NULL, S0A1 = NULL, S0A0 = NULL),
@@ -197,7 +201,8 @@ atmle_ate_fusion <- R6Class(
 
     },
 
-    target_Pi = function(cate_fit) {
+    target_Pi = function(cate_fit,
+                         avg_over_S1) {
 
       if (is.null(self$Pi_star)) {
         self$Pi_star <- self$Pi
@@ -207,10 +212,16 @@ atmle_ate_fusion <- R6Class(
         # only controls in external data
         if (self$target_gwt) {
           wt <- (1-self$A)/self$g_bar0
-          H0W <- -cate_fit$cate_W0
+          H0W <- -(1-self$A)*cate_fit$cate_W0
+          if (avg_over_S1) {
+            wt <- self$S/mean(self$S)*wt
+          }
         } else {
           wt <- rep(1, length(self$A))
           H0W <- -(1-self$A)/self$g_bar0*cate_fit$cate_W0
+          if (avg_over_S1) {
+            H0W <- self$S/mean(self$S)*H0W
+          }
         }
 
         # logistic submodel
@@ -223,7 +234,11 @@ atmle_ate_fusion <- R6Class(
           self$Pi_star$A0 <- plogis(qlogis(self$Pi_star$A0)+epsilon[1]*H0W)
           self$Pi_star$A[self$A == 0] <- self$Pi_star$A0[self$A == 0]
         } else {
-          self$Pi_star$A0 <- plogis(qlogis(self$Pi_star$A0)+epsilon[1]*(-1/self$g_bar0*cate_fit$cate_W0))
+          if (avg_over_S1) {
+            self$Pi_star$A0 <- plogis(qlogis(self$Pi_star$A0)+epsilon[1]*(-self$S/mean(self$S)/self$g_bar0*cate_fit$cate_W0))
+          } else {
+            self$Pi_star$A0 <- plogis(qlogis(self$Pi_star$A0)+epsilon[1]*(-1/self$g_bar0*cate_fit$cate_W0))
+          }
           self$Pi_star$A[A == 0] <- self$Pi_star$A0[self$A == 0]
         }
       } else {
@@ -232,10 +247,17 @@ atmle_ate_fusion <- R6Class(
           wt <- self$A/self$g_bar+(1-self$A)/self$g_bar0
           H1W <- cate_fit$cate_W1*self$A
           H0W <- cate_fit$cate_W0*(1-self$A)
+          if (avg_over_S1) {
+            wt <- self$S/mean(self$S)*wt
+          }
         } else {
           wt <- rep(1, length(self$A))
           H1W <- self$A/self$g_bar*cate_fit$cate_W1
-          H0W <- -(1-self$A)/self$g_bar0*cate_fit$cate_W0
+          H0W <- (1-self$A)/self$g_bar0*cate_fit$cate_W0
+          if (avg_over_S1) {
+            H1W <- self$S/mean(self$S)*H1W
+            H0W <- self$S/mean(self$S)*H0W
+          }
         }
 
         # logistic submodel
@@ -250,8 +272,13 @@ atmle_ate_fusion <- R6Class(
           self$Pi_star$A1 <- plogis(qlogis(self$Pi_star$A1)+epsilon[2]*cate_fit$cate_W1)
         } else {
           self$Pi_star$A <- plogis(qlogis(self$Pi_star$A)+epsilon[1]*H0W+epsilon[2]*H1W)
-          self$Pi_star$A0 <- plogis(qlogis(self$Pi_star$A0)+epsilon[1]*cate_fit$cate_W0/self$g_bar0)
-          self$Pi_star$A1 <- plogis(qlogis(self$Pi_star$A1)+epsilon[2]*cate_fit$cate_W1/self$g_bar)
+          if (avg_over_S1) {
+            self$Pi_star$A0 <- plogis(qlogis(self$Pi_star$A0)+epsilon[1]*self$S/mean(self$S)/self$g_bar0*cate_fit$cate_W0)
+            self$Pi_star$A1 <- plogis(qlogis(self$Pi_star$A1)+epsilon[2]*self$S/mean(self$S)/self$g_bar*cate_fit$cate_W1)
+          } else {
+            self$Pi_star$A0 <- plogis(qlogis(self$Pi_star$A0)+epsilon[1]*cate_fit$cate_W0/self$g_bar0)
+            self$Pi_star$A1 <- plogis(qlogis(self$Pi_star$A1)+epsilon[2]*cate_fit$cate_W1/self$g_bar)
+          }
         }
       }
 
@@ -265,7 +292,8 @@ atmle_ate_fusion <- R6Class(
     },
 
     target_tau = function(cate_fit,
-                          tau_A) {
+                          tau_A,
+                          avg_over_S1) {
 
       if (tau_A) {
         phi <- cate_fit$phi_W
@@ -281,12 +309,14 @@ atmle_ate_fusion <- R6Class(
       } else if (self$beta_target_method == "tmle") {
         if (tau_A) {
           obj <- self$target_tau_A_tmle(phi_W = phi,
-                                        beta = cate_fit$beta)
+                                        beta = cate_fit$beta,
+                                        avg_over_S1 = avg_over_S1)
         } else {
           obj <- self$target_tau_S_tmle(phi_WA = phi,
                                         phi_W1 = cate_fit$phi_W1,
                                         phi_W0 = cate_fit$phi_W0,
-                                        beta = cate_fit$beta)
+                                        beta = cate_fit$beta,
+                                        avg_over_S1 = avg_over_S1)
         }
       }
       beta_star <- obj$beta
@@ -303,12 +333,19 @@ atmle_ate_fusion <- R6Class(
 
     #' TMLE targeting of beta for tau_A
     target_tau_A_tmle = function(phi_W,
-                                 beta) {
+                                 beta,
+                                 avg_over_S1) {
 
       phi_W <- as.matrix(phi_W)
       IM <- t(phi_W) %*% diag(self$g_bar*self$g_bar0) %*% phi_W / nrow(phi_W)
       IM_inv <- mat_inverse(IM)
-      clever_cov <- as.vector(IM_inv %*% colMeans(phi_W))
+      if (avg_over_S1) {
+        # parameter that avgs over S=1 covariate distribution
+        clever_cov <- as.vector(IM_inv %*% colMeans((self$S/mean(self$S))*phi_W))
+      } else {
+        # parameter that avgs over pooled covariate distribution
+        clever_cov <- as.vector(IM_inv %*% colMeans(phi_W))
+      }
       H <- (self$A-self$g_bar)*as.vector(phi_W %*% clever_cov)
       tau <- as.numeric(phi_W %*% beta)
       R <- self$Y-self$theta-(self$A-self$g_bar)*tau
@@ -317,9 +354,15 @@ atmle_ate_fusion <- R6Class(
 
       # compute EIC
       tau_star <- as.numeric(phi_W %*% beta)
-      D_beta <- as.vector(phi_W%*%IM_inv%*%colMeans(phi_W)*(self$A-self$g_bar)*
-                            (self$Y-self$theta-(self$A-self$g_bar)*tau_star))
-      W_comp <- tau_star-mean(tau_star)
+      if (avg_over_S1) {
+        D_beta <- as.vector(phi_W%*%IM_inv%*%colMeans(self$S/mean(self$S)*phi_W)*(self$A-self$g_bar)*
+                              (self$Y-self$theta-(self$A-self$g_bar)*tau_star))
+        W_comp <- self$S/mean(self$S)*(tau_star-mean(self$S/mean(self$S)*tau_star))
+      } else {
+        D_beta <- as.vector(phi_W%*%IM_inv%*%colMeans(phi_W)*(self$A-self$g_bar)*
+                              (self$Y-self$theta-(self$A-self$g_bar)*tau_star))
+        W_comp <- tau_star-mean(tau_star)
+      }
       eic <- D_beta+W_comp
 
       return(list(beta = beta,
@@ -332,7 +375,8 @@ atmle_ate_fusion <- R6Class(
     target_tau_S_tmle = function(phi_WA,
                                  phi_W1,
                                  phi_W0,
-                                 beta) {
+                                 beta,
+                                 avg_over_S1) {
 
       phi_WA <- as.matrix(phi_WA)
       phi_W1 <- as.matrix(phi_W1)
@@ -340,9 +384,17 @@ atmle_ate_fusion <- R6Class(
       IM <- t(phi_WA) %*% diag(self$Pi_star$A*(1-self$Pi_star$A)) %*% phi_WA / nrow(phi_WA)
       IM_inv <- mat_inverse(IM)
       if (self$controls_only) {
-        clever_cov <- as.vector(IM_inv %*% colMeans((1-self$Pi_star$A0)*phi_W0))
+        if (avg_over_S1) {
+          clever_cov <- as.vector(IM_inv %*% colMeans(self$S/mean(self$S)*(1-self$Pi_star$A0)*phi_W0))
+        } else {
+          clever_cov <- as.vector(IM_inv %*% colMeans((1-self$Pi_star$A0)*phi_W0))
+        }
       } else {
-        clever_cov <- as.vector(IM_inv %*% colMeans((1-self$Pi_star$A0)*phi_W0-(1-self$Pi_star$A1)*phi_W1))
+        if (avg_over_S1) {
+          clever_cov <- as.vector(IM_inv %*% colMeans(self$S/mean(self$S)*((1-self$Pi_star$A0)*phi_W0-(1-self$Pi_star$A1)*phi_W1)))
+        } else {
+          clever_cov <- as.vector(IM_inv %*% colMeans((1-self$Pi_star$A0)*phi_W0-(1-self$Pi_star$A1)*phi_W1))
+        }
       }
       H <- (self$S-self$Pi_star$A)*as.vector(phi_WA %*% clever_cov)
       tau <- as.numeric(phi_WA %*% beta)
@@ -366,7 +418,8 @@ atmle_ate_fusion <- R6Class(
                               tau_S = tau_S,
                               weights = self$weights,
                               controls_only = self$controls_only,
-                              IM_inv = IM_inv)
+                              IM_inv = IM_inv,
+                              avg_over_S1 = avg_over_S1)
 
       return(list(beta = beta,
                   eic = eic,
@@ -388,7 +441,8 @@ atmle_ate_fusion <- R6Class(
     },
 
     #' Target beta_A over a sequence of working models
-    target_beta_A_seq = function(n_lambda) {
+    target_beta_A_seq = function(n_lambda,
+                                 avg_over_S1) {
       lambda_seq <- self$tau_A$fit$lambda
       lambda_cv <- self$tau_A$fit$lambda.min
       lambda_seq <- lambda_seq[lambda_seq <= lambda_cv]
@@ -407,7 +461,8 @@ atmle_ate_fusion <- R6Class(
                          pseudo_outcome = self$tau_A$pseudo_outcome,
                          pseudo_weights = self$tau_A$pseudo_weights)
         cur_res <- self$target_tau(cate_fit = cate_fit,
-                                   tau_A = TRUE)
+                                   tau_A = TRUE,
+                                   avg_over_S1 = avg_over_S1)
         cur_res$idx <- .j
         cur_res$lambda <- lambda
 
@@ -419,6 +474,7 @@ atmle_ate_fusion <- R6Class(
 
     #' Iterative targeting of Pi and beta_S
     target_Pi_beta_S = function(n_lambda,
+                                avg_over_S1,
                                 max_iter,
                                 verbose) {
 
@@ -460,31 +516,14 @@ atmle_ate_fusion <- R6Class(
         sn <- 0
         while (cur_iter <= max_iter & abs(PnEIC) > sn) {
           # target Pi
-          pseudo_list <- self$target_Pi(cate_fit)
+          pseudo_list <- self$target_Pi(cate_fit, avg_over_S1)
           cate_fit$pseudo_outcome <- pseudo_list$pseudo_outcome
           cate_fit$pseudo_weights <- pseudo_list$pseudo_weights
 
-          # TODO: do we need this?
-          # evaluate EIC of psi pound
-          # self$eic_psi_pound <- eic_psi_pound_wm(S = self$S,
-          #                                        Y = self$Y,
-          #                                        A = self$A,
-          #                                        g1W = g_bar,
-          #                                        theta_WA = self$Q_bar$A,
-          #                                        Pi = self$Pi_star,
-          #                                        tau_S = cate_fit,
-          #                                        weights = self$weights,
-          #                                        controls_only = self$controls_only)
-          # PnEIC <- mean(self$eic_psi_pound)
-          # sn <- 0.001*sqrt(var(self$eic_psi_pound))/(sqrt(length(self$Y))*log(length(self$Y)))
-          # TODO: should we allow break here?
-          # if (abs(PnEIC) <= sn) {
-          #   break
-          # }
-
           # target beta_S
           obj <- self$target_tau(cate_fit = cate_fit,
-                                 tau_A = FALSE)
+                                 tau_A = FALSE,
+                                 avg_over_S1 = avg_over_S1)
           cate_fit$beta <- obj$beta
           cate_fit$eic <- obj$eic
           cate_fit$cate_WA <- obj$cate_W
@@ -510,7 +549,7 @@ atmle_ate_fusion <- R6Class(
     inference = function(alpha = 0.05) {
 
       self$results <- map_dfr(self$tau_A_star, function(.tau_A) {
-        map_dfr(self$tau_S_star, function(.tau_S) {
+        df_psi <- map_dfr(self$tau_S_star, function(.tau_S) {
           # point estimate
           psi_tilde <- mean(.tau_A$cate_W)
           if (self$controls_only) {
@@ -526,7 +565,8 @@ atmle_ate_fusion <- R6Class(
           lower <- psi+qnorm(alpha/2)*se
           upper <- psi+qnorm(1-alpha/2)*se
 
-          return(data.frame(tau_A_idx = .tau_A$idx,
+          return(data.frame(param = "Avg. over pooled",
+                            tau_A_idx = .tau_A$idx,
                             tau_S_idx = .tau_S$idx,
                             tau_A_lambda = .tau_A$lambda,
                             tau_S_lambda = .tau_S$lambda,
@@ -538,6 +578,40 @@ atmle_ate_fusion <- R6Class(
                             upper = upper,
                             alpha = alpha))
         })
+
+        df_psi_avg_over_S1 <- map_dfr(self$tau_S_star_avg_over_S1, function(.tau_S) {
+          # point estimate
+          psi_tilde <- mean(self$S/mean(self$S)*.tau_A$cate_W)
+          if (self$controls_only) {
+            psi_pound <- mean(self$S/mean(self$S)*(1-.tau_S$Pi_star$A0)*.tau_S$cate_W0)
+          } else {
+            psi_pound <- mean(self$S/mean(self$S)*((1-.tau_S$Pi_star$A0)*.tau_S$cate_W0-(1-.tau_S$Pi_star$A1)*.tau_S$cate_W1))
+          }
+          psi <- psi_tilde-psi_pound
+
+          # inference
+          eic <- .tau_A$eic-.tau_S$eic
+          se <- sqrt(var(eic, na.rm = TRUE)/nrow(self$data))
+          lower <- psi+qnorm(alpha/2)*se
+          upper <- psi+qnorm(1-alpha/2)*se
+
+          return(data.frame(param = "Avg. over S=1",
+                            tau_A_idx = .tau_A$idx,
+                            tau_S_idx = .tau_S$idx,
+                            tau_A_lambda = .tau_A$lambda,
+                            tau_S_lambda = .tau_S$lambda,
+                            psi_tilde = psi_tilde,
+                            psi_pound = psi_pound,
+                            psi = psi,
+                            se = se,
+                            lower = lower,
+                            upper = upper,
+                            alpha = alpha))
+        })
+
+        df_psi <- rbind(df_psi, df_psi_avg_over_S1)
+
+        return(df_psi)
       })
 
       return(invisible(self$results))
@@ -547,7 +621,6 @@ atmle_ate_fusion <- R6Class(
     run = function(Q_method,
                    Pi_bar_method,
                    g_method,
-                   family = c("gaussian", "binomial"),
                    A_cate_hal_args = list(max_degree = 3L,
                                           smoothness_orders = 1L,
                                           num_knots = 20L),
@@ -565,7 +638,6 @@ atmle_ate_fusion <- R6Class(
 
       if (browse) browser()
 
-      family <- match.arg(family)
       self$controls_only <- all(self$A[self$S == 0] == 0)
 
       # initial estimation -----------------------------------------------------
@@ -583,10 +655,6 @@ atmle_ate_fusion <- R6Class(
                                   hal_args = A_cate_hal_args,
                                   parallel = parallel)
 
-      # target beta_A for each working model -----------------------------------
-      self$beta_target_method <- target_method
-      self$tau_A_star <- self$target_beta_A_seq(n_lambda = n_lambda)
-
       # obtain CARE working model ----------------------------------------------
       self$tau_S <- self$fit_cate(W = as.matrix(cbind(self$W, A=self$A)),
                                   A = self$S,
@@ -600,11 +668,35 @@ atmle_ate_fusion <- R6Class(
       self$tau_S$phi_W0 <- make_design_matrix(X = as.matrix(cbind(self$W, A=0)),
                                               blist = self$tau_S$blist)
 
-      # iterative targeting of Pi and beta_S -----------------------------------
+      # 1. parameter that averages of pooled-covariate distribution ------------
+      # target beta_A for each working model
+      self$beta_target_method <- target_method
+      self$tau_A_star <- self$target_beta_A_seq(n_lambda = n_lambda,
+                                                avg_over_S1 = FALSE)
+
+      # iterative targeting of Pi and beta_S
       self$target_gwt <- target_gwt
       self$tau_S_star <- self$target_Pi_beta_S(n_lambda = n_lambda,
+                                               avg_over_S1 = FALSE,
                                                max_iter = max_iter,
                                                verbose = verbose)
+      Pi_star_tmp <- self$Pi_star
+      self$Pi_star <- NULL
+      browser()
+
+      # 2. parameter that averages over S=1 covariate distribution -------------
+      # target beta_A for each working model
+      self$tau_A_star_avg_over_S1 <- self$target_beta_A_seq(n_lambda = n_lambda,
+                                                            avg_over_S1 = TRUE)
+
+      # iterative targeting of Pi and beta_S
+      self$target_gwt <- target_gwt
+      self$tau_S_star_avg_over_S1 <- self$target_Pi_beta_S(n_lambda = n_lambda,
+                                                           avg_over_S1 = TRUE,
+                                                           max_iter = max_iter,
+                                                           verbose = verbose)
+      self$Pi_star_avg_over_S1 <- self$Pi_star
+      self$Pi_star <- Pi_star_tmp
 
       # point estimate and inference -------------------------------------------
       self$inference()

@@ -248,6 +248,7 @@ eic_psi_pound_wm <- function(S,
                              tau_S,
                              weights,
                              controls_only,
+                             avg_over_S1,
                              IM_inv = NULL,
                              eic_method = "svd_pseudo_inv") {
   Y_tmp <- Y
@@ -269,24 +270,53 @@ eic_psi_pound_wm <- function(S,
   }
 
   if (controls_only) {
-    psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0)
-    W_comp <- (1-Pi$A0)*tau_S$cate_W0-psi_pound_est
-    Pi_comp <- -(1-A)/(1-g1W)*tau_S$cate_W0*(S-Pi$A)
-    D <- tau_S$phi_WA %*% IM_inv*(S-Pi$A)*(Y_tmp-theta_WA-(S-Pi$A)*tau_S$cate_WA)*weights
-    if (ncol(D) > 1) {
-      beta_comp <- (rowSums(D %*% diag(colMeans((1-Pi$A0)*tau_S$phi_W0))))
+    if (avg_over_S1) {
+      psi_pound_est <- mean(S/mean(S)*(1-Pi$A0)*tau_S$cate_W0)
+      W_comp <- S/mean(S)*((1-Pi$A0)*tau_S$cate_W0-psi_pound_est)
+      Pi_comp <- -S/mean(S)*(1-A)/(1-g1W)*tau_S$cate_W0*(S-Pi$A)
     } else {
-      beta_comp <- (rowSums(D * colMeans((1-Pi$A0)*tau_S$phi_W0)))
+      psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0)
+      W_comp <- (1-Pi$A0)*tau_S$cate_W0-psi_pound_est
+      Pi_comp <- -(1-A)/(1-g1W)*tau_S$cate_W0*(S-Pi$A)
     }
-  } else {
-    psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1)
-    W_comp <- (1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1-psi_pound_est
-    Pi_comp <- (A/g1W*tau_S$cate_W1-(1-A)/(1-g1W)*tau_S$cate_W0)*(S-Pi$A)
     D <- tau_S$phi_WA %*% IM_inv*(S-Pi$A)*(Y_tmp-theta_WA-(S-Pi$A)*tau_S$cate_WA)*weights
-    if (ncol(D) > 1) {
-      beta_comp <- (rowSums(D %*% diag(colMeans((1-Pi$A0)*tau_S$phi_W0)))-rowSums(D %*% diag(colMeans((1-Pi$A1)*tau_S$phi_W1))))
+    if (avg_over_S1) {
+      if (ncol(D) > 1) {
+        beta_comp <- (rowSums(D %*% diag(colMeans(S/mean(S)*(1-Pi$A0)*tau_S$phi_W0))))
+      } else {
+        beta_comp <- (rowSums(D * colMeans(S/mean(S)*(1-Pi$A0)*tau_S$phi_W0)))
+      }
     } else {
-      beta_comp <- (rowSums(D * colMeans((1-Pi$A0)*tau_S$phi_W0))-rowSums(D * colMeans((1-Pi$A1)*tau_S$phi_W1)))
+      if (ncol(D) > 1) {
+        beta_comp <- (rowSums(D %*% diag(colMeans((1-Pi$A0)*tau_S$phi_W0))))
+      } else {
+        beta_comp <- (rowSums(D * colMeans((1-Pi$A0)*tau_S$phi_W0)))
+      }
+    }
+
+  } else {
+    if (avg_over_S1) {
+      psi_pound_est <- mean(S/mean(S)*((1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1))
+      W_comp <- S/mean(S)*((1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1-psi_pound_est)
+      Pi_comp <- S/mean(S)*(A/g1W*tau_S$cate_W1-(1-A)/(1-g1W)*tau_S$cate_W0)*(S-Pi$A)
+    } else {
+      psi_pound_est <- mean((1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1)
+      W_comp <- (1-Pi$A0)*tau_S$cate_W0-(1-Pi$A1)*tau_S$cate_W1-psi_pound_est
+      Pi_comp <- (A/g1W*tau_S$cate_W1-(1-A)/(1-g1W)*tau_S$cate_W0)*(S-Pi$A)
+    }
+    D <- tau_S$phi_WA %*% IM_inv*(S-Pi$A)*(Y_tmp-theta_WA-(S-Pi$A)*tau_S$cate_WA)*weights
+    if (avg_over_S1) {
+      if (ncol(D) > 1) {
+        beta_comp <- (rowSums(D %*% diag(colMeans(S/mean(S)*(1-Pi$A0)*tau_S$phi_W0)))-rowSums(D %*% diag(colMeans(S/mean(S)*(1-Pi$A1)*tau_S$phi_W1))))
+      } else {
+        beta_comp <- (rowSums(D * colMeans(S/mean(S)*(1-Pi$A0)*tau_S$phi_W0))-rowSums(D * colMeans(S/mean(S)*(1-Pi$A1)*tau_S$phi_W1)))
+      }
+    } else {
+      if (ncol(D) > 1) {
+        beta_comp <- (rowSums(D %*% diag(colMeans((1-Pi$A0)*tau_S$phi_W0)))-rowSums(D %*% diag(colMeans((1-Pi$A1)*tau_S$phi_W1))))
+      } else {
+        beta_comp <- (rowSums(D * colMeans((1-Pi$A0)*tau_S$phi_W0))-rowSums(D * colMeans((1-Pi$A1)*tau_S$phi_W1)))
+      }
     }
   }
 
