@@ -415,3 +415,27 @@ eic_psi_tilde_wm <- function(Y,
 
   return(W_comp+D_beta)
 }
+
+get_np_eic_pooled_W <- function(Q,
+                                Pi,
+                                g11W,
+                                S,
+                                A,
+                                Y,
+                                psi) {
+  W_comp <- Q$Q1W1-Q$Q1W0-psi
+  Q_comp <- (S/Pi)*(A/g11W-(1-A)/(1-g11W))*(Y-Q$Q1WA)
+  return(W_comp+Q_comp)
+}
+
+get_np_eic_rct_W <- function(Q,
+                             pS,
+                             g11W,
+                             S,
+                             A,
+                             Y,
+                             psi) {
+  W_comp <- (S/pS)*(Q$Q1W1-Q$Q1W0-psi)
+  Q_comp <- (S/pS)*(A/g11W-(1-A)/(1-g11W))*(Y-Q$Q1WA)
+  return(W_comp+Q_comp)
+}

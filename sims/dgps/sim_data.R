@@ -40,22 +40,21 @@ sim_data <- function(n,
   }
   Y <- 2.5+0.9*W1+1.1*W2+2.7*W3+tau_W*A+UY+(1-S)*b
 
-  return(data.frame(S, W1, W2, W3, A, Y))
+  data.frame(S, W1, W2, W3, A, Y)
 }
 
-#' @title Function to get true estimand value
-#'
-#' @param B Number of Monte-Carlo draws to approximate the true value. Default
-#' is 10 million.
-#'
-#' @return A `numeric` vector of length 2. Index 1 should be the true ATE
-#' averaged over pooled population, and index 2 should be the true ATE averaged
-#' over the RCT-only population. For more details on the distinction of those
-#' two estimands, see xxx.
-get_truth_vdl25 <- function(B = 1e7) {
+# function to get true estimand value (avg. over pooled P_W)
+get_truth_avg_pooled <- function(B = 1e7) {
   set.seed(123)
-  data_A1 <- sim_data_vdl25(n = B, bias = "none", A_counter = 1)
-  data_A0 <- sim_data_vdl25(n = B, bias = "none", A_counter = 0)
-  rct_PW <- mean(data_A1$Y[data_A1$S == 1]) - mean(data_A0$Y[data_A0$S == 1])
-  return(c(1.5, rct_PW))
+  data_A1 <- sim_data(n = B, bias = "none", A_counter = 1)
+  data_A0 <- sim_data(n = B, bias = "none", A_counter = 0)
+  mean(data_A1$Y) - mean(data_A0$Y)
+}
+
+# function to get true estimand value (avg. over RCT P_W)
+get_truth_avg_rct <- function(B = 1e7) {
+  set.seed(123)
+  data_A1 <- sim_data(n = B, bias = "none", A_counter = 1)
+  data_A0 <- sim_data(n = B, bias = "none", A_counter = 0)
+  mean(data_A1$Y[data_A1$S == 1]) - mean(data_A0$Y[data_A0$S == 1])
 }

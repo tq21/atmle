@@ -1,10 +1,3 @@
-library(hal9001)
-library(data.table)
-library(tmle)
-library(glmnet)
-library(origami)
-library(purrr)
-
 Q_tmle <- function(g, Q, A, Y_bound) {
   wt <- A / g + (1 - A) / (1 - g)
   H1W <- A
@@ -28,98 +21,213 @@ Q_tmle <- function(g, Q, A, Y_bound) {
   return(pmin(pmax(x, bounds[1]), bounds[2]))
 }
 
-learn_g_S1 <- function(S, W, A, g_rct, method = "glmnet") {
-  pred <- numeric(length = length(A))
-  pred[S == 1] <- p_rct
-  X <- data.frame(W[S == 0, ])
+#' @import sl3
+learn_SW <- function(S,
+                     W,
+                     folds,
+                     method,
+                     Pi_bounds) {
 
-  if (method == "lasso") {
-    fit <- cv.glmnet(x = as.matrix(X), y = A[S == 0], keep = TRUE, alpha = 1, nfolds = 5, family = "binomial")
-    pred[S == 0] <- as.numeric(predict(fit, newx = as.matrix(X), s = "lambda.min", type = "response"))
-  } else if (method == "HAL") {
-    fit <- fit_hal(X = as.matrix(X), Y = A[S == 0], family = "binomial", smoothness_orders = 0)
-    pred[S == 0] <- as.numeric(predict(fit, new_data = as.matrix(X), type = "response"))
-  } else if (method == "glm") {
-    fit <- glm(A[S == 0] ~ ., data = X, family = "binomial")
-    pred[S == 0] <- as.numeric(predict(fit, newdata = X, type = "response"))
+  if (is.character(method) && method == "sl3") {
+    method <- get_default_sl3_learners(family)
   }
 
-  return(list(pred = pred))
-}
-
-learn_S_W <- function(S, W, method = "glmnet") {
-  pred <- numeric(length = length(S))
-  X <- data.frame(W)
-
-  if (method == "glmnet") {
-    fit <- cv.glmnet(x = as.matrix(X), y = S, keep = TRUE, alpha = 1, nfolds = 5, family = "binomial")
-    pred <- as.numeric(predict(fit, newx = as.matrix(X), s = "lambda.min", type = "response"))
-  } else if (method == "HAL") {
-    fit <- fit_hal(X = as.matrix(X), Y = S, family = "binomial", smoothness_orders = 0)
-    pred <- as.numeric(predict(fit, new_data = as.matrix(X), type = "response"))
+  if (is.list(method)) {
+    lrnr_stack <- Stack$new(method)
+    lrnr <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
+                         Lrnr_cv_selector$new(loss_loglik_binomial))
+    task_SW <- sl3_Task$new(data = data.table(S=S, W),
+                            covariates = colnames(W),
+                            outcome = "S",
+                            folds = folds,
+                            outcome_type = "binomial")
+    suppressMessages(fit_SW <- lrnr$train(task_SW))
+    pred <- fit_SW$predict(task_SW)
   } else if (method == "glm") {
-    fit <- glm(S ~ ., data = X, family = "binomial")
-    pred <- as.numeric(predict(fit, newdata = X, type = "response"))
+    fit <- glm(S ~ ., data = data.frame(S=S, W), family = "binomial")
+    pred <- as.numeric(predict(fit, newdata = data.frame(W), type = "response"))
   }
 
-  return(list(pred = pred))
+  return(.bound(pred, Pi_bounds))
 }
 
-target_Q <- function(S, W, A, Y, Pi, g, Q, delta, g_delta) {
+target_Q <- function(S,
+                     W,
+                     A,
+                     Y,
+                     Pi,
+                     g11W,
+                     Q) {
   # bound Y
-  min_Y <- min(Y, Q$pred, Q$S1A1, Q$S1A0, na.rm = TRUE) - 0.001
-  max_Y <- max(Y, Q$pred, Q$S1A1, Q$S1A0, na.rm = TRUE) + 0.001
-  Y_bounded <- (Y - min_Y) / (max_Y - min_Y)
-  Q$pred <- (Q$pred - min_Y) / (max_Y - min_Y)
-  Q$S1A1 <- (Q$S1A1 - min_Y) / (max_Y - min_Y)
-  Q$S1A0 <- (Q$S1A0 - min_Y) / (max_Y - min_Y)
+  min_Y <- min(Y, Q$Q1WA, Q$Q1W1, Q$Q1W0)-0.001
+  max_Y <- max(Y, Q$Q1WA, Q$Q1W1, Q$Q1W0)+0.001
+  Y_scaled <- (Y-min_Y)/(max_Y-min_Y)
+  Q1WA_scaled <- (Q$Q1WA-min_Y)/(max_Y-min_Y)
+  Q1W1_scaled <- (Q$Q1W1-min_Y)/(max_Y-min_Y)
+  Q1W0_scaled <- (Q$Q1W0-min_Y)/(max_Y-min_Y)
 
-  # clever covariates
-  wt <- S / Pi$pred
-  H1_n <- wt * (A / g) * (delta / g_delta$pred)
-  H0_n <- wt * ((1 - A) / (1 - g)) * (delta / g_delta$pred)
+  # clever covariate
+  HSAW <- (S/Pi)*(A/g11W-(1-A)/(1-g11W))
+  HS1W <- (S/Pi)*(1/g11W)
+  HS0W <- (S/Pi)*(-1/(1-g11W))
 
   # logistic submodel
-  epsilon <- coef(glm(Y_bounded ~ -1 + offset(qlogis(Q$pred)) + H0_n + H1_n, family = "quasibinomial"))
+  epsilon <- coef(glm(Y_scaled ~ -1+offset(qlogis(Q1WA_scaled))+HSAW,
+                      family = "quasibinomial"))
   epsilon[is.na(epsilon)] <- 0
 
   # TMLE updates
-  Q_star <- NULL
-  Q_star$pred <- plogis(qlogis(Q$pred) + epsilon[1] * H0_n + epsilon[2] * H1_n)
-  Q_star$S1A0 <- plogis(qlogis(Q$S1A0) + epsilon[1] * H0_n)
-  Q_star$S1A1 <- plogis(qlogis(Q$S1A1) + epsilon[2] * H1_n)
+  Q_star <- list(Q1WA = plogis(qlogis(Q1WA_scaled)+epsilon*HSAW),
+                 Q1W1 = plogis(qlogis(Q1W1_scaled)+epsilon*HS1W),
+                 Q1W0 = plogis(qlogis(Q1W0_scaled)+epsilon*HS0W))
 
   # scale back
-  Q_star$pred <- Q_star$pred * (max_Y - min_Y) + min_Y
-  Q_star$S1A0 <- Q_star$S1A0 * (max_Y - min_Y) + min_Y
-  Q_star$S1A1 <- Q_star$S1A1 * (max_Y - min_Y) + min_Y
+  Q_star$Q1WA <- Q_star$Q1WA*(max_Y-min_Y)+min_Y
+  Q_star$Q1W1 <- Q_star$Q1W1*(max_Y-min_Y)+min_Y
+  Q_star$Q1W0 <- Q_star$Q1W0*(max_Y-min_Y)+min_Y
 
   return(Q_star)
 }
 
-learn_g_np <- function(S,
+target_Q_rct_W <- function(S,
+                           W,
+                           A,
+                           Y,
+                           pS,
+                           g11W,
+                           Q) {
+  # bound Y
+  min_Y <- min(Y, Q$Q1WA, Q$Q1W1, Q$Q1W0)-0.001
+  max_Y <- max(Y, Q$Q1WA, Q$Q1W1, Q$Q1W0)+0.001
+  Y_scaled <- (Y-min_Y)/(max_Y-min_Y)
+  Q1WA_scaled <- (Q$Q1WA-min_Y)/(max_Y-min_Y)
+  Q1W1_scaled <- (Q$Q1W1-min_Y)/(max_Y-min_Y)
+  Q1W0_scaled <- (Q$Q1W0-min_Y)/(max_Y-min_Y)
+
+  # clever covariate
+  HSAW <- (S/pS)*(A/g11W-(1-A)/(1-g11W))
+  HS1W <- (S/pS)*(1/g11W)
+  HS0W <- (S/pS)*(-1/(1-g11W))
+
+  # logistic submodel
+  epsilon <- coef(glm(Y_scaled ~ -1+offset(qlogis(Q1WA_scaled))+HSAW,
+                      family = "quasibinomial"))
+  epsilon[is.na(epsilon)] <- 0
+
+  # TMLE updates
+  Q_star <- list(Q1WA = plogis(qlogis(Q1WA_scaled)+epsilon*HSAW),
+                 Q1W1 = plogis(qlogis(Q1W1_scaled)+epsilon*HS1W),
+                 Q1W0 = plogis(qlogis(Q1W0_scaled)+epsilon*HS0W))
+
+  # scale back
+  Q_star$Q1WA <- Q_star$Q1WA*(max_Y-min_Y)+min_Y
+  Q_star$Q1W1 <- Q_star$Q1W1*(max_Y-min_Y)+min_Y
+  Q_star$Q1W0 <- Q_star$Q1W0*(max_Y-min_Y)+min_Y
+
+  return(Q_star)
+}
+
+#' @import sl3
+#' @import data.table
+learn_QSWA <- function(S,
+                       W,
+                       A,
+                       Y,
+                       folds,
+                       folds_S1,
+                       family,
+                       method,
+                       pooling) {
+
+  if (is.character(method) && method == "sl3") {
+    method <- get_default_sl3_learners(family)
+  }
+
+  if (is.list(method)) {
+    if (family == "binomial") {
+      loss <- loss_loglik_binomial
+    } else if (family == "gaussian") {
+      loss <- loss_squared_error
+    }
+    lrnr_stack <- Stack$new(method)
+    lrnr <- make_learner(Pipeline, Lrnr_cv$new(lrnr_stack),
+                         Lrnr_cv_selector$new(loss))
+    if (pooling) {
+      task_QSWA <- sl3_Task$new(data = data.table(Y=Y, S=S, A=A, W),
+                                covariates = c(colnames(W), "S", "A"),
+                                outcome = "Y",
+                                folds = folds,
+                                outcome_type = family)
+      task_Q1WA <- sl3_Task$new(data = data.table(Y=Y, S=1, A=A, W),
+                                covariates = c(colnames(W), "S", "A"),
+                                outcome = "Y",
+                                folds = folds,
+                                outcome_type = family)
+      task_Q1W1 <- sl3_Task$new(data = data.table(Y=Y, S=1, A=1, W),
+                                covariates = c(colnames(W), "S", "A"),
+                                outcome = "Y",
+                                folds = folds,
+                                outcome_type = family)
+      task_Q1W0 <- sl3_Task$new(data = data.table(Y=Y, S=1, A=0, W),
+                                covariates = c(colnames(W), "S", "A"),
+                                outcome = "Y",
+                                folds = folds,
+                                outcome_type = family)
+    } else {
+      task_QSWA <- sl3_Task$new(data = data.table(Y=Y, A=A, W)[S == 1,],
+                                covariates = c(colnames(W), "A"),
+                                outcome = "Y",
+                                folds = folds_S1,
+                                outcome_type = family)
+      task_Q1WA <- sl3_Task$new(data = data.table(Y=Y, A=A, W),
+                                covariates = c(colnames(W), "A"),
+                                outcome = "Y",
+                                folds = folds,
+                                outcome_type = family)
+      task_Q1W1 <- sl3_Task$new(data = data.table(Y=Y, A=1, W),
+                                covariates = c(colnames(W), "A"),
+                                outcome = "Y",
+                                folds = folds,
+                                outcome_type = family)
+      task_Q1W0 <- sl3_Task$new(data = data.table(Y=Y, A=0, W),
+                                covariates = c(colnames(W), "A"),
+                                outcome = "Y",
+                                folds = folds,
+                                outcome_type = family)
+    }
+    suppressMessages(fit_QSWA <- lrnr$train(task_QSWA))
+    pred_Q1WA <- fit_QSWA$predict(task_Q1WA)
+    pred_Q1W1 <- fit_QSWA$predict(task_Q1W1)
+    pred_Q1W0 <- fit_QSWA$predict(task_Q1W0)
+  } else if (method == "glm") {
+    if (pooling) {
+      fit <- glm(Y ~ .^3, data = data.frame(S=S, W, A=A, Y=Y), family = family)
+      pred_Q1WA <- as.numeric(predict(fit, newdata = data.frame(S=1, W, A=A), type = "response"))
+      pred_Q1W1 <- as.numeric(predict(fit, newdata = data.frame(S=1, W, A=1), type = "response"))
+      pred_Q1W0 <- as.numeric(predict(fit, newdata = data.frame(S=1, W, A=0), type = "response"))
+    } else {
+      fit <- glm(Y ~ .^2, data = data.frame(W, A=A, Y=Y)[S == 1,], family = family)
+      pred_Q1WA <- as.numeric(predict(fit, newdata = data.frame(W, A=A, Y=Y), type = "response"))
+      pred_Q1W1 <- as.numeric(predict(fit, newdata = data.frame(W, A=1, Y=Y), type = "response"))
+      pred_Q1W0 <- as.numeric(predict(fit, newdata = data.frame(W, A=0, Y=Y), type = "response"))
+    }
+  }
+
+  return(list(Q1WA = pred_Q1WA,
+              Q1W1 = pred_Q1W1,
+              Q1W0 = pred_Q1W0))
+}
+
+learn_g11W <- function(S,
                        W,
                        A,
                        method,
-                       v_folds,
                        g_bounds) {
 
   if (method == "glm") {
-
     fit <- glm(A[S == 1] ~ ., data = W[S == 1, , drop = FALSE], family = "binomial")
     pred <- as.numeric(predict(fit, newdata = W, type = "response"))
-
-  } else if (method == "glmnet") {
-
-    fit <- cv.glmnet(x = as.matrix(W[S == 1, , drop = FALSE]),
-                     y = A[S == 1], family = "binomial",
-                     keep = TRUE, alpha = 1, nfolds = v_folds)
-    pred <- as.numeric(predict(fit, newx = as.matrix(W), s = "lambda.min", type = "response"))
-
-  } else {
-    stop("Invalid method. Must be one of 'glm' or 'glmnet'")
   }
 
   return(.bound(pred, g_bounds))
 }
-

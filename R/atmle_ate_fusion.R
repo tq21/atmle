@@ -33,6 +33,10 @@ atmle_ate_fusion <- R6Class(
     Q_bar = list(A = NULL, A1 = NULL, A0 = NULL),
     theta = NULL,
     results = NULL,
+    folds_S1 = NULL,
+    folds_S0 = NULL,
+    g_S1_fit = NULL,
+    g_S0_fit = NULL,
 
     initialize = function(data,
                           S_node,
@@ -96,7 +100,7 @@ atmle_ate_fusion <- R6Class(
                             Q_bound) {
       # estimate Q(S,W,A)=E(Y|S,W,A)
       self$Q_fit <- self$fit_regression(method = Q_method,
-                                        folds = self$folds_obs,
+                                        folds = self$folds,
                                         covariate_nodes = c(self$S_node,
                                                             self$W_nodes,
                                                             self$A_node),
@@ -147,22 +151,24 @@ atmle_ate_fusion <- R6Class(
       self$Pi_bar <- self$Pi_bar_fit$predict()
 
       # estimate g(1|S,W)=P(A=1|S,W)
-      self$g_fit <- self$fit_regression(method = g_method,
-                                        folds = self$folds,
-                                        covariate_nodes = c(self$S_node, self$W_nodes),
-                                        outcome_node = self$A_node)
-      data_A1 <- self$data; data_A1[[self$A_node]] <- 1
-      data_A0 <- self$data; data_A0[[self$A_node]] <- 0
-      g1W_task <- sl3_Task$new(data = data_A1,
-                               covariates = c(self$S_node, self$W_nodes),
-                               folds = self$folds,
-                               outcome = self$A_node)
-      g0W_task <- sl3_Task$new(data = data_A0,
-                               covariates = c(self$S_node, self$W_nodes),
-                               folds = self$folds,
-                               outcome = self$A_node)
-      self$g$S1 <- self$g_fit$predict(g1W_task)
-      self$g$S0 <- self$g_fit$predict(g0W_task)
+      self$g_S1_fit <- self$fit_regression(method = g_method,
+                                           folds = self$folds_S1,
+                                           covariate_nodes = self$W_nodes,
+                                           outcome_node = self$A_node)
+      self$g_S0_fit <- self$fit_regression(method = g_method,
+                                           folds = self$folds_S0,
+                                           covariate_nodes = self$W_nodes,
+                                           outcome_node = self$A_node)
+      g11W_task <- sl3_Task$new(data = data_1WA,
+                                covariates = self$W_nodes,
+                                folds = self$folds,
+                                outcome = self$A_node)
+      g10W_task <- sl3_Task$new(data = data_0WA,
+                                covariates = self$W_nodes,
+                                folds = self$folds,
+                                outcome = self$A_node)
+      self$g$S1 <- self$self$g_S1_fit$predict(g11W_task)
+      self$g$S0 <- self$self$g_S0_fit$predict(g10W_task)
 
       # evaluate Pi, g_bar, Q_bar, theta
       self$eval_Pi(); self$eval_g_bar(); self$eval_Q_bar(); self$eval_theta()
@@ -640,6 +646,19 @@ atmle_ate_fusion <- R6Class(
 
       self$controls_only <- all(self$A[self$S == 0] == 0)
 
+      # cross fitting schemes --------------------------------------------------
+      self$folds <- make_folds(n = nrow(self$data), V = self$n_folds,
+                               strata_ids = self$S)
+      foldid <- folds2foldvec(self$folds)
+      foldid_S1 <- foldid[self$S == 1]
+      foldid_S0 <- foldid[self$S == 0]
+      self$folds_S1 <- map(seq(self$n_folds), function(v) {
+        fold_from_foldvec(v = v, folds = foldid_S1)
+      })
+      self$folds_S0 <- map(seq(self$n_folds), function(v) {
+        fold_from_foldvec(v = v, folds = foldid_S0)
+      })
+
       # initial estimation -----------------------------------------------------
       self$run_init_est(Q_method = Q_method,
                         Pi_bar_method = Pi_bar_method,
@@ -682,7 +701,6 @@ atmle_ate_fusion <- R6Class(
                                                verbose = verbose)
       Pi_star_tmp <- self$Pi_star
       self$Pi_star <- NULL
-      browser()
 
       # 2. parameter that averages over S=1 covariate distribution -------------
       # target beta_A for each working model

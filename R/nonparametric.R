@@ -1,4 +1,7 @@
-#' @title Nonparametric TMLE
+#' @title Nonparametric TMLE for Psi (std. over pooled-covariates) and
+#' Psi_2 (std. over RCT-covariates)
+#'
+#' @importFrom purrr map
 #'
 #' @export
 nonparametric <- function(data,
@@ -6,79 +9,112 @@ nonparametric <- function(data,
                           W,
                           A,
                           Y,
-                          controls_only,
-                          family = "gaussian",
-                          atmle_pooled = TRUE,
-                          theta_method = "glm",
+                          family,
                           Pi_method = "glm",
                           g_method = "glm",
-                          theta_tilde_method = "glm",
                           Q_method = "glm",
-                          bias_working_model = "glmnet",
-                          pooled_working_model = "glmnet",
-                          var_method = "ic",
-                          max_iter = 1,
+                          Q_pooling = TRUE,
                           v_folds = 5,
-                          verbose = TRUE) {
+                          verbose = FALSE,
+                          browse = FALSE) {
+
+  if (browse) browser()
 
   # define nodes ---------------------------------------------------------------
   S <- data[[S]]
   W <- data[, W, drop = FALSE]
   A <- data[[A]]
   Y <- data[[Y]]
-  delta <- as.numeric(!is.na(Y)) # missingness indicator
   n <- nrow(data) # sample size
+  g_bounds <- c(5/sqrt(n)/log(n), 1-5/sqrt(n)/log(n))
+  Pi_bounds <- c(5/sqrt(n)/log(n), 1)
+
+  # cross fitting schemes
+  folds <- make_folds(n = n, V = v_folds)
+  foldid <- folds2foldvec(folds)
+  foldid_S1 <- foldid[S == 1]
+  folds_S1 <- map(seq(v_folds), function(v) {
+    fold_from_foldvec(v = v, folds = foldid_S1)
+  })
 
   # estimate nuisance parts
   if (verbose) print("learning E(Y|S,W,A)")
-  Q <- learn_Q_S1(
-    S = S,
-    W = W,
-    A = A,
-    Y = Y,
-    delta = delta,
-    method = Q_method
-  )
-
-  if (verbose) print("learning P(A=1|S,W)")
-  g <- learn_g_np(S = S,
+  Q <- learn_QSWA(S = S,
                   W = W,
                   A = A,
-                  method = g_method,
-                  v_folds = v_folds,
-                  g_bounds = c(0, 1))
+                  Y = Y,
+                  folds = folds,
+                  folds_S1 = folds_S1,
+                  family = family,
+                  method = Q_method,
+                  pooling = Q_pooling)
+
+  if (verbose) print("learning P(A=1|S,W)")
+  g11W <- learn_g11W(S = S,
+                     W = W,
+                     A = A,
+                     method = g_method,
+                     g_bounds = g_bounds)
 
   if (verbose) print("learning P(S=1|W)")
-  Pi <- learn_S_W(S, W, Pi_method)
+  Pi <- learn_SW(S = S,
+                 W = W,
+                 folds = folds,
+                 method = Pi_method,
+                 Pi_bounds = Pi_bounds)
 
-  # estimate missing mechanism
-  # g_delta <- learn_g_delta(
-  #   W = W,
-  #   A = A,
-  #   delta = delta,
-  #   method = g_method,
-  #   folds = c(1, 2, 3, 4, 5),
-  #   g_bounds = c(0, 1)
-  # )
+  # target Q (pooled W)
+  Q_star <- target_Q(S = S,
+                     W = W,
+                     A = A,
+                     Y = Y,
+                     Pi = Pi,
+                     g11W = g11W,
+                     Q = Q)
 
-  # censoring weights
-  g_delta <- list(pred = rep(1, n))
-  weights <- delta / g_delta$pred
+  # target Q (RCT W)
+  pS <- mean(S)
+  Q_star_rct_W <- target_Q_rct_W(S = S,
+                                 W = W,
+                                 A = A,
+                                 Y = Y,
+                                 pS = pS,
+                                 g11W = g11W,
+                                 Q = Q)
 
-  # target Q
-  Q_star <- target_Q(S, W, A, Y, Pi, g, Q, delta, g_delta)
-  Q <- Q_star
+  # parameter that avg. over pooled W
+  psi_pooled_W <- mean(Q_star$Q1W1-Q_star$Q1W0)
+  eic_pooled_W <- get_np_eic_pooled_W(Q = Q_star,
+                                      Pi = Pi,
+                                      g11W = g11W,
+                                      S = S,
+                                      A = A,
+                                      Y = Y,
+                                      psi = psi_pooled_W)
+  se_pooled_W <- sqrt(var(eic_pooled_W, na.rm = TRUE)/n)
+  lower_pooled_W <- psi_pooled_W+qnorm(0.025)*se_pooled_W
+  upper_pooled_W <- psi_pooled_W+qnorm(0.975)*se_pooled_W
 
-  # estimates
-  psi_est <- mean(Q$S1A1 - Q$S1A0)
-  psi_eic <- get_eic_psi_nonparametric(Q, Pi, g, S, A, Y, psi_est, weights)
-  psi_se <- sqrt(var(psi_eic, na.rm = TRUE) / n)
-  psi_ci_lower <- psi_est - 1.96 * psi_se
-  psi_ci_upper <- psi_est + 1.96 * psi_se
+  # parameter that avg. over RCT W
+  psi_rct_W <- weighted.mean(Q_star_rct_W$Q1W1[S==1]-Q_star_rct_W$Q1W0[S==1],
+                             w = (S/pS)[S==1])
+  eic_rct_W <- get_np_eic_rct_W(Q = Q_star_rct_W,
+                                pS = pS,
+                                g11W = g11W,
+                                S = S,
+                                A = A,
+                                Y = Y,
+                                psi = psi_rct_W)
+  se_rct_W <- sqrt(var(eic_rct_W, na.rm = TRUE)/n)
+  lower_rct_W <- psi_rct_W+qnorm(0.025)*se_rct_W
+  upper_rct_W <- psi_rct_W+qnorm(0.975)*se_rct_W
 
-  return(list(
-    est = psi_est,
-    lower = psi_ci_lower,
-    upper = psi_ci_upper
-  ))
+  return(list(psi_pooled_W = psi_pooled_W,
+              lower_pooled_W = lower_pooled_W,
+              upper_pooled_W = upper_pooled_W,
+              eic_pooled_W = eic_pooled_W,
+              psi_rct_W = psi_rct_W,
+              lower_rct_W = lower_rct_W,
+              upper_rct_W = upper_rct_W,
+              eic_rct_W = eic_rct_W))
 }
