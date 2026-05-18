@@ -29,6 +29,20 @@ This package implements adaptive targeted minimum loss-based estimation of
 average treatment effects using combined randomized trial and real-world data to
 improve efficiency.
 
+__Authors:__ [Sky Qiu](https://github.com/tq21),
+Jens Tarp, 
+[Lars van der Laan](https://larsvanderlaan.github.io/),
+[Mark van der Laan](https://vanderlaan-lab.org/),
+
+---
+
+## Issues
+
+If you encounter any bugs or have any specific feature requests, please [file an
+issue](https://github.com/tq21/atmle/issues).
+
+---
+
 ## Example
 
 ```{r atmle-ate-fusion-example, message=FALSE, warning=FALSE, fig.width=8, fig.height=4}
@@ -106,5 +120,10 @@ ggplot(df_plot, aes(x = Estimator, y = Estimate, fill = Estimator)) +
 
 
 ## License
+
+&copy; 2026 [Sky Qiu](https://github.com/tq21), 
+Jens Tarp, 
+[Lars van der Laan](https://larsvanderlaan.github.io/),
+[Mark van der Laan](https://vanderlaan-lab.org/),
 
 The contents of this repository are distributed under the GPL-3 license.
