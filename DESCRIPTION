@@ -1,7 +1,7 @@
 Package: atmle
 Type: Package
 Title: Adaptive Targeted Minimum Loss-based Estimation for Augmenting 
-  Randomized Controlled Trial with Real-World Data.
+  Randomized Controlled Trial with Real-World Data
 Version: 0.1.0
 Authors@R: c(
     person("Sky", "Qiu", email = "sky.qiu@berkeley.com",
@@ -19,18 +19,16 @@ Description: This package is an implementation of the Adaptive Targeted Minimum
   gain.
 License: GPL-3
 Encoding: UTF-8
-LazyData: true
 RoxygenNote: 7.3.2
 Imports:
-  data.table,
   glmnet,
   hal9001,
+  Matrix,
   origami,
   purrr,
-  tmle,
+  R6,
   sl3
 Suggests: 
-  covr,
   testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Depends: 
