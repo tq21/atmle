@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# `atmle`: Adaptive-TMLE for RCT + RWD <img src="man/figures/logo.png" align="right" height="138" />
+# `atmle`: Adaptive TMLE for RCT + RWD Data Fusion
 
 <!-- badges: start -->
 
@@ -9,13 +9,12 @@
 v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 <!-- badges: end -->
 
-> Adaptive Targeted Minimum Loss-Based Estimation. This package uses
-> adaptive targeted minimum loss-based estimation to estimate the
-> average treatment effect from combined randomized trial and real-world
-> data.
+This package implements adaptive targeted minimum loss-based estimation
+of average treatment effects using combined randomized trial and
+real-world data to improve efficiency.
 
-**Authors:** [Sky Qiu](https://github.com/tq21), [Lars van der
-Laan](https://larsvanderlaan.github.io/) [Mark van der
+**Authors:** [Sky Qiu](https://github.com/tq21), Jens Tarp, [Lars van
+der Laan](https://larsvanderlaan.github.io/), [Mark van der
 Laan](https://vanderlaan-lab.org/),
 
 ------------------------------------------------------------------------
@@ -33,82 +32,66 @@ If you encounter any bugs or have any specific feature requests, please
 library(atmle)
 library(sl3)
 library(ggplot2)
-seed <- 113
 
-data(sample_data)
+set.seed(2026)
+data <- readRDS("data/example_data.RDS")
+true_ate <- -0.04429033
+W_nodes <- names(data)[!(names(data) %in% c("Y", "A", "S"))]
 
-sl_lib <- list(Lrnr_glm$new(),
-               Lrnr_dbarts$new(),
-               Lrnr_xgboost$new())
-set.seed(seed)
-tmle_res <- nonparametric(data = mydata,
-                          S = "S",
-                          W = c("W1", "W2", "W3", "W4"),
-                          A = "A",
-                          Y = "Y",
-                          family = "gaussian",
-                          Pi_method = sl_lib,
-                          g_method = "glm",
-                          Q_method = sl_lib,
-                          Q_pooling = TRUE,
-                          v_folds = 5)
+# unadjusted trial-only difference-in-means
+rct <- data[data$S == 1, ]
+diff_est <- with(rct, mean(Y[A == 1])-mean(Y[A == 0]))
+diff_se <- sqrt(with(rct,
+                     var(Y[A == 1])/sum(A == 1)+var(Y[A == 0])/sum(A == 0)))
+diff_ci <- diff_est + c(-1, 1) * qnorm(0.975) * diff_se
+
+# A-TMLE
+lrnr <- list(
+  learners = list(
+    sl3::Lrnr_glm$new(),
+    sl3::Lrnr_earth$new(),
+    sl3::Lrnr_gam$new()
+  ),
+  metalearner = sl3::Lrnr_cv_selector$new(sl3::loss_loglik_binomial)
+)
+fit <- atmle_ate_fusion$new(
+  data = data,
+  S_node = "S",
+  W_nodes = W_nodes,
+  A_node = "A",
+  Y_node = "Y",
+  family = "binomial",
+  n_folds = 3
+)
+
+fit$run(
+  g_bar_method = lrnr,
+  theta_method = lrnr,
+  Pi_method = lrnr,
+  Q_bar_method = lrnr,
+  A_cate_args = list(max_degree = 3L, smoothness_orders = 1L, num_knots = 5L),
+  S_cate_args = list(max_degree = 3L, smoothness_orders = 1L, num_knots = 5L),
+  target_method = "tmle",
+  target_gwt = FALSE,
+  max_iter = 10,
+  verbose = FALSE
+)
 ```
 
 ``` r
-set.seed(seed)
-atmle_res <- atmle(data = mydata, 
-                   S = "S", 
-                   W = c("W1", "W2", "W3", "W4"), 
-                   A = "A",
-                   Y = "Y",
-                   family = "gaussian",
-                   theta_method = sl_lib, 
-                   Pi_method = sl_lib, 
-                   g_method = sl_lib, 
-                   theta_tilde_method = sl_lib, 
-                   bias_working_model = "HAL",
-                   pooled_working_model = "HAL",
-                   target_method = "oneshot",
-                   enumerate_basis_args = list(max_degree = 3,
-                                               smoothness_orders = 1),
-                   v_folds = 5)
-#> learning θ(W,A)=E(Y|W,A)...Done!
-#> learning g(1|W)=P(A=1|W)...Done!
-#> learning Π(S=1|W,A)=P(S=1|W,A)...Done!
-#> learning τ(W,A)=E(Y|S=1,W,A)-E(Y|S=0,W,A)...Done!
-#> [1] -0.002126372
-#> learning θ̃(W)=E(Y|W)...Done!
-#> learning Τ(W)=E(Y|W,A=1)-E(Y|W,A=0)...Done!
-#> 
-#> targeting beta_A...Done!
-#> 
-#> Pooled ATE: 0.75524 (0.53173, 0.97874)
-#> Bias: 0.46795 (0.27789, 0.658)
-#> Bias-corrected ATE: 0.28729 (0.014865, 0.55972)
-```
-
-``` r
-df_plot <- data.frame(Estimator = c("Standard TMLE",
-                                    "Pooled-ATE", 
-                                    "Bias-corrected ATE (A-TMLE)"),
-                      Estimate = c(tmle_res$psi_pooled_W, 
-                                   atmle_res$psi_tilde_est, 
-                                   atmle_res$est),
-                      Lower = c(tmle_res$lower_pooled_W, 
-                                atmle_res$psi_tilde_lower, 
-                                atmle_res$lower),
-                      Upper = c(tmle_res$upper_pooled_W, 
-                                atmle_res$psi_tilde_upper, 
-                                atmle_res$upper))
+atmle_res <- fit$results[fit$results$param == "Avg. over S=1", ]
+df_plot <- data.frame(Estimator = c("Unadjusted Difference-in-Means",
+                                    "A-TMLE"),
+                      Estimate = c(diff_est, atmle_res$psi),
+                      Lower = c(diff_ci[1], atmle_res$lower),
+                      Upper = c(diff_ci[2], atmle_res$upper))
 df_plot$Estimator <- factor(df_plot$Estimator, 
-                            levels = c("Standard TMLE",
-                                       "Bias-corrected ATE (A-TMLE)", 
-                                       "Pooled-ATE"))
+                            levels = c("Unadjusted Difference-in-Means",
+                                       "A-TMLE"))
 ggplot(df_plot, aes(x = Estimator, y = Estimate, fill = Estimator)) +
   geom_point() +
-  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.2, size = 0.8) +
-  geom_hline(yintercept = 0.3, linetype = "dashed", color = "red") +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray") +
+  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.2, linewidth = 0.8) +
+  geom_hline(yintercept = true_ate, linetype = "dashed", color = "red") +
   theme_minimal(base_size = 13) +
   labs(title = "Point Estimates with 95% Confidence Intervals",
        y = "Estimate",
@@ -116,24 +99,14 @@ ggplot(df_plot, aes(x = Estimator, y = Estimate, fill = Estimator)) +
   theme(legend.position = "none",
         plot.title = element_text(hjust = 0.5)) +
   coord_flip()
-#> Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
-#> ℹ Please use `linewidth` instead.
-#> This warning is displayed once every 8 hours.
-#> Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
-#> generated.
 ```
 
-<img src="README-unnamed-chunk-3-1.png" width="100%" />
-
-------------------------------------------------------------------------
+![](README-unnamed-chunk-3-1.png)<!-- -->
 
 ## License
 
-© 2025 [Sky Qiu](https://github.com/tq21), [Lars van der
-Laan](https://larsvanderlaan.github.io/) [Mark van der
+© 2026 [Sky Qiu](https://github.com/tq21), Jens Tarp, [Lars van der
+Laan](https://larsvanderlaan.github.io/), [Mark van der
 Laan](https://vanderlaan-lab.org/),
 
 The contents of this repository are distributed under the GPL-3 license.
-See file `LICENSE` for details.
-
-------------------------------------------------------------------------
