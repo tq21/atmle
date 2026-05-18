@@ -2,7 +2,7 @@ Package: atmle
 Type: Package
 Title: Adaptive Targeted Minimum Loss-based Estimation for Augmenting 
   Randomized Controlled Trial with Real-World Data
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: c(
     person("Sky", "Qiu", email = "sky.qiu@berkeley.com",
            role = c("aut", "cre"),
