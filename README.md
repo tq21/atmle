@@ -5,8 +5,7 @@
 
 <!-- badges: start -->
 
-[![License: GPL
-v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->
 
 This package implements adaptive targeted minimum loss-based estimation
@@ -109,4 +108,4 @@ ggplot(df_plot, aes(x = Estimator, y = Estimate, fill = Estimator)) +
 Laan](https://larsvanderlaan.github.io/), [Mark van der
 Laan](https://vanderlaan-lab.org/),
 
-The contents of this repository are distributed under the GPL-3 license.
+The contents of this repository are distributed under the MIT license.

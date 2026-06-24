@@ -17,7 +17,7 @@ Description: This package is an implementation of the Adaptive Targeted Minimum
   Loss-based Estimation (A-TMLE) for the average treatment effect integrating 
   data from randomized controlled trial and real-world to achieve efficiency
   gain.
-License: GPL-3
+License: MIT + file LICENSE
 Encoding: UTF-8
 RoxygenNote: 7.3.2
 Imports:

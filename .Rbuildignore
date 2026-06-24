@@ -1,6 +1,7 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^codecov\.yml$
+^LICENSE\.md$
 ^\.positai$
 ^\.claude$
 ^data/example_data\.RDS$
