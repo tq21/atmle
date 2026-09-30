@@ -21,5 +21,5 @@ mat_inverse <- function(mat,
 svd_pseudo_inv <- function(mat, tol = 1e-3) {
   svd_res <- svd(mat)
   D_inv <- ifelse(svd_res$d > tol, 1 / svd_res$d, 0)
-  return(svd_res$v %*% diag(D_inv) %*% t(svd_res$u))
+  return(svd_res$v %*% diag(D_inv, nrow = length(D_inv)) %*% t(svd_res$u))
 }

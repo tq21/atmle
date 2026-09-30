@@ -51,9 +51,15 @@ library(sl3)
 library(ggplot2)
 
 set.seed(2026)
-data <- readRDS("data/example_data.RDS")
-true_ate <- -0.04429033
-W_nodes <- names(data)[!(names(data) %in% c("Y", "A", "S"))]
+n <- 600
+data <- data.frame(W1 = rbinom(n, 1, .5), W2 = rbinom(n, 1, .5),
+                   S = rbinom(n, 1, .5), A = rbinom(n, 1, .5))
+data$Y <- with(data, rbinom(n, 1,
+  plogis(-1 + .4*W1 + .3*W2 + .5*A + .3*(1-S)*A)))
+W_nodes <- c("W1", "W2")
+cells <- expand.grid(W1 = 0:1, W2 = 0:1)
+true_ate <- with(cells, mean(plogis(-1+.4*W1+.3*W2+.5) -
+                             plogis(-1+.4*W1+.3*W2)))
 
 # unadjusted trial-only difference-in-means
 rct <- data[data$S == 1, ]
@@ -64,12 +70,7 @@ diff_ci <- diff_est + c(-1, 1) * qnorm(0.975) * diff_se
 
 # A-TMLE
 lrnr <- list(
-  learners = list(
-    sl3::Lrnr_glm$new(),
-    sl3::Lrnr_earth$new(),
-    sl3::Lrnr_gam$new()
-  ),
-  metalearner = sl3::Lrnr_cv_selector$new(sl3::loss_loglik_binomial)
+  learners = list(sl3::Lrnr_glm$new())
 )
 fit <- atmle_ate_fusion$new(
   data = data,
@@ -87,24 +88,35 @@ fit$run(
   Pi_method = lrnr,
   Q_bar_method = lrnr,
   A_cate_args = list(max_degree = 3L, smoothness_orders = 1L, num_knots = 5L),
-  S_cate_args = list(max_degree = 3L, smoothness_orders = 1L, num_knots = 5L),
+  S_cate_args = list(max_degree = 3L, smoothness_orders = 1L, num_knots = 5L,
+                     force_A = TRUE),
   target_method = "tmle",
   target_gwt = FALSE,
-  max_iter = 10,
+  max_iter = 100,
   verbose = FALSE
 )
 ```
 
+```{r results-table}
+fit$results[, c("param", "estimator", "psi", "se", "lower", "upper",
+                 "unforced_weight")]
+```
+
+Each population has its original A-TMLE row plus one variance-floor convex
+combination row. `se` is the influence-curve standard error, and `lower` and
+`upper` are the corresponding Wald limits. The following plot displays these
+intervals.
+
 ```{r}
 atmle_res <- fit$results[fit$results$param == "Avg. over S=1", ]
 df_plot <- data.frame(Estimator = c("Unadjusted Difference-in-Means",
-                                    "A-TMLE"),
+                                    "A-TMLE", "Convex combination"),
                       Estimate = c(diff_est, atmle_res$psi),
                       Lower = c(diff_ci[1], atmle_res$lower),
                       Upper = c(diff_ci[2], atmle_res$upper))
 df_plot$Estimator <- factor(df_plot$Estimator, 
                             levels = c("Unadjusted Difference-in-Means",
-                                       "A-TMLE"))
+                                       "A-TMLE", "Convex combination"))
 ggplot(df_plot, aes(x = Estimator, y = Estimate, fill = Estimator)) +
   geom_point() +
   geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.2, linewidth = 0.8) +
@@ -117,6 +129,37 @@ ggplot(df_plot, aes(x = Estimator, y = Estimate, fill = Estimator)) +
         plot.title = element_text(hjust = 0.5)) +
   coord_flip()
 ```
+
+## Convex combination and influence-curve inference
+
+The package fits both unforced and forced-A source-bias HAL models using common
+nuisance estimates and CV folds. `force_A` selects which original A-TMLE rows to
+display; the combination is always added. For unforced estimate U and forced
+estimate F, define Vu, Vf, C, and Vd from their paired influence curves: the two
+sample variances, covariance, and variance of the difference, each divided by n.
+The combination is `F + w*(U-F)`, where
+
+```r
+bias_squared <- max((U - F)^2, Vd)
+w <- min(weight_cap, max(0, (Vf - C) / (Vd + bias_squared)))
+```
+
+The default `weight_cap = 0.5` matches the original variance-floor guard;
+`weight_cap = 1` allows the full convex range. Degenerate difference variances
+give weight zero. Weights are computed separately for the two population targets.
+When `n_lambda > 1`, all original working-model rows remain, and the combination
+uses each candidate's first (CV-selected) working model.
+
+The combined influence curve is `(1-w)*D_F + w*D_U`. The estimated variance is
+`var((1-w)*D_F + w*D_U)/n`; its square root is the reported standard error `se`.
+Wald limits use this standard error and a normal critical value. This
+calculation treats the estimated weight as fixed and does not include
+HAL-selection uncertainty.
+
+`fit$components` contains both candidates' results and paired influence curves;
+`fit$influence` is aligned with the rows of `fit$results`.
+`fit$inference(alpha = 0.1)` recalculates the Wald intervals at 90% confidence
+from the existing fit.
 
 
 ## License
