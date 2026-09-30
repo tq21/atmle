@@ -84,7 +84,7 @@
 }
 
 # All variances below are variances of estimators (IF variance divided by n).
-.atmle_floor_pair <- function(unforced, forced, du, df, weight_cap = 0.5) {
+.atmle_floor_pair <- function(unforced, forced, du, df, weight_cap = 1) {
   if (length(du) != length(df) || length(du) < 2L ||
       any(!is.finite(c(unforced, forced, du, df)))) {
     stop("The combination requires finite estimates and aligned influence curves.")

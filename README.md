@@ -86,13 +86,13 @@ fit$results[, c("param", "estimator", "psi", "se", "lower", "upper",
 #>              param                         estimator       psi         se
 #> 1 Avg. over pooled                 A-TMLE (forced A) 0.1043929 0.05599782
 #> 2    Avg. over S=1                 A-TMLE (forced A) 0.1045009 0.05595811
-#> 3 Avg. over pooled Variance-floor convex combination 0.1056657 0.05594367
-#> 4    Avg. over S=1 Variance-floor convex combination 0.1057672 0.05590428
+#> 3 Avg. over pooled Variance-floor convex combination 0.1060614 0.05593090
+#> 4    Avg. over S=1 Variance-floor convex combination 0.1061660 0.05589142
 #>          lower     upper unforced_weight
 #> 1 -0.005360781 0.2141466              NA
 #> 2 -0.005174975 0.2141768              NA
-#> 3 -0.003981882 0.2153133             0.5
-#> 4 -0.003803184 0.2153376             0.5
+#> 3 -0.003561119 0.2156840       0.6554603
+#> 4 -0.003379176 0.2157112       0.6574681
 ```
 
 Each population has its original A-TMLE row plus one variance-floor
@@ -140,12 +140,12 @@ bias_squared <- max((U - F)^2, Vd)
 w <- min(weight_cap, max(0, (Vf - C) / (Vd + bias_squared)))
 ```
 
-The default `weight_cap = 0.5` matches the original variance-floor
-guard; `weight_cap = 1` allows the full convex range. Degenerate
-difference variances give weight zero. Weights are computed separately
-for the two population targets. When `n_lambda > 1`, all original
-working-model rows remain, and the combination uses each candidate’s
-first (CV-selected) working model.
+The default `weight_cap = 1` allows the full convex range, with the
+unforced weight between 0 and 1. A smaller cap can be supplied
+explicitly. Degenerate difference variances give weight zero. Weights
+are computed separately for the two population targets. When
+`n_lambda > 1`, all original working-model rows remain, and the
+combination uses each candidate’s first (CV-selected) working model.
 
 The combined influence curve is `(1-w)*D_F + w*D_U`. The estimated
 variance is `var((1-w)*D_F + w*D_U)/n`; its square root is the reported

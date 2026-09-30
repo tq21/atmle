@@ -45,8 +45,8 @@
 #'   \item `target_gwt`, `max_iter`, `n_lambda`: iterative targeting controls.
 #'   \item `g_bar_bound`, `theta_bound`, `Pi_bound`, `Q_bar_bound`:
 #'   nuisance bounding controls.
-#'   \item `weight_cap`: maximum weight on the unforced candidate, default `0.5`.
-#'   Set to `1` to allow the full convex range.
+#'   \item `weight_cap`: maximum weight on the unforced candidate, default `1`,
+#'   allowing the full convex range. A smaller cap can be supplied explicitly.
 #'   \item `alpha`: two-sided confidence interval error rate, default `0.05`.
 #' }
 #'
@@ -872,7 +872,7 @@ atmle_ate_fusion <- R6::R6Class(
                    parallel = FALSE,
                    verbose = TRUE,
                    browse = FALSE,
-                   weight_cap = 0.5,
+                   weight_cap = 1,
                    alpha = 0.05) {
 
       .atmle_validate_inference(alpha, weight_cap)

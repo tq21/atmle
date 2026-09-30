@@ -4,7 +4,7 @@ test_that("floor weight and combined variance use paired influence curves", {
   u <- .12; f <- .1; n <- length(df)
   vf <- var(df)/n; vu <- var(du)/n; cf <- cov(du, df)/n
   vd <- var(du-df)/n
-  w <- min(.5, max(0, (vf-cf)/(vd+max((u-f)^2, vd))))
+  w <- min(1, max(0, (vf-cf)/(vd+max((u-f)^2, vd))))
   x <- .atmle_floor_pair(u, f, du, df)
   expect_equal(x$weight, w)
   expect_equal(x$psi, f+w*(u-f))
@@ -18,8 +18,9 @@ test_that("degenerate pairs and convex boundaries are safe", {
   d <- c(-3, -1, 1, 3)
   expect_equal(.atmle_floor_pair(.2, .1, d, d)$weight, 0)
   expect_equal(.atmle_floor_pair(0, 0, 2*d, d)$weight, 0)
-  expect_equal(.atmle_floor_pair(0, 0, .9*d, d)$weight, .5)
-  expect_equal(.atmle_floor_pair(0, 0, .9*d, d, 1)$weight, 1)
+  expect_equal(.atmle_floor_pair(0, 0, .9*d, d)$weight, 1)
+  expect_equal(.atmle_floor_pair(0, 0, .25*d, d)$weight, 2/3)
+  expect_equal(.atmle_floor_pair(0, 0, .9*d, d, .5)$weight, .5)
   expect_equal(.atmle_floor_pair(0, 0, d, d, 0)$psi, 0)
   expect_equal(.atmle_floor_pair(0, 0, rep(0, 4), rep(0, 4))$se, 0)
   expect_error(.atmle_floor_pair(0, 0, d, d[-1]), "aligned")
@@ -32,6 +33,7 @@ test_that("reports add exactly one combination per population", {
   expect_equal(nrow(fit$results), 4)
   expect_equal(as.integer(table(fit$results$param)), c(2L, 2L))
   expect_true(all(fit$results$converged))
+  expect_equal(fit$settings$weight_cap, 1)
   for (i in 3:4) {
     population <- fit$results$param[i]
     j <- which(fit$components$forced$results$param == population)

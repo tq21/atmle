@@ -144,9 +144,10 @@ bias_squared <- max((U - F)^2, Vd)
 w <- min(weight_cap, max(0, (Vf - C) / (Vd + bias_squared)))
 ```
 
-The default `weight_cap = 0.5` matches the original variance-floor guard;
-`weight_cap = 1` allows the full convex range. Degenerate difference variances
-give weight zero. Weights are computed separately for the two population targets.
+The default `weight_cap = 1` allows the full convex range, with the unforced
+weight between 0 and 1. A smaller cap can be supplied explicitly. Degenerate
+difference variances give weight zero. Weights are computed separately for the
+two population targets.
 When `n_lambda > 1`, all original working-model rows remain, and the combination
 uses each candidate's first (CV-selected) working model.
 
