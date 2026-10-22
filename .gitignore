@@ -11,3 +11,6 @@
 .DS_Store
 
 .positai
+
+# Frozen numerical reference for the TMLE-PR port.
+!tests/testthat/fixtures/tmle-pr-original.rds

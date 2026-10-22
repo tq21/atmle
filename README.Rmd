@@ -127,3 +127,34 @@ Jens Tarp,
 [Mark van der Laan](https://vanderlaan-lab.org/),
 
 The contents of this repository are distributed under the MIT license.
+
+## TMLE with pooled outcome regression (TMLE-PR)
+
+`tmle_pr` fits the initial outcome regression on the pooled data, including
+`S` as a predictor, and targets the treatment contrast at `S = 1`. Set `S = 1`
+for the subgroup of interest when borrowing from the rest of the same trial.
+
+```r
+method <- list(learners = list(sl3::Lrnr_glm$new()))
+fit_pr <- atmle::tmle_pr$new(
+  data = data, S_node = "S", W_nodes = W_nodes,
+  A_node = "A", Y_node = "Y", family = "binomial", n_folds = 3
+)
+fit_pr$run(Q_method = method, g_method = method, Pi_bar_method = method)
+fit_pr$results[, c("param", "psi", "se", "lower", "upper")]
+
+# Subgroup-specific effect (S=1), retaining the original result label:
+fit_pr$results[fit_pr$results$param == "ATE (avg. over RCT)", ]
+```
+
+The first result row averages the S=1 treatment contrast over the pooled
+covariate distribution; the second averages it over the S=1 distribution.
+Both rows include influence-curve standard errors and Wald intervals, with
+subject-level curves in `fit_pr$eic`. Use `family = "gaussian"` for continuous
+outcomes. For known randomization, set `fit_pr$g11W <- rep(0.5, nrow(data))`
+before `run()` to skip treatment-probability estimation.
+
+This port retains the original estimator's targeting and denominator
+truncation: `g_bound` floors the products of the treatment probabilities and
+membership probabilities or empirical S=1 proportion. See `?tmle_pr` for
+arguments and the complete output structure.
